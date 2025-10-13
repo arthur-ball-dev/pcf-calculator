@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# Envs & IDE
+.venv/
+.idea/
+
+# Project runtime/output
+logs/
+*.log
+
+# Development runtime data
+data/
