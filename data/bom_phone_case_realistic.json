@@ -1,0 +1,67 @@
+{
+  "product": {
+    "id": "case-001",
+    "code": "CASE-001",
+    "name": "Phone Case - Realistic",
+    "unit": "unit",
+    "is_finished_product": true
+  },
+  "bill_of_materials": [
+    {
+      "component_name": "plastic_abs",
+      "quantity": 0.025,
+      "unit": "kg",
+      "description": "hard shell"
+    },
+    {
+      "component_name": "rubber",
+      "quantity": 0.012,
+      "unit": "kg",
+      "description": "shock absorption layer"
+    },
+    {
+      "component_name": "foam",
+      "quantity": 0.003,
+      "unit": "kg",
+      "description": "padding"
+    },
+    {
+      "component_name": "steel",
+      "quantity": 0.002,
+      "unit": "kg",
+      "description": "metal plate for magnetic mount"
+    },
+    {
+      "component_name": "copper",
+      "quantity": 0.0001,
+      "unit": "kg",
+      "description": "wireless charging coil"
+    }
+  ],
+  "energy_data": {
+    "electricity_kwh": 0.5,
+    "location": "US"
+  },
+  "transport_data": [
+    {
+      "mode": "truck",
+      "distance_km": 200,
+      "mass_kg": 0.0421
+    },
+    {
+      "mode": "ship",
+      "distance_km": 8000,
+      "mass_kg": 0.0421
+    }
+  ],
+  "manufacturing_location": "Taiwan",
+  "expected_result": {
+    "total_co2e_kg": 0.343,
+    "breakdown": {
+      "materials": 0.138,
+      "energy": 0.2,
+      "transport": 0.005
+    },
+    "notes": "Premium phone case with wireless charging support"
+  }
+}
