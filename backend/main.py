@@ -5,6 +5,8 @@ PCF Calculator MVP - Product Carbon Footprint Calculator
 
 import logging
 import time
+import uuid
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -89,18 +91,29 @@ async def global_exception_handler(request: Request, exc: Exception):
     Logs the full error details server-side but returns a generic
     error message to the client to avoid leaking sensitive information
 
+    Returns error in format matching API specification
+    (see knowledge/api-specifications.md lines 470-496)
+
     Args:
         request: HTTP request that caused the exception
         exc: Exception that was raised
 
     Returns:
-        JSONResponse: Generic 500 error response
+        JSONResponse: Structured error response per API specification
     """
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal server error"}
+        content={
+            "error": {
+                "code": "CALCULATION_FAILED",
+                "message": "Internal server error",
+                "details": []
+            },
+            "request_id": f"req_{uuid.uuid4().hex[:12]}",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
     )
 
 
