@@ -296,7 +296,7 @@ WITH RECURSIVE bom_tree AS (
     FROM bom_tree bt
     JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
     JOIN products child ON bom.child_product_id = child.id
-    WHERE bt.level < 10  -- Prevent infinite recursion (max 10 levels)
+    WHERE bt.level + 1 < 10  -- Prevent infinite recursion (max 10 levels: 0-9)
       AND INSTR(bt.path, '/' || child.id) = 0  -- Prevent cycles
 )
 SELECT
