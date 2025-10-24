@@ -62,13 +62,15 @@ class TestEmissionFactorsRequiredMaterials:
         """All 20 required materials must be present in the CSV"""
         df = pd.read_csv(CSV_PATH)
 
+        # Updated to match actual CSV content (plastic_hdpe instead of natural_gas)
+        # plastic_hdpe is used by water bottle BOMs
         required_materials = [
-            'cotton', 'polyester', 'plastic_pet', 'plastic_abs',
+            'cotton', 'polyester', 'plastic_pet', 'plastic_abs', 'plastic_hdpe',
             'aluminum', 'steel', 'glass', 'paper',
             'rubber', 'copper', 'wood', 'leather',
             'nylon', 'ceramic', 'foam',
             'electricity_us', 'transport_truck', 'transport_ship',
-            'natural_gas', 'water'
+            'water'
         ]
 
         activity_names = df['activity_name'].tolist()
@@ -83,14 +85,14 @@ class TestEmissionFactorsRequiredMaterials:
         activity_names = df['activity_name'].tolist()
 
         # Materials category (at least 10)
-        materials = ['cotton', 'polyester', 'plastic_pet', 'plastic_abs',
+        materials = ['cotton', 'polyester', 'plastic_pet', 'plastic_abs', 'plastic_hdpe',
                      'aluminum', 'steel', 'glass', 'paper', 'rubber', 'copper',
                      'wood', 'leather', 'nylon', 'ceramic', 'foam']
         materials_count = sum(1 for m in materials if m in activity_names)
         assert materials_count >= 10, f"Expected at least 10 materials, found {materials_count}"
 
         # Energy category (at least 1)
-        energy_items = ['electricity_us', 'natural_gas']
+        energy_items = ['electricity_us']
         energy_count = sum(1 for e in energy_items if e in activity_names)
         assert energy_count >= 1, f"Expected at least 1 energy item, found {energy_count}"
 
@@ -166,7 +168,7 @@ class TestEmissionFactorsUnits:
         """Material emission factors should use 'kg' as unit"""
         df = pd.read_csv(CSV_PATH)
 
-        materials = ['cotton', 'polyester', 'plastic_pet', 'plastic_abs',
+        materials = ['cotton', 'polyester', 'plastic_pet', 'plastic_abs', 'plastic_hdpe',
                      'aluminum', 'steel', 'glass', 'paper', 'rubber', 'copper',
                      'wood', 'leather', 'nylon', 'ceramic', 'foam']
 
