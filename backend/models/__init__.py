@@ -111,7 +111,7 @@ class Product(Base):
     # Table constraints
     __table_args__ = (
         CheckConstraint(
-            "unit IN ('unit', 'kg', 'g', 'L', 'mL', 'm', 'cm', 'kWh', 'MJ')",
+            "unit IN ('unit', 'kg', 'g', 'L', 'mL', 'm', 'cm', 'kWh', 'MJ', 'tkm')",
             name="ck_product_unit"
         ),
     )

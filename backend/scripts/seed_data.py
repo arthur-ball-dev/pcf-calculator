@@ -9,10 +9,6 @@ This script loads:
 3. Energy and transport data as BOM components
 
 The script is idempotent - can be run multiple times safely.
-
-NOTE: Transport components use 'kg' unit instead of 'tkm' due to Product model constraints.
-The quantity is stored in tkm (tonne-km) but unit is 'kg' to pass validation.
-This should be reviewed by Database-Architect.
 """
 
 import sys
@@ -135,10 +131,6 @@ def get_or_create_component(
 
     Returns:
         Product instance
-
-    Note:
-        Due to Product model constraints, 'tkm' is not allowed.
-        We use 'kg' as workaround for transport components.
     """
     # Check if exists
     component = session.query(Product).filter_by(code=component_name).first()
@@ -146,17 +138,11 @@ def get_or_create_component(
     if component:
         return component
 
-    # Workaround for unit constraint: 'tkm' not in allowed units
-    # Use 'kg' for transport components instead
-    allowed_unit = unit
-    if unit == 'tkm':
-        allowed_unit = 'kg'  # Workaround: tkm stored as kg
-
-    # Create new component
+    # Create new component (unit is now validated to include 'tkm')
     component = Product(
         code=component_name,
         name=component_name.replace('_', ' ').title(),
-        unit=allowed_unit,
+        unit=unit,
         is_finished_product=False
     )
 
@@ -274,24 +260,23 @@ def load_product_from_json(
 
         component_name = f"transport_{mode}"
 
-        # Note: Using 'tkm' here, but get_or_create_component will convert to 'kg'
+        # Create transport component with 'tkm' unit (now supported)
         transport_component = get_or_create_component(
             session,
             component_name,
-            'tkm'  # Will be converted to 'kg' internally
+            'tkm'
         )
 
         # Ensure transport component has an ID
         if not transport_component.id:
             session.flush()
 
-        # Store quantity in tkm, but unit as 'tkm' in BOM
-        # (BillOfMaterials.unit has no constraint, only Product.unit does)
+        # Store quantity in tkm with unit 'tkm'
         bom = BillOfMaterials(
             parent_product_id=product.id,
             child_product_id=transport_component.id,
             quantity=Decimal(str(tkm)),
-            unit='tkm'  # BOM can have any unit
+            unit='tkm'
         )
 
         session.add(bom)

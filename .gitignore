@@ -12,3 +12,4 @@ logs/
 
 # Development runtime data
 data/
+settings.local.json
