@@ -61,7 +61,7 @@ Six JSON files representing three products with simple and realistic variants:
 
 **Simple BOMs:**
 - Basic material composition only
-- No energy or transport data
+- No energy or transport data (zero values, not missing fields)
 - Used for quick validation testing
 
 **Realistic BOMs:**
@@ -132,6 +132,19 @@ Six JSON files representing three products with simple and realistic variants:
 - **Realistic:** plastic_abs + foam padding + energy + transport
 - **Contains:** Electronics accessory manufacturing data
 
+### BOM Structure Validation
+
+All BOMs have been validated for:
+- **File Existence:** All 6 JSON files exist and are valid JSON
+- **Structure Consistency:** All BOMs have consistent keys (product, bill_of_materials, energy_data, transport_data)
+- **Product Codes:** Simple and realistic variants share product codes (3 unique products)
+- **Component References:** All component_name values match emission_factors_simple.csv activity_name values
+- **Data Types:** All fields have correct data types (strings, numbers, booleans, arrays)
+- **Positive Quantities:** All component quantities are positive numbers
+- **Valid Units:** All units are in approved list (kg, unit, L, kWh, MJ, tkm, m, m2, m3)
+- **Expected Results:** Realistic BOMs include expected_result with total_co2e_kg and breakdown
+- **Energy/Transport:** Simple BOMs have zero energy/transport; realistic BOMs have positive values
+
 ### Component Validation
 
 All `component_name` values in BOMs must match `activity_name` values in `emission_factors_simple.csv`.
@@ -163,7 +176,7 @@ with open('data/bom_tshirt_realistic.json') as f:
 
 **Loaded into database via:** `backend/scripts/seed_data.py`
 
-**Tests:** `backend/tests/test_data/test_product_boms.py` (to be implemented)
+**Tests:** `backend/tests/test_data/test_product_boms.py` (59 tests)
 
 ---
 
@@ -186,11 +199,13 @@ with open('data/bom_tshirt_realistic.json') as f:
    - Realistic BOMs have expected_result
    - Quantities are positive numbers
    - Units are consistent
+   - Simple BOMs have zero energy/transport (not missing)
+   - Realistic BOMs have positive energy/transport
 
 ### Test Coverage
 
 - **emission_factors_simple.csv:** 32 tests (100% pass)
-- **BOM files:** Tests pending (TASK-DATA-002)
+- **BOM files:** 59 tests (100% pass) - TASK-DATA-002 complete
 
 ### Maintenance
 
@@ -207,8 +222,8 @@ When adding new emission factors or products:
 - **Database Schema:** `/knowledge/database-schema.md`
 - **Seed Data Script:** `/backend/scripts/seed_data.py`
 - **Test Specifications:**
-  - TASK-DATA-001: Emission Factors CSV Validation
-  - TASK-DATA-002: BOM File Validation
+  - TASK-DATA-001: Emission Factors CSV Validation (COMPLETE)
+  - TASK-DATA-002: BOM File Validation (COMPLETE)
   - TASK-DATA-003: Seed Data Loading
 
 ---
