@@ -11,6 +11,7 @@ Test Scenarios:
 """
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import IntegrityError
@@ -43,7 +44,7 @@ def db_session(db_engine):
     session = SessionLocal()
 
     # Enable foreign key constraints for SQLite
-    session.execute("PRAGMA foreign_keys = ON")
+    session.execute(text("PRAGMA foreign_keys = ON"))
     session.commit()
 
     yield session
@@ -253,6 +254,7 @@ class TestBillOfMaterialsModel:
         )
 
         db_session.add_all([parent, child, bom1])
+        db_session.expire_all()  # Ensure clean session state
         db_session.commit()
 
         # Second BOM with same parent-child should fail
@@ -292,7 +294,7 @@ class TestEmissionFactorModel:
         assert ef.data_source == "EPA"
         assert ef.geography == "GLO"
         assert ef.reference_year == 2023
-        assert ef.data_quality_rating == 0.85
+        assert float(ef.data_quality_rating) == 0.85
 
     def test_emission_factor_unique_constraint(self, db_session: Session):
         """Test unique constraint on (activity_name, data_source, geography, reference_year)"""
