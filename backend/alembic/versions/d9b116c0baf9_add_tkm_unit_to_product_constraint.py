@@ -28,20 +28,16 @@ def upgrade() -> None:
     Add 'tkm' to Product.unit CHECK constraint and update existing transport products.
 
     Steps:
-    1. Drop old constraint
-    2. Create new constraint with 'tkm' included
-    3. Update existing transport products to use 'tkm' unit
+    1. Drop v_bom_explosion view (depends on products table)
+    2. Update existing transport products from 'kg' to 'tkm'
+    3. Drop old constraint and create new constraint with 'tkm' included
+    4. Recreate v_bom_explosion view
     """
-    # SQLite doesn't support ALTER TABLE DROP CONSTRAINT, so we need to:
-    # 1. Create new table with updated constraint
-    # 2. Copy data
-    # 3. Drop old table
-    # 4. Rename new table
+    # Step 1: Drop the view before altering the products table
+    # SQLite batch_alter_table will recreate the table, which breaks view references
+    op.execute("DROP VIEW IF EXISTS v_bom_explosion")
 
-    # However, for CHECK constraints in SQLite, we can work around this by
-    # recreating the table. But first, let's update the data.
-
-    # Update existing transport products from 'kg' to 'tkm'
+    # Step 2: Update existing transport products from 'kg' to 'tkm'
     # These were created with the workaround
     op.execute("""
         UPDATE products
@@ -50,8 +46,8 @@ def upgrade() -> None:
           AND unit = 'kg'
     """)
 
-    # For SQLite, we need to recreate the table with the new constraint
-    # This is complex, so we'll use a batch operation
+    # Step 3: For SQLite, we need to recreate the table with the new constraint
+    # This is handled by batch_alter_table
     with op.batch_alter_table('products', schema=None) as batch_op:
         # Drop the old constraint (SQLite will handle this during table recreation)
         batch_op.drop_constraint('ck_product_unit', type_='check')
@@ -62,17 +58,59 @@ def upgrade() -> None:
             "unit IN ('unit', 'kg', 'g', 'L', 'mL', 'm', 'cm', 'kWh', 'MJ', 'tkm')"
         )
 
+    # Step 4: Recreate v_bom_explosion view
+    op.execute("""
+        CREATE VIEW v_bom_explosion AS
+        WITH RECURSIVE bom_tree AS (
+            -- Base case: Start with finished products
+            SELECT
+                p.id AS root_id,
+                p.name AS root_name,
+                p.id AS component_id,
+                p.name AS component_name,
+                0 AS level,
+                1.0 AS cumulative_quantity,
+                p.unit,
+                p.id AS path
+            FROM products p
+            WHERE p.is_finished_product = 1
+
+            UNION ALL
+
+            -- Recursive case: Traverse BOM
+            SELECT
+                bt.root_id,
+                bt.root_name,
+                child.id AS component_id,
+                child.name AS component_name,
+                bt.level + 1,
+                bt.cumulative_quantity * bom.quantity,
+                COALESCE(bom.unit, child.unit) AS unit,
+                bt.path || '/' || child.id AS path
+            FROM bom_tree bt
+            JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+            JOIN products child ON bom.child_product_id = child.id
+            WHERE bt.level < 10  -- Prevent infinite recursion
+              AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
+        )
+        SELECT * FROM bom_tree
+    """)
+
 
 def downgrade() -> None:
     """
     Remove 'tkm' from Product.unit CHECK constraint and revert transport products.
 
     Steps:
-    1. Update transport products back to 'kg' (workaround)
-    2. Drop new constraint
-    3. Create old constraint without 'tkm'
+    1. Drop v_bom_explosion view
+    2. Update transport products back to 'kg' (workaround)
+    3. Drop new constraint and create old constraint without 'tkm'
+    4. Recreate v_bom_explosion view
     """
-    # Update transport products back to 'kg' (workaround state)
+    # Step 1: Drop the view before altering the products table
+    op.execute("DROP VIEW IF EXISTS v_bom_explosion")
+
+    # Step 2: Update transport products back to 'kg' (workaround state)
     op.execute("""
         UPDATE products
         SET unit = 'kg'
@@ -80,7 +118,7 @@ def downgrade() -> None:
           AND unit = 'tkm'
     """)
 
-    # Recreate table with old constraint
+    # Step 3: Recreate table with old constraint
     with op.batch_alter_table('products', schema=None) as batch_op:
         # Drop the new constraint
         batch_op.drop_constraint('ck_product_unit', type_='check')
@@ -90,3 +128,41 @@ def downgrade() -> None:
             'ck_product_unit',
             "unit IN ('unit', 'kg', 'g', 'L', 'mL', 'm', 'cm', 'kWh', 'MJ')"
         )
+
+    # Step 4: Recreate v_bom_explosion view with old constraint
+    op.execute("""
+        CREATE VIEW v_bom_explosion AS
+        WITH RECURSIVE bom_tree AS (
+            -- Base case: Start with finished products
+            SELECT
+                p.id AS root_id,
+                p.name AS root_name,
+                p.id AS component_id,
+                p.name AS component_name,
+                0 AS level,
+                1.0 AS cumulative_quantity,
+                p.unit,
+                p.id AS path
+            FROM products p
+            WHERE p.is_finished_product = 1
+
+            UNION ALL
+
+            -- Recursive case: Traverse BOM
+            SELECT
+                bt.root_id,
+                bt.root_name,
+                child.id AS component_id,
+                child.name AS component_name,
+                bt.level + 1,
+                bt.cumulative_quantity * bom.quantity,
+                COALESCE(bom.unit, child.unit) AS unit,
+                bt.path || '/' || child.id AS path
+            FROM bom_tree bt
+            JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+            JOIN products child ON bom.child_product_id = child.id
+            WHERE bt.level < 10  -- Prevent infinite recursion
+              AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
+        )
+        SELECT * FROM bom_tree
+    """)
