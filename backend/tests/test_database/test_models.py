@@ -247,15 +247,16 @@ class TestBillOfMaterialsModel:
             quantity=1.0
         )
 
+        db_session.add_all([parent, child, bom1])
+        db_session.expire_all()  # Ensure clean session state
+        db_session.commit()
+
+        # Create second BOM AFTER first commit to properly test constraint
         bom2 = BillOfMaterials(
             parent_product=parent,
             child_product=child,
             quantity=2.0
         )
-
-        db_session.add_all([parent, child, bom1])
-        db_session.expire_all()  # Ensure clean session state
-        db_session.commit()
 
         # Second BOM with same parent-child should fail
         db_session.add(bom2)
