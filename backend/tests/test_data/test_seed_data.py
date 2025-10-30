@@ -598,11 +598,10 @@ class TestComponentCreation:
 
     def test_transport_component_created(self, test_db_session: Session, project_root: Path):
         """
-        Test that transport component is created as a product.
+        Test that transport component is created with correct 'tkm' unit.
 
-        NOTE: Due to Product model unit constraints, transport uses 'kg' instead of 'tkm'.
-        This is a workaround - the BOM quantity is in tkm but Product.unit is 'kg'.
-        Schema should be updated to support 'tkm' unit.
+        Transport emission factors are measured in tonne-kilometers (tkm) per ISO 14067,
+        so transport product components must use 'tkm' unit to match emission factor units.
         """
         from backend.scripts.seed_data import load_emission_factors, load_products_and_boms
 
@@ -615,5 +614,5 @@ class TestComponentCreation:
         ).first()
         assert truck is not None
         assert truck.is_finished_product is False
-        # Workaround: Product.unit is 'kg' instead of 'tkm' due to schema constraint
-        assert truck.unit == "kg"  # Should be 'tkm' after schema fix
+        # Transport components use 'tkm' (tonne-kilometer) unit per ISO 14067
+        assert truck.unit == "tkm"  # Schema fix complete: migration d9b116c0baf9
