@@ -2,8 +2,11 @@
 __pycache__/
 *.pyc
 
-# Envs & IDE
+# Virtual environments (root level)
 .venv/
+venv/
+
+# IDE
 .idea/
 
 # Project runtime/output
@@ -12,4 +15,10 @@ logs/
 
 # Development runtime data
 data/
-settings.local.json.backup
+settings.local.json
+.mcp.json
+
+# Database files (runtime data)
+*.db
+*.sqlite
+*.sqlite3
