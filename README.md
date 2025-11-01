@@ -22,7 +22,7 @@ This will:
 
 ```bash
 # From project root
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 3. Database Setup
