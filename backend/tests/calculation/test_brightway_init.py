@@ -23,26 +23,42 @@ def clean_brightway_projects():
     """
     Fixture to clean up Brightway2 projects before and after each test.
 
-    This ensures each test runs in isolation with a fresh Brightway2 state.
+    Uses retry logic and filesystem sync delays to prevent race conditions
+    with Brightway2's asynchronous file operations (whoosh indexing, pickle writes).
     """
-    # Get the projects directory path
-    projects_dir = Path(bw.projects.dir)
+    import time
 
-    # Clean before test
-    if "pcf_calculator" in bw.projects:
+    # Clean before test with retry logic
+    max_retries = 3
+    for attempt in range(max_retries):
         try:
-            bw.projects.delete_project("pcf_calculator", delete_dir=True)
-        except:
-            pass
+            if "pcf_calculator" in bw.projects:
+                bw.projects.delete_project("pcf_calculator", delete_dir=True)
+            break
+        except (FileNotFoundError, PermissionError):
+            if attempt < max_retries - 1:
+                time.sleep(1.0)  # Wait for file handles to release
+
+    # Wait for filesystem sync before starting test
+    time.sleep(0.5)
 
     yield
 
-    # Clean after test
-    if "pcf_calculator" in bw.projects:
+    # Clean after test with retry logic
+    for attempt in range(max_retries):
         try:
-            bw.projects.delete_project("pcf_calculator", delete_dir=True)
-        except:
-            pass
+            if "pcf_calculator" in bw.projects:
+                bw.projects.delete_project("pcf_calculator", delete_dir=True)
+            break
+        except (FileNotFoundError, PermissionError):
+            if attempt < max_retries - 1:
+                time.sleep(1.0)
+            else:
+                # Last attempt - force cleanup with shutil
+                import shutil
+                for path in Path(bw.projects.dir).glob("pcf_calculator.*"):
+                    shutil.rmtree(path, ignore_errors=True)
+
 
 
 class TestBrightwayProjectCreation:
