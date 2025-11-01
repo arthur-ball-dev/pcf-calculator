@@ -3,6 +3,7 @@ uvicorn[standard]>=0.32.0
 sqlalchemy>=2.0.35
 pydantic>=2.9.0
 pandas>=2.2.0
+numpy<2.0.0
 brightway2==2.4.3
 python-dotenv>=1.0.0
 pytest>=8.0.0
