@@ -204,13 +204,13 @@ def seed_test_emission_factors(db_session):
 
     return {
         "total_count": 10,
-        "epa_count": 4,
+        "epa_count": 5,
         "defra_count": 3,
-        "ecoinvent_count": 3,
+        "ecoinvent_count": 2,
         "glo_count": 6,
         "us_count": 2,
         "eu_count": 2,
-        "kg_unit_count": 7,
+        "kg_unit_count": 8,
         "kwh_unit_count": 1,
         "l_unit_count": 1
     }
