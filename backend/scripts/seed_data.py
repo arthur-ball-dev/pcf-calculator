@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
 from decimal import Decimal
 
+# Add project root to Python path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
