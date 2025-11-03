@@ -16,6 +16,7 @@ from starlette.middleware.errors import ServerErrorMiddleware
 from backend.config import settings
 from backend.middleware import SecurityHeadersMiddleware
 from backend.api.routes.products import router as products_router
+from backend.api.routes.calculations import router as calculations_router
 
 # Configure logging
 logging.basicConfig(
@@ -120,6 +121,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Include API routers
 app.include_router(products_router)
+app.include_router(calculations_router)
 
 
 @app.get("/health")
