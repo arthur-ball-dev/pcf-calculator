@@ -14,8 +14,10 @@ Calculate cradle-to-gate carbon emissions for products using Bill of Materials (
 ```
 
 This will:
-- Create virtual environment at project root (`venv/`)
+- Create virtual environment at project root (`.venv/`)
 - Install Python dependencies from `backend/requirements.txt`
+- Run database migrations
+- Load seed data (products, BOMs, emission factors)
 - Generate `settings.local.json` with absolute paths for your machine
 
 ### 2. Activate Virtual Environment
@@ -25,19 +27,7 @@ This will:
 source .venv/bin/activate
 ```
 
-### 3. Database Setup
-
-```bash
-cd backend
-
-# Run migrations
-alembic upgrade head
-
-# Load seed data (products, BOMs, emission factors)
-python scripts/seed_data.py
-```
-
-### 4. Run Tests
+### 3. Run Tests (recommended)
 
 ```bash
 # From backend directory
@@ -45,7 +35,7 @@ cd backend
 pytest
 ```
 
-### 5. Start API Server
+### 4. Start API Server
 
 ```bash
 # From backend directory
