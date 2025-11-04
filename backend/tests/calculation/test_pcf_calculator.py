@@ -40,6 +40,12 @@ def initialized_brightway(db_session):
     Fixture to ensure Brightway2 is initialized and emission factors are synced.
 
     Prerequisite: TASK-CALC-001 and TASK-CALC-002 completed.
+
+    This fixture includes validation to ensure emission factors are actually
+    synced to Brightway2 database. If sync fails, the fixture will fail fast
+    with a clear error message instead of allowing silent failures.
+
+    Fix for TASK-CALC-003-BUG-001: Added validation per BE SEQ-009 guidance.
     """
     from backend.calculator.brightway_setup import initialize_brightway
     from backend.calculator.emission_factor_sync import sync_emission_factors
@@ -48,12 +54,35 @@ def initialized_brightway(db_session):
     initialize_brightway()
 
     # Sync emission factors from database
-    sync_emission_factors(db_session=db_session)
+    result = sync_emission_factors(db_session=db_session)
+
+    # CRITICAL: Validate sync actually worked (SEQ-009 fix)
+    if not result or result.get('synced_count', 0) == 0:
+        raise RuntimeError(
+            f"Emission factor sync failed: {result}. "
+            f"Expected at least 1 emission factor to be synced."
+        )
+
+    # Verify database exists and has factors
+    bw.projects.set_current('pcf_calculator')
+    if 'pcf_emission_factors' not in bw.databases:
+        raise RuntimeError(
+            "pcf_emission_factors database not created by sync. "
+            f"Available databases: {list(bw.databases)}"
+        )
+
+    ef_db = bw.Database('pcf_emission_factors')
+    if len(ef_db) == 0:
+        raise RuntimeError(
+            "pcf_emission_factors database exists but is EMPTY. "
+            f"Sync reported {result.get('synced_count', 0)} factors."
+        )
+
+    print(f"\u2713 Emission factor sync verified: {len(ef_db)} factors loaded")
 
     yield
 
     # Brightway cleanup handled by TASK-CALC-001 tests
-
 
 class TestSimpleFlatBOMCalculation:
     """Test basic flat BOM calculation with direct quantity × emission_factor."""
