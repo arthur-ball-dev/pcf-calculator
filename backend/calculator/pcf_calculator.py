@@ -45,6 +45,7 @@ class PCFCalculator:
         Initialize PCF Calculator.
 
         Sets Brightway2 project and loads emission factors database.
+        Builds name-based lookup cache for efficient emission factor retrieval.
 
         Raises:
             Exception: If Brightway2 project not initialized (run TASK-CALC-001)
@@ -64,7 +65,41 @@ class PCFCalculator:
             )
 
         self.ef_db = bw.Database("pcf_emission_factors")
-        logger.info("PCFCalculator initialized with pcf_emission_factors database")
+
+        # Build name-based lookup cache for O(1) retrieval performance
+        # Brightway2's .get() searches by code, but we need to search by name
+        self._name_to_activity = {}
+        for activity in self.ef_db:
+            self._name_to_activity[activity["name"]] = activity
+
+        logger.info(
+            f"PCFCalculator initialized with {len(self._name_to_activity)} emission factors"
+        )
+
+    def _get_item_name(self, item: Dict[str, Any]) -> str:
+        """
+        Extract component name from BOM item.
+
+        Supports both "name" and "component_name" field names for flexibility.
+
+        Args:
+            item: BOM item dictionary
+
+        Returns:
+            Component name string
+
+        Raises:
+            ValueError: If neither name field is present
+        """
+        # Try "name" first (preferred), then "component_name" (legacy)
+        if "name" in item:
+            return item["name"]
+        elif "component_name" in item:
+            return item["component_name"]
+        else:
+            raise ValueError(
+                f"BOM item must have 'name' or 'component_name' field. Got: {item.keys()}"
+            )
 
     def calculate(self, bom: List[Dict[str, Any]]) -> Dict[str, float]:
         """
@@ -77,6 +112,7 @@ class PCFCalculator:
             bom: List of BOM items with structure:
                 [
                     {"name": str, "quantity": float, "unit": str},
+                    # or: {"component_name": str, "quantity": float, "unit": str}
                     ...
                 ]
 
@@ -106,12 +142,18 @@ class PCFCalculator:
         breakdown = {}
 
         for item in bom:
-            try:
-                activity = self.ef_db.get(item["name"])
-            except Exception as e:
+            # Extract component name (supports both "name" and "component_name")
+            component_name = self._get_item_name(item)
+
+            # Search for emission factor by name using cached lookup
+            # BUG FIX [CALC-003-BUG-001]: Changed from .get() which searches by code
+            # to name-based dictionary lookup for correct activity retrieval
+            activity = self._name_to_activity.get(component_name)
+
+            if activity is None:
                 raise ValueError(
-                    f"Emission factor not found: {item['name']}. "
-                    f"Available factors: {[act['name'] for act in self.ef_db]}"
+                    f"Emission factor not found: {component_name}. "
+                    f"Available factors: {list(self._name_to_activity.keys())}"
                 )
 
             # Get CO2e factor from activity
@@ -121,10 +163,10 @@ class PCFCalculator:
             item_co2e = float(item["quantity"]) * co2e_per_unit
 
             total_co2e += item_co2e
-            breakdown[item["name"]] = item_co2e
+            breakdown[component_name] = item_co2e
 
             logger.debug(
-                f"{item['name']}: {item['quantity']} {item['unit']} × "
+                f"{component_name}: {item['quantity']} {item['unit']} × "
                 f"{co2e_per_unit} kg CO2e/{item['unit']} = {item_co2e} kg CO2e"
             )
 
@@ -200,16 +242,17 @@ class PCFCalculator:
                     traverse(child, child_qty, depth + 1)
             else:
                 # Leaf node - this is a material with emission factor
-                if node["name"] not in [item["name"] for item in flat_bom]:
+                node_name = self._get_item_name(node)
+                if node_name not in [item["name"] for item in flat_bom]:
                     flat_bom.append({
-                        "name": node["name"],
+                        "name": node_name,
                         "quantity": cumulative_qty * float(node["quantity"]),
                         "unit": node["unit"]
                     })
                 else:
                     # Accumulate quantities for duplicate materials
                     for item in flat_bom:
-                        if item["name"] == node["name"]:
+                        if item["name"] == node_name:
                             item["quantity"] += cumulative_qty * float(node["quantity"])
 
         # Start traversal from root
@@ -271,7 +314,8 @@ class PCFCalculator:
             category = item.get("category", "materials")
 
             # Get emissions for this item from breakdown
-            item_co2e = result["breakdown"][item["name"]]
+            component_name = self._get_item_name(item)
+            item_co2e = result["breakdown"][component_name]
 
             # Accumulate by category
             if category not in breakdown_by_category:
@@ -333,11 +377,11 @@ class PCFCalculator:
                     data_sources.append(data_source)
             else:
                 # Try to get from emission factor metadata
-                try:
-                    activity = self.ef_db.get(item["name"])
+                component_name = self._get_item_name(item)
+                activity = self._name_to_activity.get(component_name)
+                if activity:
                     # Brightway2 activities don't have direct data_source attribute
                     # For MVP, we'll use a simple quality score
-                except Exception:
                     pass
 
         # Calculate simple data quality score
@@ -551,21 +595,15 @@ class PCFCalculator:
         code_normalized = re.sub(r'_?\d+$', '', code_normalized)
 
         # Check if this matches an emission factor
-        try:
-            self.ef_db.get(code_normalized)
+        if code_normalized in self._name_to_activity:
             return code_normalized
-        except Exception:
-            pass
 
         # Try matching by name (lowercase)
         name_normalized = product.name.lower().replace(" ", "_")
 
         # Check if this matches an emission factor
-        try:
-            self.ef_db.get(name_normalized)
+        if name_normalized in self._name_to_activity:
             return name_normalized
-        except Exception:
-            pass
 
         # Fallback: return code as-is
         logger.warning(
