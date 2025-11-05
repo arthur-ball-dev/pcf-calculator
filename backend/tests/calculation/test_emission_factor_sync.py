@@ -16,6 +16,8 @@ TASK-CALC-002: Sync Emission Factors to Brightway2
 import pytest
 import brightway2 as bw
 from sqlalchemy import text
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from decimal import Decimal
 
 
@@ -56,29 +58,61 @@ def clean_brightway_project():
 
 
 @pytest.fixture(scope="function")
-def db_session():
+def test_db_engine():
     """
-    Fixture to provide database session for tests.
-    """
-    from backend.database.connection import db_context
+    Create in-memory SQLite database for testing.
 
-    with db_context() as session:
-        yield session
+    This ensures test isolation - tests use in-memory DB, not production DB.
+    Prevents test data deletion from contaminating production database.
+
+    TASK-QA-004: Fix test isolation issue
+    """
+    from backend.models import Base
+
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    Base.metadata.create_all(engine)
+    return engine
+
+
+@pytest.fixture(scope="function")
+def db_session(test_db_engine):
+    """
+    Fixture to provide TEST database session (in-memory, isolated).
+
+    IMPORTANT: This fixture uses in-memory database, NOT production database.
+    Tests can safely delete/modify data without affecting production DB.
+
+    TASK-QA-004: Replaced production db_context() with in-memory test DB
+    """
+    SessionLocal = sessionmaker(bind=test_db_engine)
+    session = SessionLocal()
+
+    # Enable foreign key constraints for SQLite
+    session.execute(text("PRAGMA foreign_keys = ON"))
+    session.commit()
+
+    yield session
+
+    session.close()
 
 
 @pytest.fixture(scope="function")
 def seed_emission_factors(db_session):
     """
-    Fixture to ensure emission factors are loaded in SQLite database.
+    Fixture to load emission factors into TEST database (in-memory).
 
-    Assumes seed_data.py has been run (TASK-DATA-003).
-    Verifies 20+ emission factors exist.
+    Loads emission factors from CSV into the test database session.
+    This ensures tests have emission factor data without touching production DB.
+
+    TASK-QA-004: Updated to load data into test database
     """
-    # Verify emission factors exist
-    count = db_session.execute(text("SELECT COUNT(*) FROM emission_factors")).scalar()
+    from backend.scripts.seed_data import load_emission_factors
+
+    # Load emission factors into test DB
+    count = load_emission_factors(db_session)
 
     if count == 0:
-        pytest.skip("Emission factors not loaded. Run: python backend/scripts/seed_data.py")
+        pytest.skip("Failed to load emission factors from CSV")
 
     return count
 
