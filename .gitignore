@@ -11,6 +11,10 @@ venv/
 
 # Project runtime/output
 logs/
+backend/logs/
+hooks/utils/logs/
+data/sessions/
+project-sdlc-admin/handoffs/logs/
 *.log
 
 # Development runtime data
@@ -22,3 +26,18 @@ settings.local.json
 *.db
 *.sqlite
 *.sqlite3
+*.db-wal
+*.db-shm
+
+# Prevent committing files that may contain absolute paths
+*.local.json
+.env
+.env.local
+.vscode/settings.json
+
+# Brightway2 data (may contain local paths)
+brightway2_data/
+
+# Project-specific admin files that may contain local paths
+project-sdlc-admin/STATE/*.md
+project-sdlc-admin/handoffs/**/*.md
