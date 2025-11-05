@@ -20,6 +20,7 @@ project-sdlc-admin/handoffs/logs/
 # Development runtime data
 data/
 settings.local.json
+sensitive_patterns.json
 .mcp.json
 
 # Database files (runtime data)
