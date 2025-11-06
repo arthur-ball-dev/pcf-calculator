@@ -21,6 +21,7 @@ project-sdlc-admin/handoffs/logs/
 data/
 settings.local.json
 sensitive_patterns.json
+CC-project-docs/github-manual-security-audit.md
 .mcp.json
 
 # Database files (runtime data)
