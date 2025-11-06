@@ -11,27 +11,173 @@ Tests the PCFCalculator class to ensure:
 
 Following TDD methodology - tests written BEFORE implementation.
 TASK-CALC-003: Implement Simplified PCF Calculator
+
+HISTORICAL NOTE (TASK-CALC-007):
+This test file was updated to use isolated in-memory database instead of production
+database, fixing a critical test isolation vulnerability. The original implementation
+used db_context() which connected to the production database, creating risks:
+- Test data corruption of production database
+- Test failures due to shared state
+- Non-deterministic test results based on execution order
+
+This issue was part of a series of misdiagnoses:
+- TASK-CALC-005: Incorrectly diagnosed as "emission factor sync failure"
+- TASK-CALC-006: Incorrectly diagnosed as "Brightway2 pickle corruption"
+- TASK-QA-004: Correctly diagnosed as "test database isolation issue"
+- TASK-CALC-007: Fixed remaining vulnerability in test_pcf_calculator.py
+
+Pattern copied from test_emission_factor_sync.py (fixed in TASK-QA-004).
 """
 
 import pytest
 import brightway2 as bw
 from decimal import Decimal
 from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 
 @pytest.fixture(scope="function")
-def db_session():
+def test_db_engine():
     """
-    Fixture to provide database session with test data.
+    Create in-memory SQLite database for testing.
 
-    Uses actual database connection with seeded test data.
-    Rolls back transactions after each test.
+    HISTORICAL NOTE: This fixture was created in TASK-CALC-007 to fix a critical
+    vulnerability where tests were using production database. The same pattern
+    was successfully implemented in TASK-QA-004 for test_emission_factor_sync.py.
+
+    This resolves the root cause identified in Phase 2 validation:
+    - TASK-CALC-005 diagnosis: Incorrect (not sync failure)
+    - TASK-CALC-006 diagnosis: Incorrect (not pickle corruption)
+    - TASK-QA-004 diagnosis: Correct (test database isolation)
+
+    REPLACED: Old fixture that used db_context() production database connection
+    NEW: In-memory SQLite database with full isolation
+
+    Benefits:
+    - Tests cannot corrupt production data
+    - Tests pass in any order (no shared state)
+    - Faster execution (in-memory vs disk I/O)
+    - Parallel test execution is safe
     """
-    from backend.database.connection import db_context
+    from backend.models import Base
 
-    with db_context() as session:
-        yield session
-        session.rollback()
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    Base.metadata.create_all(engine)
+
+    # Enable foreign keys for SQLite
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA foreign_keys = ON"))
+        conn.commit()
+
+    return engine
+
+
+@pytest.fixture(scope="function")
+def db_session(test_db_engine):
+    """
+    Provide isolated TEST database session (in-memory, not production).
+
+    Replaces: db_context() which was using production database
+    Pattern: Identical to test_emission_factor_sync.py::db_session
+
+    This fixture creates a fresh in-memory database for each test function,
+    ensuring complete test isolation. No test can affect another test's data.
+    """
+    SessionLocal = sessionmaker(bind=test_db_engine)
+    session = SessionLocal()
+
+    # Enable foreign keys on session
+    session.execute(text("PRAGMA foreign_keys = ON"))
+    session.commit()
+
+    # Seed test data with minimal emission factors
+    _seed_test_emission_factors(session)
+
+    yield session
+
+    # Cleanup
+    session.close()
+
+
+def _seed_test_emission_factors(session):
+    """
+    Load minimal test emission factors needed for PCF calculator tests.
+
+    This function seeds the test database with factors used by test fixtures.
+    It mirrors the production seed_data.py but uses only test-essential data.
+
+    Test emission factors are marked with metadata={'test': True} to distinguish
+    them from production data.
+    """
+    from backend.models import EmissionFactor
+
+    test_factors = [
+        # Materials - based on seed_data.py emission factors
+        EmissionFactor(
+            id="ef-test-cotton",
+            activity_name="cotton",
+            co2e_factor=5.89,
+            unit="kg",
+            data_source="test_data",
+            geography="Global",
+            emission_metadata={"test": True, "source": "TASK-CALC-007"}
+        ),
+        EmissionFactor(
+            id="ef-test-polyester",
+            activity_name="polyester",
+            co2e_factor=6.4,
+            unit="kg",
+            data_source="test_data",
+            geography="Global",
+            emission_metadata={"test": True, "source": "TASK-CALC-007"}
+        ),
+        EmissionFactor(
+            id="ef-test-plastic",
+            activity_name="plastic_hdpe",
+            co2e_factor=1.8,
+            unit="kg",
+            data_source="test_data",
+            geography="Global",
+            emission_metadata={"test": True, "source": "TASK-CALC-007"}
+        ),
+        EmissionFactor(
+            id="ef-test-aluminum",
+            activity_name="aluminum",
+            co2e_factor=9.0,
+            unit="kg",
+            data_source="test_data",
+            geography="Global",
+            emission_metadata={"test": True, "source": "TASK-CALC-007"}
+        ),
+        # Energy
+        EmissionFactor(
+            id="ef-test-electricity",
+            activity_name="electricity_us",
+            co2e_factor=0.4,
+            unit="kWh",
+            data_source="test_data",
+            geography="US",
+            emission_metadata={"test": True, "source": "TASK-CALC-007"}
+        ),
+        # Transport
+        EmissionFactor(
+            id="ef-test-transport",
+            activity_name="transport_truck",
+            co2e_factor=0.0001,
+            unit="tkm",
+            data_source="test_data",
+            geography="Global",
+            emission_metadata={"test": True, "source": "TASK-CALC-007"}
+        ),
+    ]
+
+    for factor in test_factors:
+        existing = session.query(EmissionFactor).filter_by(id=factor.id).first()
+        if not existing:
+            session.add(factor)
+
+    session.commit()
 
 
 @pytest.fixture(scope="function")
