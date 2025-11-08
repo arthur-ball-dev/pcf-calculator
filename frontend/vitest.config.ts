@@ -4,7 +4,7 @@ import path from 'path';
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
+    environment: 'jsdom', // Changed from 'node' to support browser APIs like localStorage
   },
   resolve: {
     alias: {
