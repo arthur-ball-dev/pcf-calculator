@@ -1,0 +1,136 @@
+/**
+ * Store Type Definitions
+ *
+ * TypeScript interfaces for Zustand stores including:
+ * - Wizard navigation state
+ * - Calculator state (product selection, BOM, calculations)
+ * - Shared types and enums
+ */
+
+// ============================================================================
+// Wizard Store Types
+// ============================================================================
+
+export type WizardStep = 'select' | 'edit' | 'calculate' | 'results';
+
+export interface WizardState {
+  // State
+  currentStep: WizardStep;
+  completedSteps: WizardStep[];
+  canProceed: boolean;
+  canGoBack: boolean;
+
+  // Actions
+  setStep: (step: WizardStep) => void;
+  markStepComplete: (step: WizardStep) => void;
+  markStepIncomplete: (step: WizardStep) => void;
+  goNext: () => void;
+  goBack: () => void;
+  reset: () => void;
+}
+
+// ============================================================================
+// Calculator Store Types
+// ============================================================================
+
+export type BOMItemCategory = 'material' | 'energy' | 'transport' | 'other';
+
+export type UnitType = 'unit' | 'kg' | 'g' | 'L' | 'mL' | 'm' | 'cm' | 'kWh' | 'MJ' | 'tkm';
+
+export type CalculationStatus = 'idle' | 'pending' | 'in_progress' | 'completed' | 'failed';
+
+export type CalculationType = 'cradle_to_gate' | 'cradle_to_grave' | 'gate_to_gate';
+
+export interface BOMItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  category: BOMItemCategory;
+  emissionFactorId: number | null;
+}
+
+export interface Product {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  unit: UnitType;
+  is_finished_product: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface Calculation {
+  id: string;
+  product_id: number;
+  status: CalculationStatus;
+  total_co2e: number;
+  materials_co2e: number;
+  energy_co2e: number;
+  transport_co2e: number;
+  waste_co2e: number;
+  calculation_type: CalculationType;
+  created_at: string;
+  updated_at: string;
+  error?: string;
+}
+
+export interface CalculatorState {
+  // Product selection
+  selectedProductId: number | null;
+  selectedProduct: Product | null;
+
+  // BOM data
+  bomItems: BOMItem[];
+  hasUnsavedChanges: boolean;
+
+  // Calculation data
+  calculation: Calculation | null;
+
+  // Loading states
+  isLoadingProducts: boolean;
+  isLoadingBOM: boolean;
+
+  // Actions - Product
+  setSelectedProduct: (productId: number | null) => void;
+  setSelectedProductDetails: (product: Product | null) => void;
+
+  // Actions - BOM
+  setBomItems: (items: BOMItem[]) => void;
+  updateBomItem: (id: string, updates: Partial<BOMItem>) => void;
+  addBomItem: (item: BOMItem) => void;
+  removeBomItem: (id: string) => void;
+
+  // Actions - Calculation
+  setCalculation: (calculation: Calculation | null) => void;
+
+  // Actions - Loading
+  setLoadingProducts: (loading: boolean) => void;
+  setLoadingBOM: (loading: boolean) => void;
+
+  // Actions - Reset
+  reset: () => void;
+}
+
+// ============================================================================
+// Helper Types
+// ============================================================================
+
+export interface StepConfig {
+  id: WizardStep;
+  label: string;
+  description: string;
+  component?: React.ComponentType;
+  validate?: () => Promise<boolean>;
+}
+
+export interface EmissionBreakdown {
+  category: string;
+  co2e: number;
+  percentage: number;
+}
+
+export interface CalculationResult extends Calculation {
+  breakdown: EmissionBreakdown[];
+  data_quality_score?: number;
+}
