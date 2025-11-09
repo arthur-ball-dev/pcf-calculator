@@ -7,7 +7,30 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./__tests__/setup.ts', './vitest.setup.ts'],
+    setupFiles: ['./__tests__/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      exclude: [
+        'node_modules/',
+        '__tests__/',
+        '**/*.d.ts',
+        '**/*.config.*',
+        '**/mockData',
+        'dist/',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        'src/components/ui/**', // UI components from shadcn (not our code)
+      ],
+      include: [
+        'src/**/*.{ts,tsx}',
+      ],
+      all: true,
+      lines: 80,
+      functions: 80,
+      branches: 80,
+      statements: 80,
+    },
   },
   resolve: {
     alias: {

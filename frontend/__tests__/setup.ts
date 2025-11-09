@@ -1,17 +1,37 @@
 /**
  * Test Setup
  *
- * Configures testing environment with jest-dom matchers and global utilities.
+ * Configures testing environment with jest-dom matchers, MSW, and global utilities.
  * Includes polyfills for JSDOM limitations.
  */
 
 import '@testing-library/jest-dom';
-import { expect, afterEach } from 'vitest';
+import { expect, afterEach, beforeAll, afterAll } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { server } from '../__mocks__/server';
 
-// Cleanup after each test
+// ============================================================================
+// MSW Server Setup
+// ============================================================================
+
+// Start MSW server before all tests
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'warn' });
+});
+
+// Reset handlers after each test to ensure test isolation
+afterEach(() => {
+  server.resetHandlers();
+});
+
+// Cleanup React components after each test
 afterEach(() => {
   cleanup();
+});
+
+// Stop MSW server after all tests
+afterAll(() => {
+  server.close();
 });
 
 // ============================================================================
