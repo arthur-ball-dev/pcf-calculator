@@ -37,7 +37,7 @@ export type BOMItemCategory = 'material' | 'energy' | 'transport' | 'other';
 
 export type UnitType = 'unit' | 'kg' | 'g' | 'L' | 'mL' | 'm' | 'cm' | 'kWh' | 'MJ' | 'tkm';
 
-export type CalculationStatus = 'idle' | 'pending' | 'in_progress' | 'completed' | 'failed';
+export type CalculationStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
 export type CalculationType = 'cradle_to_gate' | 'cradle_to_grave' | 'gate_to_gate';
 
@@ -62,17 +62,19 @@ export interface Product {
 
 export interface Calculation {
   id: string;
-  product_id: number;
   status: CalculationStatus;
-  total_co2e: number;
-  materials_co2e: number;
-  energy_co2e: number;
-  transport_co2e: number;
-  waste_co2e: number;
-  calculation_type: CalculationType;
-  created_at: string;
-  updated_at: string;
-  error?: string;
+  product_id?: string;
+  created_at?: string;
+
+  // Present when completed
+  total_co2e_kg?: number;
+  materials_co2e?: number;
+  energy_co2e?: number;
+  transport_co2e?: number;
+  calculation_time_ms?: number;
+
+  // Present when failed
+  error_message?: string;
 }
 
 export interface CalculatorState {
