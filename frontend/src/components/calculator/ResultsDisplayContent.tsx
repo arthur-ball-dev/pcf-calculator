@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useCalculatorStore } from '@/store/calculatorStore';
+import { EMISSION_CATEGORY_COLORS } from '@/constants/colors';
+import { getUserFriendlyError } from '@/utils/errorMessages';
 
 /**
  * Format number with 2 decimal places and thousands separator
@@ -89,13 +91,16 @@ export function ResultsDisplayContent() {
 
   // Failed
   if (calculation.status === 'failed') {
+    const errorMessage = calculation.error_message || 'An error occurred during calculation.';
+    const friendlyError = getUserFriendlyError(errorMessage);
+
     return (
       <Alert variant="destructive" role="alert">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           <strong>Calculation Failed</strong>
           <br />
-          {calculation.error_message || 'An error occurred during calculation.'}
+          {friendlyError}
         </AlertDescription>
       </Alert>
     );
@@ -144,8 +149,11 @@ export function ResultsDisplayContent() {
               </div>
               <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-blue-500 h-full"
-                  style={{ width: `${calculatePercentage(materials, total)}%` }}
+                  className="h-full"
+                  style={{
+                    width: `${calculatePercentage(materials, total)}%`,
+                    backgroundColor: EMISSION_CATEGORY_COLORS.materials,
+                  }}
                 />
               </div>
               <div className="text-sm text-muted-foreground text-right">
@@ -165,8 +173,11 @@ export function ResultsDisplayContent() {
               </div>
               <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-yellow-500 h-full"
-                  style={{ width: `${calculatePercentage(energy, total)}%` }}
+                  className="h-full"
+                  style={{
+                    width: `${calculatePercentage(energy, total)}%`,
+                    backgroundColor: EMISSION_CATEGORY_COLORS.energy,
+                  }}
                 />
               </div>
               <div className="text-sm text-muted-foreground text-right">
@@ -186,8 +197,11 @@ export function ResultsDisplayContent() {
               </div>
               <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-green-500 h-full"
-                  style={{ width: `${calculatePercentage(transport, total)}%` }}
+                  className="h-full"
+                  style={{
+                    width: `${calculatePercentage(transport, total)}%`,
+                    backgroundColor: EMISSION_CATEGORY_COLORS.transport,
+                  }}
                 />
               </div>
               <div className="text-sm text-muted-foreground text-right">

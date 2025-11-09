@@ -18,9 +18,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useCalculation } from '@/hooks/useCalculation';
 import { useCalculatorStore } from '@/store/calculatorStore';
+import { getUserFriendlyError } from '@/utils/errorMessages';
 
 export function CalculateButton() {
-  const { isCalculating, error, startCalculation, stopPolling } = useCalculation();
+  const { isCalculating, error, elapsedSeconds, startCalculation, stopPolling } =
+    useCalculation();
   const { selectedProductId, bomItems } = useCalculatorStore();
 
   // Determine if button should be disabled
@@ -57,7 +59,7 @@ export function CalculateButton() {
       {error && !isCalculating && (
         <Alert variant="destructive" role="alert">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{getUserFriendlyError(error)}</AlertDescription>
         </Alert>
       )}
 
@@ -89,11 +91,7 @@ export function CalculateButton() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {getButtonText()}
             </Button>
-            <Button
-              onClick={handleCancel}
-              variant="outline"
-              size="lg"
-            >
+            <Button onClick={handleCancel} variant="outline" size="lg">
               Cancel
             </Button>
           </>
@@ -101,16 +99,22 @@ export function CalculateButton() {
 
         {/* Retry Button */}
         {error && !isCalculating && (
-          <Button
-            onClick={handleRetry}
-            variant="default"
-            size="lg"
-            className="w-full md:w-auto"
-          >
+          <Button onClick={handleRetry} variant="default" size="lg" className="w-full md:w-auto">
             Retry
           </Button>
         )}
       </div>
+
+      {/* Elapsed Time Indicator */}
+      {isCalculating && elapsedSeconds > 0 && (
+        <div
+          className="text-sm text-muted-foreground"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          Calculating... {elapsedSeconds}s elapsed
+        </div>
+      )}
 
       {/* Helper Text */}
       {isDisabled && !isCalculating && !error && (
