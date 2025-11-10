@@ -61,3 +61,10 @@ export const productsAPI = {
     }
   },
 };
+
+/**
+ * Legacy export for ProductSelector component compatibility
+ * This export provides a direct function reference for components
+ * that import fetchProducts instead of productsAPI.list
+ */
+export const fetchProducts = productsAPI.list;
