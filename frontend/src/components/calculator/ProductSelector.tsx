@@ -6,17 +6,25 @@
  *
  * Features:
  * - Fetches products from backend API on mount
+ * - Fetches emission factors for BOM transformation
+ * - Loads full product details with BOM when product selected
+ * - Transforms API BOM format to frontend format
+ * - Populates calculator store with valid BOM items
  * - Displays products with name and category
  * - Loading skeleton during API request
  * - Error handling with retry functionality
  * - Integration with Zustand stores
  * - Accessibility-compliant (ARIA labels, keyboard navigation)
+ *
+ * Enhanced in TASK-FE-019: BOM loading functionality
  */
 
 import React, { useEffect, useState } from 'react';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
-import { fetchProducts } from '@/services/api/products';
+import { fetchProducts, productsAPI } from '@/services/api/products';
+import { emissionFactorsAPI } from '@/services/api/emissionFactors';
+import { transformAPIBOMToFrontend } from '@/services/bomTransform';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -27,7 +35,8 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import type { Product } from '@/types/store.types';
+import type { Product, UnitType } from '@/types/store.types';
+import type { EmissionFactorListItem } from '@/types/api.types';
 
 /**
  * Loading skeleton component for product selector
@@ -49,14 +58,17 @@ const ProductSelectorSkeleton: React.FC = () => {
 interface ErrorDisplayProps {
   error: Error;
   onRetry: () => void;
+  context?: string;
 }
 
-const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error, onRetry }) => {
+const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error, onRetry, context }) => {
   return (
-    <Alert variant="destructive">
+    <Alert variant="destructive" data-testid="error-message">
       <AlertDescription className="space-y-3">
         <div>
-          <p className="font-semibold">Unable to load products</p>
+          <p className="font-semibold">
+            {context === 'bom' ? 'Failed to load BOM' : 'Unable to load products'}
+          </p>
           <p className="text-sm mt-1">
             Please check your connection and try again.
           </p>
@@ -69,6 +81,7 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error, onRetry }) => {
           size="sm"
           onClick={onRetry}
           className="mt-2"
+          data-testid="retry-button"
         >
           Retry
         </Button>
@@ -85,10 +98,38 @@ const ProductSelector: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [bomError, setBomError] = useState<Error | null>(null);
+
+  // Emission factors state
+  const [emissionFactors, setEmissionFactors] = useState<EmissionFactorListItem[]>([]);
+  const [isLoadingEmissionFactors, setIsLoadingEmissionFactors] = useState(true);
 
   // Store access
-  const { selectedProductId, setSelectedProduct } = useCalculatorStore();
+  const { selectedProductId, setSelectedProduct, setLoadingBOM, setBomItems, setSelectedProductDetails } = useCalculatorStore();
   const { markStepComplete, markStepIncomplete } = useWizardStore();
+
+  /**
+   * Load emission factors on component mount
+   * Fetches all emission factors for BOM transformation
+   */
+  useEffect(() => {
+    const loadEmissionFactors = async () => {
+      setIsLoadingEmissionFactors(true);
+      try {
+        // Fetch all emission factors (use large limit)
+        const factors = await emissionFactorsAPI.list({ limit: 1000 });
+        setEmissionFactors(factors);
+      } catch (err) {
+        console.error('Failed to load emission factors:', err);
+        // Non-blocking error - BOM transformation will use fallback
+        // Set emissionFactorId to null for unmatched components
+      } finally {
+        setIsLoadingEmissionFactors(false);
+      }
+    };
+
+    loadEmissionFactors();
+  }, []);
 
   /**
    * Load products from API
@@ -128,26 +169,76 @@ const ProductSelector: React.FC = () => {
   }, [selectedProductId, markStepComplete, markStepIncomplete]);
 
   /**
-   * Handle product selection
+   * Handle product selection with full BOM loading
+   *
+   * Enhanced in TASK-FE-019:
+   * 1. Fetches full product details with BOM
+   * 2. Transforms API BOM format to frontend format
+   * 3. Maps component names to emission factor IDs
+   * 4. Populates calculator store with valid BOM items
    */
-  const handleProductSelect = (value: string) => {
-    const productId = parseInt(value, 10);
+  const handleProductSelect = async (value: string) => {
+    const productId = value; // Keep as string (API uses UUIDs or string IDs)
 
-    if (!isNaN(productId)) {
-      setSelectedProduct(productId);
+    if (!productId) return;
 
-      // Optionally, fetch full product details here
-      const selectedProduct = products.find((p) => p.id === productId);
-      if (selectedProduct) {
-        useCalculatorStore.getState().setSelectedProductDetails(selectedProduct);
+    try {
+      // Clear previous BOM error
+      setBomError(null);
+
+      // Set loading state
+      setLoadingBOM(true);
+
+      // Store product ID immediately (for UI feedback)
+      const numericProductId = parseInt(productId, 10);
+      if (!isNaN(numericProductId)) {
+        setSelectedProduct(numericProductId);
       }
+
+      // Fetch full product details with BOM
+      const productDetail = await productsAPI.getById(productId);
+
+      // Store full product details
+      setSelectedProductDetails({
+        id: parseInt(productId, 10),
+        code: productDetail.code,
+        name: productDetail.name,
+        category: productDetail.category || 'unknown',
+        unit: productDetail.unit as UnitType,
+        is_finished_product: productDetail.is_finished_product,
+      });
+
+      // Transform BOM data
+      const transformedBOM = transformAPIBOMToFrontend(
+        productDetail.bill_of_materials,
+        emissionFactors
+      );
+
+      // Update store with transformed BOM
+      setBomItems(transformedBOM);
+
+    } catch (err) {
+      console.error('Failed to load product BOM:', err);
+      // Show error to user
+      setBomError(err instanceof Error ? err : new Error('Failed to load BOM'));
+    } finally {
+      setLoadingBOM(false);
+    }
+  };
+
+  /**
+   * Retry BOM loading for currently selected product
+   */
+  const retryBOMLoad = async () => {
+    if (selectedProductId !== null) {
+      await handleProductSelect(selectedProductId.toString());
     }
   };
 
   /**
    * Render loading state
    */
-  if (isLoading) {
+  if (isLoadingEmissionFactors || isLoading) {
     return <ProductSelectorSkeleton />;
   }
 
@@ -162,7 +253,7 @@ const ProductSelector: React.FC = () => {
    * Main render
    */
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="product-selector">
       <div className="space-y-2">
         <Label htmlFor="product-select">Select Product</Label>
         <Select
@@ -173,17 +264,22 @@ const ProductSelector: React.FC = () => {
             id="product-select"
             className="w-full"
             aria-label="Select a product to calculate carbon footprint"
+            data-testid="product-select-trigger"
           >
             <SelectValue placeholder="Choose a product to calculate PCF" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent data-testid="product-select-content">
             {products.length === 0 ? (
               <div className="px-2 py-6 text-center text-sm text-muted-foreground">
                 No products available
               </div>
             ) : (
               products.map((product) => (
-                <SelectItem key={product.id} value={String(product.id)}>
+                <SelectItem
+                  key={product.id}
+                  value={String(product.id)}
+                  data-testid={`product-option-${product.id}`}
+                >
                   {product.name}
                   {product.category && (
                     <span className="text-muted-foreground ml-2">
@@ -197,12 +293,18 @@ const ProductSelector: React.FC = () => {
         </Select>
       </div>
 
+      {/* Product Selected Confirmation - Always show when product selected */}
       {selectedProductId && (
-        <Alert className="bg-muted border-muted-foreground/20">
+        <Alert className="bg-muted border-muted-foreground/20" data-testid="product-selected-confirmation">
           <AlertDescription className="text-sm text-muted-foreground">
             ✓ Product selected. Click "Next" to edit the Bill of Materials.
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* BOM Loading Error - Show below confirmation if BOM fetch failed */}
+      {bomError && (
+        <ErrorDisplay error={bomError} onRetry={retryBOMLoad} context="bom" />
       )}
     </div>
   );

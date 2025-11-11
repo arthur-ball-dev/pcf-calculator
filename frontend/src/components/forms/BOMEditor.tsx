@@ -9,6 +9,7 @@
  * - Auto-save to Zustand store (debounced)
  * - Wizard step validation integration
  * - Keyboard navigation and accessibility
+ * - Loading state display while BOM is being fetched (TASK-FE-019)
  *
  * Uses:
  * - React Hook Form with useFieldArray
@@ -48,10 +49,24 @@ const DEFAULT_BOM_ITEM: Omit<BOMItem, 'id'> = {
 };
 
 /**
+ * Loading skeleton component for BOM Editor
+ *
+ * Displayed while product BOM is being fetched and transformed (TASK-FE-019)
+ */
+const BOMEditorSkeleton: React.FC = () => {
+  return (
+    <div className="space-y-4 animate-pulse" data-testid="bom-editor-skeleton">
+      <div className="h-8 bg-muted rounded" />
+      <div className="h-64 bg-muted rounded" />
+    </div>
+  );
+};
+
+/**
  * BOMEditor - Main component for editing Bill of Materials
  */
 export default function BOMEditor() {
-  const { bomItems, setBomItems } = useCalculatorStore();
+  const { bomItems, setBomItems, isLoadingBOM } = useCalculatorStore();
   const { markStepComplete, markStepIncomplete } = useWizardStore();
 
   // Initialize form with existing BOM items or one default item
@@ -76,6 +91,15 @@ export default function BOMEditor() {
   });
 
   const { formState: { isValid, errors } } = form;
+
+  // Reset form when BOM items change (e.g., after product selection loads BOM)
+  useEffect(() => {
+    if (bomItems.length > 0) {
+      form.reset({
+        items: bomItems,
+      });
+    }
+  }, [bomItems, form]);
 
   // Update wizard step validation when form validity changes
   useEffect(() => {
@@ -140,6 +164,12 @@ export default function BOMEditor() {
     },
     { totalItems: 0, totalQuantity: 0 }
   );
+
+  // Show loading skeleton while BOM is being fetched (TASK-FE-019)
+  // Must be AFTER hooks are initialized to comply with React Rules of Hooks
+  if (isLoadingBOM) {
+    return <BOMEditorSkeleton />;
+  }
 
   return (
     <Form {...form}>
