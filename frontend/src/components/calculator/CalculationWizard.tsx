@@ -94,7 +94,7 @@ const CalculationWizard: React.FC = () => {
     };
 
     validateStep();
-  }, [currentStep, currentStepConfig, completedSteps, markStepComplete, markStepIncomplete]);
+  }, [currentStep, currentStepConfig]); // markStepComplete/markStepIncomplete removed from deps to prevent infinite loop
 
   /**
    * Keyboard shortcuts for navigation
