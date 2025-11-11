@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import type { UseFormReturn } from 'react-hook-form';
 import { Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
