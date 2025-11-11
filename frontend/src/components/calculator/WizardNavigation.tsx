@@ -63,6 +63,7 @@ const WizardNavigation: React.FC = () => {
         disabled={!canGoBack}
         className="gap-2"
         aria-label="Previous step"
+        data-testid="previous-button"
       >
         <ChevronLeft className="w-4 h-4" />
         Previous
@@ -72,7 +73,7 @@ const WizardNavigation: React.FC = () => {
       {currentStep !== 'select' && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" className="gap-2">
+            <Button variant="destructive" size="sm" className="gap-2" data-testid="start-over-button">
               <RotateCcw className="w-4 h-4" />
               Start Over
             </Button>
@@ -104,6 +105,7 @@ const WizardNavigation: React.FC = () => {
                   disabled={!canProceed}
                   className="gap-2"
                   aria-label="Next step"
+                  data-testid="next-button"
                 >
                   Next
                   <ChevronRight className="w-4 h-4" />
@@ -123,6 +125,7 @@ const WizardNavigation: React.FC = () => {
           onClick={handleReset}
           className="gap-2"
           aria-label="Start new calculation"
+          data-testid="new-calculation-button"
         >
           <RotateCcw className="w-4 h-4" />
           New Calculation

@@ -38,9 +38,9 @@ class Settings(BaseSettings):
         description="Database connection URL"
     )
 
-    # CORS settings
+    # CORS settings - allow multiple frontend ports (3000=old, 5173=Vite default, 5174=alternate)
     cors_origins: list[str] = Field(
-        default=["http://localhost:3000"],
+        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
         description="Allowed CORS origins"
     )
 

@@ -47,7 +47,10 @@ export const useWizardStore = create<WizardState>()(
 
             if (!allPreviousComplete) {
               console.warn(
-                `Cannot skip to ${step} - previous steps incomplete`
+                `Cannot skip to ${step} - previous steps incomplete. completedSteps:`,
+                get().completedSteps,
+                `Required:`,
+                STEP_ORDER.slice(0, targetIndex)
               );
               return;
             }

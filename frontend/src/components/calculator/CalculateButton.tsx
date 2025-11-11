@@ -57,7 +57,7 @@ export function CalculateButton() {
     <div className="space-y-4">
       {/* Error Display */}
       {error && !isCalculating && (
-        <Alert variant="destructive" role="alert">
+        <Alert variant="destructive" role="alert" data-testid="calculation-error">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{getUserFriendlyError(error)}</AlertDescription>
         </Alert>
@@ -74,6 +74,7 @@ export function CalculateButton() {
             aria-busy="false"
             className="w-full md:w-auto"
             size="lg"
+            data-testid="calculate-button"
           >
             {getButtonText()}
           </Button>
@@ -87,11 +88,17 @@ export function CalculateButton() {
               aria-busy="true"
               className="w-full md:w-auto"
               size="lg"
+              data-testid="calculating-button"
             >
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" data-testid="loading-spinner" />
               {getButtonText()}
             </Button>
-            <Button onClick={handleCancel} variant="outline" size="lg">
+            <Button
+              onClick={handleCancel}
+              variant="outline"
+              size="lg"
+              data-testid="cancel-button"
+            >
               Cancel
             </Button>
           </>
@@ -99,7 +106,13 @@ export function CalculateButton() {
 
         {/* Retry Button */}
         {error && !isCalculating && (
-          <Button onClick={handleRetry} variant="default" size="lg" className="w-full md:w-auto">
+          <Button
+            onClick={handleRetry}
+            variant="default"
+            size="lg"
+            className="w-full md:w-auto"
+            data-testid="retry-calculation-button"
+          >
             Retry
           </Button>
         )}
@@ -111,6 +124,7 @@ export function CalculateButton() {
           className="text-sm text-muted-foreground"
           aria-live="polite"
           aria-atomic="true"
+          data-testid="elapsed-time"
         >
           Calculating... {elapsedSeconds}s elapsed
         </div>

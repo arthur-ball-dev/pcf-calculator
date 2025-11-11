@@ -48,7 +48,7 @@ export default function ResultsDisplay() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-testid="results-display">
       {/* Summary Card */}
       <ResultsSummary
         totalCO2e={calculation.total_co2e_kg || 0}
@@ -85,7 +85,7 @@ export default function ResultsDisplay() {
 
       {/* Actions */}
       <div className="flex gap-4">
-        <Button onClick={handleNewCalculation} variant="outline">
+        <Button onClick={handleNewCalculation} variant="outline" data-testid="new-calculation-action-button">
           New Calculation
         </Button>
         <Button variant="outline" disabled>

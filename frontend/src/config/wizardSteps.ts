@@ -17,7 +17,7 @@
 
 import ProductSelector from '@/components/calculator/ProductSelector';
 import BOMEditor from '@/components/forms/BOMEditor';
-import CalculateButton from '@/components/calculator/CalculateButton';
+import { CalculateButton } from '@/components/calculator/CalculateButton';
 import ResultsDisplay from '@/components/calculator/ResultsDisplay';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import type { StepConfig } from '@/types/store.types';
