@@ -135,6 +135,9 @@ class EmissionFactor(Base):
     # Activity or material name
     activity_name = Column(String(255), nullable=False)
 
+    # Category for filtering (material, energy, transport, other)
+    category = Column(String(50), nullable=True)
+
     # CO2e emission factor (kg CO2e per unit)
     co2e_factor = Column(DECIMAL(15, 8), nullable=False)
 
