@@ -41,13 +41,13 @@ function formatDate(date: Date): string {
  */
 export default function ResultsSummary({ totalCO2e, unit, calculatedAt }: ResultsSummaryProps) {
   return (
-    <Card>
+    <Card data-testid="results-summary">
       <CardHeader>
         <CardTitle>Total Carbon Footprint</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-baseline gap-2">
-          <span className="text-5xl font-bold tabular-nums">
+          <span className="text-5xl font-bold tabular-nums" data-testid="total-co2e">
             {totalCO2e.toFixed(2)}
           </span>
           <span className="text-2xl text-muted-foreground">
