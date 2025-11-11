@@ -26,6 +26,7 @@ class EmissionFactorListItemResponse(BaseModel):
     """Emission factor item in list response"""
     id: str
     activity_name: str
+    category: Optional[str] = None
     co2e_factor: float
     unit: str
     data_source: str
@@ -49,6 +50,7 @@ class EmissionFactorListResponse(BaseModel):
 class EmissionFactorCreateRequest(BaseModel):
     """Request body for creating emission factor"""
     activity_name: str = Field(..., min_length=1, description="Activity or material name")
+    category: Optional[str] = Field(None, description="Category (material, energy, transport, other)")
     co2e_factor: float = Field(..., ge=0, description="CO2e emission factor (kg CO2e per unit)")
     unit: str = Field(..., min_length=1, description="Unit of measurement")
     data_source: str = Field(..., min_length=1, description="Data source identifier")
@@ -71,6 +73,7 @@ class EmissionFactorCreateResponse(BaseModel):
     """Response after creating emission factor"""
     id: str
     activity_name: str
+    category: Optional[str] = None
     co2e_factor: float
     unit: str
     data_source: str
@@ -157,6 +160,7 @@ def list_emission_factors(
         EmissionFactorListItemResponse(
             id=ef.id,
             activity_name=ef.activity_name,
+            category=ef.category,
             co2e_factor=float(ef.co2e_factor),
             unit=ef.unit,
             data_source=ef.data_source,
@@ -230,6 +234,7 @@ def create_emission_factor(
     # Create new emission factor
     new_emission_factor = EmissionFactor(
         activity_name=emission_factor.activity_name,
+        category=emission_factor.category,
         co2e_factor=Decimal(str(emission_factor.co2e_factor)),
         unit=emission_factor.unit,
         data_source=emission_factor.data_source,
@@ -247,6 +252,7 @@ def create_emission_factor(
     return EmissionFactorCreateResponse(
         id=new_emission_factor.id,
         activity_name=new_emission_factor.activity_name,
+        category=new_emission_factor.category,
         co2e_factor=float(new_emission_factor.co2e_factor),
         unit=new_emission_factor.unit,
         data_source=new_emission_factor.data_source,

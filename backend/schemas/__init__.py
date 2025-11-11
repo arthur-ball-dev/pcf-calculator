@@ -164,6 +164,7 @@ class EmissionFactorListItemResponse(BaseModel):
     """Emission factor item in list response"""
     id: str = Field(..., description="Emission factor UUID")
     activity_name: str = Field(..., description="Activity or material name")
+    category: Optional[str] = Field(None, description="Category (material, energy, transport, other)")
     co2e_factor: float = Field(..., ge=0, description="CO2e emission factor (kg CO2e per unit)")
     unit: str = Field(..., description="Unit of measurement")
     data_source: str = Field(..., description="Data source (EPA, DEFRA, Ecoinvent, etc.)")
@@ -186,6 +187,7 @@ class EmissionFactorListResponse(BaseModel):
 class EmissionFactorCreateRequest(BaseModel):
     """Request body for creating emission factor"""
     activity_name: str = Field(..., min_length=1, max_length=255, description="Activity or material name")
+    category: Optional[str] = Field(None, max_length=50, description="Category (material, energy, transport, other)")
     co2e_factor: float = Field(..., ge=0, description="CO2e emission factor (kg CO2e per unit)")
     unit: str = Field(..., min_length=1, max_length=20, description="Unit of measurement")
     data_source: str = Field(..., min_length=1, max_length=100, description="Data source identifier")
@@ -250,6 +252,7 @@ class EmissionFactorCreateResponse(BaseModel):
     """Response after creating emission factor"""
     id: str = Field(..., description="Emission factor UUID")
     activity_name: str = Field(..., description="Activity or material name")
+    category: Optional[str] = Field(None, description="Category (material, energy, transport, other)")
     co2e_factor: float = Field(..., description="CO2e emission factor (kg CO2e per unit)")
     unit: str = Field(..., description="Unit of measurement")
     data_source: str = Field(..., description="Data source")
