@@ -89,6 +89,7 @@ export interface CalculationStatusResponse {
 export interface EmissionFactorListItem {
   id: string;
   activity_name: string;
+  category: string | null;
   co2e_factor: number;
   unit: string;
   data_source: string;
