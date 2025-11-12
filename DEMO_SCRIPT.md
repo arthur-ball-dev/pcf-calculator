@@ -25,10 +25,9 @@ The PCF Calculator is a full-stack application for calculating cradle-to-gate ca
 
 ```bash
 # Terminal 1 - Backend
-# From project root
+# From project root (do NOT cd into backend)
 source .venv/bin/activate
-cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Verify:** Navigate to http://localhost:8000/docs - Swagger UI should load

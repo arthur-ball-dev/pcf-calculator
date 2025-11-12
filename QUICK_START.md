@@ -5,10 +5,9 @@
 ### Terminal 1: Backend API
 
 ```bash
-# From project root
+# From project root (do NOT cd into backend - imports will break!)
 source .venv/bin/activate
-cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ✅ **Verify:** Open http://localhost:8000/docs - Swagger UI should load
