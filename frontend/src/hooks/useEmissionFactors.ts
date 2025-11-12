@@ -8,12 +8,16 @@
  * - data: Array of emission factors
  * - isLoading: Loading state
  * - error: Error state
+ *
+ * UPDATED: TASK-FE-020 - UUID type system migration
+ * - EmissionFactor.id: string (was number)
+ * - Preserves full UUID strings from API responses
  */
 
 import { useQuery } from '@tanstack/react-query';
 
 export interface EmissionFactor {
-  id: number;
+  id: string; // UPDATED: number → string (UUID)
   activity_name: string;
   co2e_factor: number;
   unit: string;
