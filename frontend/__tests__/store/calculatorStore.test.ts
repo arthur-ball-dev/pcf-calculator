@@ -57,16 +57,16 @@ describe('CalculatorStore', () => {
     test('setSelectedProduct updates selectedProductId', () => {
       const { setSelectedProduct } = useCalculatorStore.getState();
 
-      setSelectedProduct(123);
+      setSelectedProduct("471fe408a2604386bae572d9fc9a6b5c");
 
       const state = useCalculatorStore.getState();
-      expect(state.selectedProductId).toBe(123);
+      expect(state.selectedProductId).toBe("471fe408a2604386bae572d9fc9a6b5c");
     });
 
     test('setSelectedProduct marks wizard select step complete', () => {
       const { setSelectedProduct } = useCalculatorStore.getState();
 
-      setSelectedProduct(123);
+      setSelectedProduct("471fe408a2604386bae572d9fc9a6b5c");
 
       const wizardState = useWizardStore.getState();
       expect(wizardState.completedSteps).toContain('select');
@@ -75,7 +75,7 @@ describe('CalculatorStore', () => {
     test('setSelectedProduct with null clears selection', () => {
       const { setSelectedProduct } = useCalculatorStore.getState();
 
-      setSelectedProduct(123);
+      setSelectedProduct("471fe408a2604386bae572d9fc9a6b5c");
       setSelectedProduct(null);
 
       const state = useCalculatorStore.getState();
@@ -85,10 +85,10 @@ describe('CalculatorStore', () => {
     test('setSelectedProduct updates product details', () => {
       const { setSelectedProduct, setSelectedProductDetails } = useCalculatorStore.getState();
 
-      setSelectedProduct(123);
+      setSelectedProduct("471fe408a2604386bae572d9fc9a6b5c");
 
       const mockProduct = {
-        id: 123,
+        id: "471fe408a2604386bae572d9fc9a6b5c",
         code: 'TEST-001',
         name: 'Test Product',
         category: 'Electronics',
@@ -114,7 +114,7 @@ describe('CalculatorStore', () => {
           quantity: 0.5,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 1
+          emissionFactorId: "ef-uuid-123abc"
         },
         {
           id: '2',
@@ -122,7 +122,7 @@ describe('CalculatorStore', () => {
           quantity: 0.3,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 2
+          emissionFactorId: "ef-uuid-456def"
         }
       ];
 
@@ -142,7 +142,7 @@ describe('CalculatorStore', () => {
           quantity: 0.5,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 1
+          emissionFactorId: "ef-uuid-123abc"
         }
       ];
 
@@ -162,7 +162,7 @@ describe('CalculatorStore', () => {
           quantity: 0.5,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 1
+          emissionFactorId: "ef-uuid-123abc"
         }
       ];
 
@@ -184,7 +184,7 @@ describe('CalculatorStore', () => {
           quantity: 0.5,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 1
+          emissionFactorId: "ef-uuid-123abc"
         }
       ];
 
@@ -207,7 +207,7 @@ describe('CalculatorStore', () => {
         quantity: 0.5,
         unit: 'kg',
         category: 'material' as const,
-        emissionFactorId: 1
+        emissionFactorId: "ef-uuid-123abc"
       };
 
       addBomItem(newItem);
@@ -227,7 +227,7 @@ describe('CalculatorStore', () => {
           quantity: 0.5,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 1
+          emissionFactorId: "ef-uuid-123abc"
         },
         {
           id: '2',
@@ -235,7 +235,7 @@ describe('CalculatorStore', () => {
           quantity: 0.3,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 2
+          emissionFactorId: "ef-uuid-456def"
         }
       ];
 
@@ -254,7 +254,7 @@ describe('CalculatorStore', () => {
 
       const mockCalculation = {
         id: 'calc-123',
-        product_id: 123,
+        product_id: "471fe408a2604386bae572d9fc9a6b5c",
         status: 'pending' as const,
         total_co2e: 0,
         materials_co2e: 0,
@@ -277,7 +277,7 @@ describe('CalculatorStore', () => {
 
       const mockCalculation = {
         id: 'calc-123',
-        product_id: 123,
+        product_id: "471fe408a2604386bae572d9fc9a6b5c",
         status: 'completed' as const,
         total_co2e: 150.5,
         materials_co2e: 100,
@@ -305,7 +305,7 @@ describe('CalculatorStore', () => {
 
       const mockCalculation = {
         id: 'calc-123',
-        product_id: 123,
+        product_id: "471fe408a2604386bae572d9fc9a6b5c",
         status: 'completed' as const,
         total_co2e: 150.5,
         materials_co2e: 100,
@@ -328,7 +328,7 @@ describe('CalculatorStore', () => {
 
       const mockCalculation = {
         id: 'calc-123',
-        product_id: 123,
+        product_id: "471fe408a2604386bae572d9fc9a6b5c",
         status: 'pending' as const,
         total_co2e: 0,
         materials_co2e: 0,
@@ -377,7 +377,7 @@ describe('CalculatorStore', () => {
       } = useCalculatorStore.getState();
 
       // Set up state
-      setSelectedProduct(123);
+      setSelectedProduct("471fe408a2604386bae572d9fc9a6b5c");
       setBomItems([
         {
           id: '1',
@@ -385,12 +385,12 @@ describe('CalculatorStore', () => {
           quantity: 0.5,
           unit: 'kg',
           category: 'material',
-          emissionFactorId: 1
+          emissionFactorId: "ef-uuid-123abc"
         }
       ]);
       setCalculation({
         id: 'calc-123',
-        product_id: 123,
+        product_id: "471fe408a2604386bae572d9fc9a6b5c",
         status: 'completed',
         total_co2e: 150.5,
         materials_co2e: 100,
@@ -429,7 +429,7 @@ describe('CalculatorStore', () => {
     test('product selection triggers wizard validation', () => {
       const { setSelectedProduct } = useCalculatorStore.getState();
 
-      setSelectedProduct(123);
+      setSelectedProduct("471fe408a2604386bae572d9fc9a6b5c");
 
       const wizardState = useWizardStore.getState();
       expect(wizardState.completedSteps).toContain('select');
@@ -439,7 +439,7 @@ describe('CalculatorStore', () => {
     test('clearing product selection marks wizard step incomplete', () => {
       const { setSelectedProduct } = useCalculatorStore.getState();
 
-      setSelectedProduct(123);
+      setSelectedProduct("471fe408a2604386bae572d9fc9a6b5c");
       setSelectedProduct(null);
 
       const wizardState = useWizardStore.getState();
@@ -456,7 +456,7 @@ describe('CalculatorStore', () => {
 
       const mockCalculation = {
         id: 'calc-123',
-        product_id: 123,
+        product_id: "471fe408a2604386bae572d9fc9a6b5c",
         status: 'completed' as const,
         total_co2e: 150.5,
         materials_co2e: 100,
@@ -486,7 +486,7 @@ describe('CalculatorStore', () => {
           quantity: 0.5,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 1
+          emissionFactorId: "ef-uuid-123abc"
         }
       ];
 
@@ -511,7 +511,7 @@ describe('CalculatorStore', () => {
           quantity: 0.5,
           unit: 'kg',
           category: 'material' as const,
-          emissionFactorId: 1
+          emissionFactorId: "ef-uuid-123abc"
         }
       ];
 
