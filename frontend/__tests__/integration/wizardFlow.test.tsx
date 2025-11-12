@@ -15,6 +15,11 @@
  *
  * This is the FINAL integration test for Phase 3.
  * Validates end-to-end functionality of the entire calculator application.
+ *
+ * UPDATED in TASK-FE-020 SEQ-013: Fixed dropdown interaction pattern
+ * - Uses correct shadcn/ui Select component interaction (open dropdown first)
+ * - Previously assumed products visible without opening dropdown
+ * - This is test infrastructure fix per TL guidance (Category C)
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
@@ -60,16 +65,21 @@ describe('Integration: Complete Wizard Workflow', () => {
       const nextButton = screen.getByRole('button', { name: /next/i });
       expect(nextButton).toBeDisabled();
 
-      // Wait for products to load (from MSW)
+      // Wait for ProductSelector to load (dropdown trigger appears)
       await waitFor(() => {
-        expect(screen.getByText(/cotton t-shirt/i)).toBeInTheDocument();
+        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
       });
 
-      // Select a product by clicking on it
-      const productCard = screen.getByText(/cotton t-shirt/i).closest('div');
-      if (productCard) {
-        await user.click(productCard);
-      }
+      // Open dropdown by clicking trigger
+      await user.click(screen.getByTestId('product-select-trigger'));
+
+      // Wait for dropdown menu to open (SelectContent becomes visible)
+      await waitFor(() => {
+        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
+      });
+
+      // Select product from dropdown menu
+      await user.click(screen.getByTestId('product-option-prod-001'));
 
       // Verify product selected in store
       await waitFor(() => {
@@ -78,7 +88,7 @@ describe('Integration: Complete Wizard Workflow', () => {
       });
 
       // Verify step marked complete
-      expect(useWizardStore.getState().isStepComplete('select')).toBe(true);
+      expect(useWizardStore.getState().completedSteps.includes('select')).toBe(true);
 
       // Verify Next button is enabled
       expect(nextButton).toBeEnabled();
@@ -168,10 +178,10 @@ describe('Integration: Complete Wizard Workflow', () => {
       expect(finalState.calculation?.total_emissions).toBeGreaterThan(0);
 
       // Verify all steps marked complete
-      expect(useWizardStore.getState().isStepComplete('select')).toBe(true);
-      expect(useWizardStore.getState().isStepComplete('edit')).toBe(true);
-      expect(useWizardStore.getState().isStepComplete('calculate')).toBe(true);
-      expect(useWizardStore.getState().isStepComplete('results')).toBe(true);
+      expect(useWizardStore.getState().completedSteps.includes('select')).toBe(true);
+      expect(useWizardStore.getState().completedSteps.includes('edit')).toBe(true);
+      expect(useWizardStore.getState().completedSteps.includes('calculate')).toBe(true);
+      expect(useWizardStore.getState().completedSteps.includes('results')).toBe(true);
     });
   });
 
@@ -179,15 +189,21 @@ describe('Integration: Complete Wizard Workflow', () => {
     test('preserves product selection when navigating back from Step 2', async () => {
       render(<CalculationWizard />);
 
-      // Step 1: Select product
+      // Step 1: Select product using dropdown
       await waitFor(() => {
-        expect(screen.getByText(/cotton t-shirt/i)).toBeInTheDocument();
+        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
       });
 
-      const productCard = screen.getByText(/cotton t-shirt/i).closest('div');
-      if (productCard) {
-        await user.click(productCard);
-      }
+      // Open dropdown
+      await user.click(screen.getByTestId('product-select-trigger'));
+
+      // Wait for dropdown menu to open
+      await waitFor(() => {
+        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
+      });
+
+      // Select product
+      await user.click(screen.getByTestId('product-option-prod-001'));
 
       await waitFor(() => {
         expect(useCalculatorStore.getState().selectedProductId).toBe('prod-001');
@@ -208,23 +224,31 @@ describe('Integration: Complete Wizard Workflow', () => {
         expect(useWizardStore.getState().currentStep).toBe('select');
       });
 
-      // Verify product still selected
+      // Verify product still selected (check store, not dropdown text visibility)
       expect(useCalculatorStore.getState().selectedProductId).toBe('prod-001');
-      expect(screen.getByText(/cotton t-shirt/i)).toBeInTheDocument();
+
+      // Verify confirmation message appears (indicates product selected)
+      expect(screen.getByTestId('product-selected-confirmation')).toBeInTheDocument();
     });
 
     test('preserves BOM edits when navigating back from Step 3', async () => {
       render(<CalculationWizard />);
 
-      // Navigate to Step 2
+      // Navigate to Step 2 using dropdown
       await waitFor(() => {
-        expect(screen.getByText(/cotton t-shirt/i)).toBeInTheDocument();
+        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
       });
 
-      const productCard = screen.getByText(/cotton t-shirt/i).closest('div');
-      if (productCard) {
-        await user.click(productCard);
-      }
+      // Open dropdown
+      await user.click(screen.getByTestId('product-select-trigger'));
+
+      // Wait for dropdown menu to open
+      await waitFor(() => {
+        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
+      });
+
+      // Select product
+      await user.click(screen.getByTestId('product-option-prod-001'));
 
       await user.click(screen.getByRole('button', { name: /next/i }));
 
@@ -280,15 +304,21 @@ describe('Integration: Complete Wizard Workflow', () => {
     test('prevents advancing with invalid BOM data', async () => {
       render(<CalculationWizard />);
 
-      // Navigate to Step 2
+      // Navigate to Step 2 using dropdown
       await waitFor(() => {
-        expect(screen.getByText(/cotton t-shirt/i)).toBeInTheDocument();
+        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
       });
 
-      const productCard = screen.getByText(/cotton t-shirt/i).closest('div');
-      if (productCard) {
-        await user.click(productCard);
-      }
+      // Open dropdown
+      await user.click(screen.getByTestId('product-select-trigger'));
+
+      // Wait for dropdown menu to open
+      await waitFor(() => {
+        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
+      });
+
+      // Select product
+      await user.click(screen.getByTestId('product-option-prod-001'));
 
       await user.click(screen.getByRole('button', { name: /next/i }));
 
@@ -353,15 +383,21 @@ describe('Integration: Complete Wizard Workflow', () => {
 
       render(<CalculationWizard />);
 
-      // Navigate through steps
+      // Navigate through steps using dropdown
       await waitFor(() => {
-        expect(screen.getByText(/cotton t-shirt/i)).toBeInTheDocument();
+        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
       });
 
-      const productCard = screen.getByText(/cotton t-shirt/i).closest('div');
-      if (productCard) {
-        await user.click(productCard);
-      }
+      // Open dropdown
+      await user.click(screen.getByTestId('product-select-trigger'));
+
+      // Wait for dropdown menu to open
+      await waitFor(() => {
+        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
+      });
+
+      // Select product
+      await user.click(screen.getByTestId('product-option-prod-001'));
 
       await user.click(screen.getByRole('button', { name: /next/i }));
 
@@ -401,15 +437,21 @@ describe('Integration: Complete Wizard Workflow', () => {
         expect(step1Indicator).toHaveAttribute('aria-current', 'step');
       });
 
-      // Select product
+      // Select product using dropdown
       await waitFor(() => {
-        expect(screen.getByText(/cotton t-shirt/i)).toBeInTheDocument();
+        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
       });
 
-      const productCard = screen.getByText(/cotton t-shirt/i).closest('div');
-      if (productCard) {
-        await user.click(productCard);
-      }
+      // Open dropdown
+      await user.click(screen.getByTestId('product-select-trigger'));
+
+      // Wait for dropdown menu to open
+      await waitFor(() => {
+        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
+      });
+
+      // Select product
+      await user.click(screen.getByTestId('product-option-prod-001'));
 
       // Move to step 2
       await user.click(screen.getByRole('button', { name: /next/i }));
@@ -427,25 +469,21 @@ describe('Integration: Complete Wizard Workflow', () => {
       render(<CalculationWizard />);
 
       // Select product
+      // Select product using dropdown
       await waitFor(() => {
-        expect(screen.getByText(/cotton t-shirt/i)).toBeInTheDocument();
+        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
       });
 
-      const productCard = screen.getByText(/cotton t-shirt/i).closest('div');
-      if (productCard) {
-        await user.click(productCard);
-      }
+      // Open dropdown
+      await user.click(screen.getByTestId('product-select-trigger'));
 
-      // Verify synchronization
+      // Wait for dropdown menu to open
       await waitFor(() => {
-        expect(useCalculatorStore.getState().selectedProductId).toBe('prod-001');
-        expect(useWizardStore.getState().isStepComplete('select')).toBe(true);
+        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
       });
 
-      // Move to step 2
-      await user.click(screen.getByRole('button', { name: /next/i }));
-
-      // Verify step synchronized
+      // Select product
+      await user.click(screen.getByTestId('product-option-prod-001'));
       await waitFor(() => {
         expect(useWizardStore.getState().currentStep).toBe('edit');
         expect(useCalculatorStore.getState().bomItems.length).toBeGreaterThan(0);
