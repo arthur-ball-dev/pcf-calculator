@@ -10,6 +10,11 @@
  * Integrates with wizardStore to trigger step completion when:
  * - Product is selected (completes 'select' step)
  * - Calculation completes (completes 'calculate' step and advances to 'results')
+ *
+ * UPDATED: TASK-FE-020 - UUID type system migration
+ * - selectedProductId: string | null (was number | null)
+ * - setSelectedProduct parameter: string | null (was number | null)
+ * - All UUID fields now use string types (no parseInt conversion)
  */
 
 import { create } from 'zustand';
@@ -34,7 +39,7 @@ export const useCalculatorStore = create<CalculatorState>()(
       // ================================================================
       // Product Actions
       // ================================================================
-      setSelectedProduct: (productId: number | null) => {
+      setSelectedProduct: (productId: string | null) => {
         set({ selectedProductId: productId });
 
         // Trigger wizard validation
