@@ -17,6 +17,7 @@
  * - Accessibility-compliant (ARIA labels, keyboard navigation)
  *
  * Enhanced in TASK-FE-019: BOM loading functionality
+ * UPDATED in TASK-FE-020: UUID type system migration (no parseInt conversion)
  */
 
 import React, { useEffect, useState } from 'react';
@@ -176,9 +177,13 @@ const ProductSelector: React.FC = () => {
    * 2. Transforms API BOM format to frontend format
    * 3. Maps component names to emission factor IDs
    * 4. Populates calculator store with valid BOM items
+   *
+   * UPDATED in TASK-FE-020:
+   * - Removed parseInt() conversion - preserves full UUID strings
+   * - Product IDs are now handled as strings throughout
    */
   const handleProductSelect = async (value: string) => {
-    const productId = value; // Keep as string (API uses UUIDs or string IDs)
+    const productId = value; // Keep as string (UUIDs are strings)
 
     if (!productId) return;
 
@@ -190,17 +195,16 @@ const ProductSelector: React.FC = () => {
       setLoadingBOM(true);
 
       // Store product ID immediately (for UI feedback)
-      const numericProductId = parseInt(productId, 10);
-      if (!isNaN(numericProductId)) {
-        setSelectedProduct(numericProductId);
-      }
+      // UPDATED: No parseInt conversion - store as string
+      setSelectedProduct(productId);
 
       // Fetch full product details with BOM
       const productDetail = await productsAPI.getById(productId);
 
       // Store full product details
+      // UPDATED: Product ID is already a string from API
       setSelectedProductDetails({
-        id: parseInt(productId, 10),
+        id: productDetail.id, // String UUID from API
         code: productDetail.code,
         name: productDetail.name,
         category: productDetail.category || 'unknown',
@@ -231,7 +235,7 @@ const ProductSelector: React.FC = () => {
    */
   const retryBOMLoad = async () => {
     if (selectedProductId !== null) {
-      await handleProductSelect(selectedProductId.toString());
+      await handleProductSelect(selectedProductId); // Already a string
     }
   };
 
@@ -257,7 +261,7 @@ const ProductSelector: React.FC = () => {
       <div className="space-y-2">
         <Label htmlFor="product-select">Select Product</Label>
         <Select
-          value={selectedProductId?.toString() || ''}
+          value={selectedProductId || ''} // Product ID is already a string
           onValueChange={handleProductSelect}
         >
           <SelectTrigger
@@ -277,7 +281,7 @@ const ProductSelector: React.FC = () => {
               products.map((product) => (
                 <SelectItem
                   key={product.id}
-                  value={String(product.id)}
+                  value={product.id} // Product ID is string UUID
                   data-testid={`product-option-${product.id}`}
                 >
                   {product.name}
