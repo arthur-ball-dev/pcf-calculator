@@ -24,11 +24,20 @@ import { useCalculatorStore } from '../../src/store/calculatorStore';
 import type { Calculation } from '../../src/types/store.types';
 
 // Mock the API
-vi.mock('../../src/services/api/products', () => ({
-  fetchProducts: vi.fn().mockResolvedValue([]),
-}));
 
-describe('CalculationWizard Component', () => {
+// Mock products API
+const mockProducts = [
+  { id: "product-1", name: 'Cotton T-Shirt', category: 'Textiles', code: 'COTTON-001' },
+  { id: "product-2", name: 'Polyester Jacket', category: 'Textiles', code: 'POLY-002' },
+];
+
+vi.mock('../../src/services/api/products', () => ({
+  productsAPI: {
+    list: vi.fn().mockResolvedValue(mockProducts),
+    getById: vi.fn().mockResolvedValue(mockProducts[0]),
+  },
+  fetchProducts: vi.fn().mockResolvedValue(mockProducts),
+}));
   const user = userEvent.setup();
 
   beforeEach(() => {
@@ -205,7 +214,7 @@ describe('CalculationWizard Component', () => {
       render(<CalculationWizard />);
 
       // Set product selection
-      useCalculatorStore.getState().setSelectedProduct(123);
+      useCalculatorStore.getState().setSelectedProduct('123');
       useWizardStore.getState().markStepComplete('select');
       useWizardStore.getState().setStep('edit');
 
@@ -365,7 +374,7 @@ describe('CalculationWizard Component', () => {
       // Complete some steps
       useWizardStore.getState().markStepComplete('select');
       useWizardStore.getState().setStep('edit');
-      useCalculatorStore.getState().setSelectedProduct(456);
+      useCalculatorStore.getState().setSelectedProduct('456');
 
       // Click Start Over
       const startOverButton = screen.getByRole('button', { name: /start over/i });
@@ -393,7 +402,7 @@ describe('CalculationWizard Component', () => {
       // Complete some steps
       useWizardStore.getState().markStepComplete('select');
       useWizardStore.getState().setStep('edit');
-      useCalculatorStore.getState().setSelectedProduct(789);
+      useCalculatorStore.getState().setSelectedProduct('789');
 
       // Click Start Over
       const startOverButton = screen.getByRole('button', { name: /start over/i });
@@ -586,7 +595,7 @@ describe('CalculationWizard Component', () => {
       // Simulate calculation completion
       const completedCalculation: Calculation = {
         id: 'calc-123',
-        product_id: 1,
+        product_id: "1",
         status: 'completed',
         total_co2e: 12.5,
         materials_co2e: 8.0,
@@ -611,7 +620,7 @@ describe('CalculationWizard Component', () => {
 
       const pendingCalculation: Calculation = {
         id: 'calc-456',
-        product_id: 1,
+        product_id: "1",
         status: 'pending',
         total_co2e: 0,
         materials_co2e: 0,
@@ -634,7 +643,7 @@ describe('CalculationWizard Component', () => {
 
       const completedCalculation: Calculation = {
         id: 'calc-789',
-        product_id: 1,
+        product_id: "1",
         status: 'completed',
         total_co2e: 15.0,
         materials_co2e: 10.0,

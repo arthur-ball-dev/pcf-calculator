@@ -33,25 +33,32 @@ import type { Calculation } from '@/types/store.types';
 expect.extend(toHaveNoViolations);
 
 // Mock API calls
+// Mock API calls
+const mockProducts = [
+  { id: "1", name: 'Test Product', category: 'Electronics', code: 'TEST-001' },
+  { id: "2", name: 'Another Product', category: 'Textiles', code: 'TEST-002' },
+];
+
 vi.mock('@/services/api/products', () => ({
-  fetchProducts: vi.fn().mockResolvedValue([
-    { id: 1, name: 'Test Product', category: 'Electronics', code: 'TEST-001' },
-    { id: 2, name: 'Another Product', category: 'Textiles', code: 'TEST-002' },
-  ]),
+  productsAPI: {
+    list: vi.fn().mockResolvedValue(mockProducts),
+    getById: vi.fn().mockResolvedValue(mockProducts[0]),
+  },
+  fetchProducts: vi.fn().mockResolvedValue(mockProducts),
 }));
 
 vi.mock('@/hooks/useEmissionFactors', () => ({
   useEmissionFactors: () => ({
     data: [
       {
-        id: 1,
+        id: "1",
         activity_name: 'Cotton Production',
         category: 'material',
         co2e_factor: 2.5,
         unit: 'kg',
       },
       {
-        id: 2,
+        id: "2",
         activity_name: 'Electricity Grid',
         category: 'energy',
         co2e_factor: 0.5,
@@ -113,7 +120,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
       // Set up completed calculation
       const mockCalculation: Calculation = {
         id: 'calc-123',
-        product_id: 1,
+        product_id: "1",
         calculation_type: 'cradle_to_gate',
         status: 'completed',
         total_co2e_kg: 150.5,
@@ -138,7 +145,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
     test('SankeyDiagram has no accessibility violations', async () => {
       const mockCalculation: Calculation = {
         id: 'calc-123',
-        product_id: 1,
+        product_id: "1",
         calculation_type: 'cradle_to_gate',
         status: 'completed',
         total_co2e_kg: 150.5,
@@ -462,7 +469,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
     test('SankeyDiagram has proper role and aria-label', () => {
       const mockCalculation: Calculation = {
         id: 'calc-123',
-        product_id: 1,
+        product_id: "1",
         calculation_type: 'cradle_to_gate',
         status: 'completed',
         total_co2e_kg: 150.5,
