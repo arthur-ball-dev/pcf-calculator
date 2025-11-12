@@ -5,6 +5,11 @@
  * - Wizard navigation state
  * - Calculator state (product selection, BOM, calculations)
  * - Shared types and enums
+ *
+ * UPDATED: TASK-FE-020 - Migrated UUID fields from number to string
+ * - Product.id: number → string (32-char hex UUID)
+ * - selectedProductId: number | null → string | null
+ * - BOMItem.emissionFactorId: number | null → string | null
  */
 
 // ============================================================================
@@ -47,11 +52,11 @@ export interface BOMItem {
   quantity: number;
   unit: string;
   category: BOMItemCategory;
-  emissionFactorId: number | null;
+  emissionFactorId: string | null; // UPDATED: number | null → string | null (UUID)
 }
 
 export interface Product {
-  id: number;
+  id: string; // UPDATED: number → string (32-char hex UUID)
   code: string;
   name: string;
   category: string;
@@ -79,7 +84,7 @@ export interface Calculation {
 
 export interface CalculatorState {
   // Product selection
-  selectedProductId: number | null;
+  selectedProductId: string | null; // UPDATED: number | null → string | null (UUID)
   selectedProduct: Product | null;
 
   // BOM data
@@ -94,7 +99,7 @@ export interface CalculatorState {
   isLoadingBOM: boolean;
 
   // Actions - Product
-  setSelectedProduct: (productId: number | null) => void;
+  setSelectedProduct: (productId: string | null) => void; // UPDATED: number | null → string | null
   setSelectedProductDetails: (product: Product | null) => void;
 
   // Actions - BOM
