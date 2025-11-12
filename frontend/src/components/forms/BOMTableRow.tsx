@@ -98,6 +98,18 @@ export default function BOMTableRow({
                   placeholder="e.g., Cotton, Electricity"
                   className="min-w-[200px]"
                   aria-label="Component name"
+                  onChange={(e) => {
+                    field.onChange(e);
+                    // Trigger validation for this field AND array-level validation
+                    // Array-level validation includes duplicate name checking
+                    // Use queueMicrotask to ensure field value is set before validation
+                    queueMicrotask(() => {
+                      form.trigger(`items.${index}.name`).then(() => {
+                        // Also trigger items array validation for duplicate check
+                        form.trigger('items');
+                      });
+                    });
+                  }}
                 />
               </FormControl>
               <FormMessage />
@@ -120,9 +132,21 @@ export default function BOMTableRow({
                   step="0.01"
                   min="0"
                   onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    field.onChange(isNaN(value) ? 0 : value);
+                    // Use valueAsNumber for proper HTML5 number input handling
+                    // Allow NaN to pass through - this preserves "-" while typing
+                    // Zod validation will catch invalid values
+                    // Totals calculation handles NaN gracefully with || 0
+                    const value = e.target.valueAsNumber;
+                    field.onChange(value);
+                    // Manually trigger validation for array fields
+                    // This is required because mode: 'onChange' doesn't always
+                    // trigger validation for nested array fields automatically
+                    // Use queueMicrotask to ensure field value is set before validation
+                    queueMicrotask(() => {
+                      form.trigger(`items.${index}.quantity`);
+                    });
                   }}
+                  onBlur={field.onBlur}
                   className="w-24"
                   aria-label="Quantity"
                 />

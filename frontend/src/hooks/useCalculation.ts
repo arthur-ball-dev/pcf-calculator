@@ -24,6 +24,7 @@ const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
 export interface UseCalculationReturn {
   isCalculating: boolean;
   error: string | null;
+  elapsedSeconds: number;
   startCalculation: () => Promise<void>;
   stopPolling: () => void;
 }
@@ -36,9 +37,11 @@ export interface UseCalculationReturn {
 export function useCalculation(): UseCalculationReturn {
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollCountRef = useRef(0);
+  const startTimeRef = useRef<number>(0);
 
   const { selectedProductId, bomItems, setCalculation } = useCalculatorStore();
   const { markStepComplete, goNext } = useWizardStore();
@@ -52,6 +55,8 @@ export function useCalculation(): UseCalculationReturn {
       pollIntervalRef.current = null;
     }
     setIsCalculating(false);
+    setElapsedSeconds(0);
+    startTimeRef.current = 0;
   };
 
   /**
@@ -61,6 +66,12 @@ export function useCalculation(): UseCalculationReturn {
    */
   const pollStatus = async (calculationId: string) => {
     pollCountRef.current++;
+
+    // Update elapsed time
+    if (startTimeRef.current > 0) {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      setElapsedSeconds(elapsed);
+    }
 
     // Check for timeout
     if (pollCountRef.current > MAX_POLL_ATTEMPTS) {
@@ -124,7 +135,9 @@ export function useCalculation(): UseCalculationReturn {
     // Reset state
     setIsCalculating(true);
     setError(null);
+    setElapsedSeconds(0);
     pollCountRef.current = 0;
+    startTimeRef.current = Date.now();
 
     try {
       // Submit calculation request
@@ -163,6 +176,7 @@ export function useCalculation(): UseCalculationReturn {
   return {
     isCalculating,
     error,
+    elapsedSeconds,
     startCalculation,
     stopPolling,
   };
