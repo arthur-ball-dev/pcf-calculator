@@ -9,6 +9,11 @@
  * 2. For each BOM item, match child_product_name to emission factor
  * 3. Infer category from emission factor or component name
  * 4. Transform to frontend BOMItem format with emissionFactorId
+ *
+ * UPDATED: TASK-FE-020 - UUID type system migration
+ * - emissionFactorId: string (was number via parseInt)
+ * - Preserves full UUID strings from emission factor IDs
+ * - No type coercion or truncation
  */
 
 import type {
@@ -117,6 +122,11 @@ export function inferCategory(
  * - Sets category to 'other'
  * - Allows user to manually select emission factor in BOM Editor
  *
+ * UPDATED: TASK-FE-020 - UUID type system migration
+ * - emissionFactorId preserved as string (no parseInt conversion)
+ * - Handles full UUID strings from API (e.g., '471fe408a2604386bae572d9fc9a6b5c')
+ * - No truncation or type coercion
+ *
  * @param apiBOM - BOM array from API (ProductDetail.bill_of_materials)
  * @param emissionFactors - All emission factors from API
  * @returns Array of BOMItem with emissionFactorId mapped
@@ -152,9 +162,12 @@ export function transformAPIBOMToFrontend(
     // Infer category
     const category = inferCategory(matchedFactor, apiItem.child_product_name);
 
-    // Convert emission factor ID from string to number (or null if not found)
+    // UPDATED: Preserve emission factor ID as string (no parseInt)
+    // Backend sends UUID strings like '471fe408a2604386bae572d9fc9a6b5c'
+    // Previously: parseInt(matchedFactor.id, 10) truncated to 471
+    // Now: Keep full UUID string
     const emissionFactorId = matchedFactor
-      ? parseInt(matchedFactor.id, 10)
+      ? matchedFactor.id // Keep as string UUID
       : null;
 
     // Transform to frontend format
@@ -164,7 +177,7 @@ export function transformAPIBOMToFrontend(
       quantity: apiItem.quantity,
       unit: apiItem.unit || '', // Handle null unit
       category,
-      emissionFactorId,
+      emissionFactorId, // String UUID or null
       notes: apiItem.notes || undefined, // Convert null to undefined
     };
 
