@@ -171,6 +171,12 @@ export default function BOMEditor() {
     return <BOMEditorSkeleton />;
   }
 
+  // Extract array-level error message (e.g., duplicate names)
+  // Zod array refinements create errors at errors.items with message property
+  const arrayLevelError = errors.items && !Array.isArray(errors.items)
+    ? (errors.items as { message?: string }).message
+    : null;
+
   return (
     <Form {...form}>
       <form className="space-y-6">
@@ -204,10 +210,10 @@ export default function BOMEditor() {
           </div>
         </div>
 
-        {/* Array-level validation errors */}
-        {errors.items?.root && (
-          <div className="text-sm text-destructive">
-            {errors.items.root.message}
+        {/* Array-level validation errors (e.g., duplicate names) */}
+        {arrayLevelError && (
+          <div className="text-sm text-destructive" role="alert">
+            {arrayLevelError}
           </div>
         )}
 
@@ -236,7 +242,13 @@ export default function BOMEditor() {
               Please fix the following errors:
             </p>
             <ul className="text-sm text-destructive list-disc list-inside space-y-1">
-              {errors.items?.map((itemError, index) => {
+              {/* Array-level error */}
+              {arrayLevelError && (
+                <li>{arrayLevelError}</li>
+              )}
+
+              {/* Field-level errors */}
+              {Array.isArray(errors.items) && errors.items.map((itemError, index) => {
                 if (!itemError) return null;
 
                 const errorMessages = Object.entries(itemError)
