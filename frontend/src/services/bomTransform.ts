@@ -37,7 +37,9 @@ export function buildEmissionFactorLookup(
   const lookup = new Map<string, EmissionFactorListItem>();
 
   for (const factor of emissionFactors) {
-    const key = factor.activity_name.toLowerCase().trim();
+    // Normalize: lowercase, trim, replace spaces with underscores
+    // This handles component names like "Plastic Abs" matching "plastic_abs"
+    const key = factor.activity_name.toLowerCase().trim().replace(/\s+/g, '_');
 
     // Only add if not already present (keep first occurrence)
     if (!lookup.has(key)) {
@@ -147,8 +149,9 @@ export function transformAPIBOMToFrontend(
       continue;
     }
 
-    // Case-insensitive lookup
-    const componentKey = apiItem.child_product_name.toLowerCase().trim();
+    // Normalize component name: lowercase, trim, replace spaces with underscores
+    // This handles component names like "Plastic Abs" matching "plastic_abs"
+    const componentKey = apiItem.child_product_name.toLowerCase().trim().replace(/\s+/g, '_');
     const matchedFactor = emissionFactorLookup.get(componentKey);
 
     // Log warning if no emission factor found
