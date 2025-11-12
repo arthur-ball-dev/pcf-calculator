@@ -129,6 +129,7 @@ export default function BOMTableRow({
                 <Input
                   {...field}
                   type="number"
+                  data-testid="bom-item-quantity"
                   step="0.01"
                   min="0"
                   onChange={(e) => {
