@@ -370,9 +370,8 @@ describe('WizardStore', () => {
       // Try to skip
       setStep('results');
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Cannot skip to results')
-      );
+      expect(warnSpy).toHaveBeenCalled();
+      expect(warnSpy.mock.calls[0][0]).toContain('Cannot skip to results');
 
       warnSpy.mockRestore();
     });

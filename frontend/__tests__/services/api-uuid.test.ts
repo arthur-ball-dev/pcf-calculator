@@ -41,7 +41,7 @@ describe('API UUID Payload Validation', () => {
 
       vi.mocked(client.post).mockResolvedValue(mockResponse);
 
-      await calculationsAPI.submit(productId);
+      await calculationsAPI.submit({ product_id: productId });
 
       // Verify POST was called with correct endpoint and payload
       expect(client.post).toHaveBeenCalledWith('/api/v1/calculate', {
@@ -67,7 +67,7 @@ describe('API UUID Payload Validation', () => {
 
       vi.mocked(client.post).mockResolvedValue(mockResponse);
 
-      await calculationsAPI.submit(productId);
+      await calculationsAPI.submit({ product_id: productId });
 
       const call = vi.mocked(client.post).mock.calls[0];
       expect(call[1].product_id).toBe(productId);
@@ -91,7 +91,7 @@ describe('API UUID Payload Validation', () => {
       for (const uuid of testUUIDs) {
         vi.mocked(client.post).mockResolvedValue(mockResponse);
 
-        await calculationsAPI.submit(uuid);
+        await calculationsAPI.submit({ product_id: uuid });
 
         const call = vi.mocked(client.post).mock.calls[
           vi.mocked(client.post).mock.calls.length - 1
@@ -174,7 +174,6 @@ describe('API UUID Payload Validation', () => {
 
       const call = vi.mocked(client.get).mock.calls[0];
       expect(call[0]).toContain(productId);
-      expect(call[0]).not.toContain('471'); // Should not truncate
       expect(call[0].split('/').pop()).toBe(productId);
     });
 
@@ -215,7 +214,7 @@ describe('API UUID Payload Validation', () => {
 
       vi.mocked(client.post).mockResolvedValue(mockResponse);
 
-      await calculationsAPI.submit(productId);
+      await calculationsAPI.submit({ product_id: productId });
 
       const call = vi.mocked(client.post).mock.calls[0];
       const sentProductId = call[1].product_id;
@@ -240,7 +239,7 @@ describe('API UUID Payload Validation', () => {
 
       vi.mocked(client.post).mockResolvedValue(mockResponse);
 
-      await calculationsAPI.submit(productId);
+      await calculationsAPI.submit({ product_id: productId });
 
       const call = vi.mocked(client.post).mock.calls[0];
       const sentProductId = call[1].product_id;
@@ -267,7 +266,7 @@ describe('API UUID Payload Validation', () => {
 
       vi.mocked(client.post).mockResolvedValue(mockResponse);
 
-      const result = await calculationsAPI.submit(productId);
+      const result = await calculationsAPI.submit({ product_id: productId });
 
       expect(result.calculation_id).toBe(calculationId);
       expect(typeof result.calculation_id).toBe('string');

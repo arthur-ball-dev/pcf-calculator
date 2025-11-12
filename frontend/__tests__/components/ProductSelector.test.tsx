@@ -26,7 +26,7 @@ import type { Product } from '../../src/types/store.types';
 // Mock products data
 const mockProducts: Product[] = [
   {
-    id: 1,
+    id: "1",
     code: 'TSHIRT-001',
     name: 'Cotton T-Shirt',
     category: 'Apparel',
@@ -34,7 +34,7 @@ const mockProducts: Product[] = [
     is_finished_product: true,
   },
   {
-    id: 2,
+    id: "2",
     code: 'BOTTLE-001',
     name: 'Water Bottle',
     category: 'Consumer Goods',
@@ -42,7 +42,7 @@ const mockProducts: Product[] = [
     is_finished_product: true,
   },
   {
-    id: 3,
+    id: "3",
     code: 'LAPTOP-001',
     name: 'Laptop Computer',
     category: 'Electronics',
@@ -52,7 +52,17 @@ const mockProducts: Product[] = [
 ];
 
 // Mock the products API
+
+const mockProducts = [
+  { id: "1", name: 'Test Product', category: 'Electronics', code: 'TEST-001' },
+  { id: "2", name: 'Another Product', category: 'Textiles', code: 'TEST-002' },
+];
+
 vi.mock('../../src/services/api/products', () => ({
+  productsAPI: {
+    list: vi.fn(),
+    getById: vi.fn(),
+  },
   fetchProducts: vi.fn(),
 }));
 
@@ -152,7 +162,7 @@ describe('ProductSelector Component', () => {
 
       // Verify store was updated
       const calculatorState = useCalculatorStore.getState();
-      expect(calculatorState.selectedProductId).toBe(1);
+      expect(calculatorState.selectedProductId).toBe('1');
     });
 
     test('marks wizard step complete when product selected', async () => {
@@ -221,7 +231,7 @@ describe('ProductSelector Component', () => {
       });
       await user.click(screen.getByText(/Cotton T-Shirt/i));
 
-      expect(useCalculatorStore.getState().selectedProductId).toBe(1);
+      expect(useCalculatorStore.getState().selectedProductId).toBe('1');
 
       // Change selection
       await user.click(selectTrigger);
@@ -231,7 +241,7 @@ describe('ProductSelector Component', () => {
       await user.click(screen.getByText(/Water Bottle/i));
 
       // Verify updated
-      expect(useCalculatorStore.getState().selectedProductId).toBe(2);
+      expect(useCalculatorStore.getState().selectedProductId).toBe('2');
     });
   });
 
@@ -484,7 +494,7 @@ describe('ProductSelector Component', () => {
     test('handles product with missing category field', async () => {
       const productsWithMissingCategory: Product[] = [
         {
-          id: 1,
+          id: "1",
           code: 'TEST-001',
           name: 'Test Product',
           category: '',
@@ -529,14 +539,14 @@ describe('ProductSelector Component', () => {
       rerender(<ProductSelector />);
 
       // Selection should persist (from store)
-      expect(useCalculatorStore.getState().selectedProductId).toBe(1);
+      expect(useCalculatorStore.getState().selectedProductId).toBe('1');
     });
   });
 
   describe('Integration with Stores', () => {
     test('reads selectedProductId from calculatorStore', async () => {
       // Pre-set a selection in store
-      useCalculatorStore.getState().setSelectedProduct(2);
+      useCalculatorStore.getState().setSelectedProduct('2');
 
       render(<ProductSelector />);
 
@@ -546,7 +556,7 @@ describe('ProductSelector Component', () => {
 
       // Should reflect the pre-selected product
       // (The Select component should show the selected value)
-      expect(useCalculatorStore.getState().selectedProductId).toBe(2);
+      expect(useCalculatorStore.getState().selectedProductId).toBe('2');
     });
 
     test('synchronizes with wizardStore step completion', async () => {

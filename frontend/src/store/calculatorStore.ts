@@ -40,6 +40,13 @@ export const useCalculatorStore = create<CalculatorState>()(
       // Product Actions
       // ================================================================
       setSelectedProduct: (productId: string | null) => {
+        // Runtime type validation to prevent number coercion (TASK-FE-020)
+        // TypeScript cannot prevent this at runtime, so we validate explicitly
+        if (productId !== null && typeof productId !== 'string') {
+          console.warn('[CalculatorStore] Invalid product ID type. Expected string or null, got:', typeof productId);
+          return; // Reject non-string values
+        }
+        
         set({ selectedProductId: productId });
 
         // Trigger wizard validation

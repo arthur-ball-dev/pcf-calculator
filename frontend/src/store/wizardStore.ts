@@ -16,6 +16,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { WizardState, WizardStep } from '../types/store.types';
+import { useCalculatorStore } from './calculatorStore';
 
 // Step order defines the wizard flow
 const STEP_ORDER: WizardStep[] = ['select', 'edit', 'calculate', 'results'];
@@ -57,12 +58,21 @@ export const useWizardStore = create<WizardState>()(
           }
 
           // Update current step and navigation flags
+          // Special handling for 'calculate' step - require calculation completion
+          let canProceed = false;
+          if (step === 'calculate') {
+            const calculation = useCalculatorStore.getState().calculation;
+            canProceed = calculation?.status === 'completed';
+          } else {
+            canProceed =
+              get().completedSteps.includes(step) ||
+              targetIndex < STEP_ORDER.length - 1;
+          }
+
           set({
             currentStep: step,
             canGoBack: targetIndex > 0,
-            canProceed:
-              get().completedSteps.includes(step) ||
-              targetIndex < STEP_ORDER.length - 1,
+            canProceed,
           });
         },
 
@@ -70,10 +80,25 @@ export const useWizardStore = create<WizardState>()(
         // Step Completion
         // ================================================================
         markStepComplete: (step: WizardStep) => {
-          set((state) => ({
-            completedSteps: [...new Set([...state.completedSteps, step])],
-            canProceed: true,
-          }));
+          const currentStep = get().currentStep;
+          set((state) => {
+            const newCompletedSteps = [...new Set([...state.completedSteps, step])];
+
+            // Update canProceed based on whether the current step is now complete
+            // Special handling for 'calculate' step
+            let canProceed = true;
+            if (currentStep === 'calculate') {
+              const calculation = useCalculatorStore.getState().calculation;
+              canProceed = calculation?.status === 'completed';
+            } else {
+              canProceed = newCompletedSteps.includes(currentStep);
+            }
+
+            return {
+              completedSteps: newCompletedSteps,
+              canProceed,
+            };
+          });
         },
 
         markStepIncomplete: (step: WizardStep) => {
