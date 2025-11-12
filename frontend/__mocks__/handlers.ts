@@ -28,6 +28,7 @@ export const mockProducts: ProductListResponse = {
       category: 'Apparel',
       unit: 'unit',
       is_finished_product: true,
+      created_at: '2024-01-01T00:00:00Z',
     },
     {
       id: 'prod-002',
@@ -36,6 +37,7 @@ export const mockProducts: ProductListResponse = {
       category: 'Consumer Goods',
       unit: 'unit',
       is_finished_product: true,
+      created_at: '2024-01-01T00:00:00Z',
     },
     {
       id: 'prod-003',
@@ -44,6 +46,7 @@ export const mockProducts: ProductListResponse = {
       category: 'Electronics',
       unit: 'unit',
       is_finished_product: true,
+      created_at: '2024-01-01T00:00:00Z',
     },
   ],
   total: 3,
@@ -58,41 +61,43 @@ export const mockProductDetail: ProductDetail = {
   id: 'prod-001',
   code: 'TSHIRT-001',
   name: 'Cotton T-Shirt',
+  description: 'Organic cotton t-shirt',
   category: 'Apparel',
   unit: 'unit',
   is_finished_product: true,
-  bom: [
+  created_at: '2024-01-01T00:00:00Z',
+  bill_of_materials: [
     {
-      component_id: 'comp-001',
-      component_name: 'Organic Cotton Fabric',
+      id: 'comp-001',
+      child_product_id: 'mat-001',
+      child_product_name: 'Organic Cotton Fabric',
       quantity: 0.5,
       unit: 'kg',
-      category: 'material',
-      emission_factor_id: 'ef-cotton-001',
+      notes: null,
     },
     {
-      component_id: 'comp-002',
-      component_name: 'Polyester Thread',
+      id: 'comp-002',
+      child_product_id: 'mat-002',
+      child_product_name: 'Polyester Thread',
       quantity: 0.05,
       unit: 'kg',
-      category: 'material',
-      emission_factor_id: 'ef-polyester-001',
+      notes: null,
     },
     {
-      component_id: 'comp-003',
-      component_name: 'Electricity (Manufacturing)',
+      id: 'comp-003',
+      child_product_id: 'eng-001',
+      child_product_name: 'Electricity (Manufacturing)',
       quantity: 2.5,
       unit: 'kWh',
-      category: 'energy',
-      emission_factor_id: 'ef-electricity-001',
+      notes: null,
     },
     {
-      component_id: 'comp-004',
-      component_name: 'Transportation (Freight)',
+      id: 'comp-004',
+      child_product_id: 'trn-001',
+      child_product_name: 'Transportation (Freight)',
       quantity: 50,
       unit: 'tkm',
-      category: 'transport',
-      emission_factor_id: 'ef-transport-001',
+      notes: null,
     },
   ],
 };
@@ -103,76 +108,72 @@ export const mockProductDetail: ProductDetail = {
 export const mockCalculationResult: CalculationStatusResponse = {
   calculation_id: 'calc-123',
   product_id: 'prod-001',
-  product_name: 'Cotton T-Shirt',
   status: 'completed',
-  calculation_type: 'cradle_to_gate',
-  total_emissions: 12.456,
-  created_at: new Date().toISOString(),
-  completed_at: new Date().toISOString(),
-  breakdown: {
-    materials_emissions: 7.5,
-    energy_emissions: 2.8,
-    transport_emissions: 1.5,
-    waste_emissions: 0.656,
-  },
-  components: [
+  created_at: '2024-01-01T00:00:00Z',
+  total_co2e_kg: 12.456,
+  materials_co2e: 7.5,
+  energy_co2e: 2.8,
+  transport_co2e: 1.5,
+  calculation_time_ms: 150,
+};
+
+/**
+ * Mock emission factors data
+ */
+export const mockEmissionFactors = {
+  emission_factors: [
     {
-      component_id: 'comp-001',
-      component_name: 'Organic Cotton Fabric',
-      quantity: 0.5,
+      id: 'ef-cotton-001',
+      activity_name: 'Organic Cotton Fabric',
+      co2e_factor: 2.5,
       unit: 'kg',
-      category: 'material',
-      emission_factor_id: 'ef-cotton-001',
-      co2e_value: 7.5,
+      category: 'materials',
+      data_source: 'Ecoinvent',
+      geography: 'GLO',
+      reference_year: 2020,
+      data_quality_rating: 4,
+      created_at: '2024-01-01T00:00:00Z',
     },
     {
-      component_id: 'comp-002',
-      component_name: 'Polyester Thread',
-      quantity: 0.05,
+      id: 'ef-polyester-001',
+      activity_name: 'Polyester Thread',
+      co2e_factor: 5.5,
       unit: 'kg',
-      category: 'material',
-      emission_factor_id: 'ef-polyester-001',
-      co2e_value: 0.5,
+      category: 'materials',
+      data_source: 'Ecoinvent',
+      geography: 'GLO',
+      reference_year: 2020,
+      data_quality_rating: 4,
+      created_at: '2024-01-01T00:00:00Z',
     },
     {
-      component_id: 'comp-003',
-      component_name: 'Electricity (Manufacturing)',
-      quantity: 2.5,
+      id: 'ef-electricity-001',
+      activity_name: 'Electricity (Manufacturing)',
+      co2e_factor: 0.45,
       unit: 'kWh',
       category: 'energy',
-      emission_factor_id: 'ef-electricity-001',
-      co2e_value: 2.8,
+      data_source: 'EPA',
+      geography: 'US',
+      reference_year: 2022,
+      data_quality_rating: 5,
+      created_at: '2024-01-01T00:00:00Z',
     },
     {
-      component_id: 'comp-004',
-      component_name: 'Transportation (Freight)',
-      quantity: 50,
+      id: 'ef-transport-001',
+      activity_name: 'Transportation (Freight)',
+      co2e_factor: 0.062,
       unit: 'tkm',
       category: 'transport',
-      emission_factor_id: 'ef-transport-001',
-      co2e_value: 1.5,
+      data_source: 'DEFRA',
+      geography: 'UK',
+      reference_year: 2023,
+      data_quality_rating: 4,
+      created_at: '2024-01-01T00:00:00Z',
     },
   ],
-  sankey_data: {
-    nodes: [
-      { id: 'Product', name: 'Cotton T-Shirt' },
-      { id: 'Materials', name: 'Materials' },
-      { id: 'Energy', name: 'Energy' },
-      { id: 'Transport', name: 'Transport' },
-      { id: 'Waste', name: 'Waste' },
-      { id: 'Total', name: 'Total CO₂e' },
-    ],
-    links: [
-      { source: 'Product', target: 'Materials', value: 7.5 },
-      { source: 'Product', target: 'Energy', value: 2.8 },
-      { source: 'Product', target: 'Transport', value: 1.5 },
-      { source: 'Product', target: 'Waste', value: 0.656 },
-      { source: 'Materials', target: 'Total', value: 7.5 },
-      { source: 'Energy', target: 'Total', value: 2.8 },
-      { source: 'Transport', target: 'Total', value: 1.5 },
-      { source: 'Waste', target: 'Total', value: 0.656 },
-    ],
-  },
+  total: 4,
+  page: 1,
+  per_page: 50,
 };
 
 /**
@@ -240,7 +241,6 @@ export const handlers = [
     const response: CalculationStartResponse = {
       calculation_id: 'calc-123',
       status: 'pending',
-      message: 'Calculation submitted successfully',
     };
 
     return res(ctx.status(202), ctx.json(response));
@@ -262,6 +262,28 @@ export const handlers = [
           code: 'RESOURCE_NOT_FOUND',
           message: `Calculation with id '${id}' not found`,
         },
+      })
+    );
+  }),
+
+  // GET /api/v1/emission-factors - List emission factors
+  rest.get(`${API_BASE_URL}/emission-factors`, (req, res, ctx) => {
+    const category = req.url.searchParams.get('category');
+    const limit = parseInt(req.url.searchParams.get('limit') || '100');
+    const offset = parseInt(req.url.searchParams.get('offset') || '0');
+    let filteredFactors = mockEmissionFactors.emission_factors;
+
+    if (category) {
+      filteredFactors = filteredFactors.filter(f => f.category === category);
+    }
+
+    return res(
+      ctx.status(200),
+      ctx.json({
+        items: filteredFactors, // API expects 'items', not 'emission_factors'
+        total: filteredFactors.length,
+        limit,
+        offset,
       })
     );
   }),

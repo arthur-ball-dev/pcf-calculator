@@ -26,7 +26,7 @@ import type { ProductDetail, EmissionFactorListItem } from '@/types/api.types';
 // Mock products list data
 const mockProductsList: Product[] = [
   {
-    id: 1,
+    id: "1",
     code: 'TSHIRT-001',
     name: 'Cotton T-Shirt',
     category: 'Apparel',
@@ -34,7 +34,7 @@ const mockProductsList: Product[] = [
     is_finished_product: true,
   },
   {
-    id: 2,
+    id: "2",
     code: 'BOTTLE-001',
     name: 'Water Bottle',
     category: 'Consumer Goods',
@@ -100,9 +100,18 @@ const mockEmissionFactors: EmissionFactorListItem[] = [
 ];
 
 // Mock the APIs
+
+const mockProducts = [
+  { id: "1", name: 'Test Product', category: 'Electronics', code: 'TEST-001' },
+];
+
 vi.mock('../../src/services/api/products', () => ({
-  fetchProducts: vi.fn(),
   productsAPI: {
+    list: vi.fn(),
+    getById: vi.fn(),
+  },
+  fetchProducts: vi.fn(),
+}));
     list: vi.fn(),
     getById: vi.fn(),
   },
@@ -296,7 +305,7 @@ describe('ProductSelector - BOM Loading Integration (TASK-FE-019)', () => {
         quantity: 0.18,
         unit: 'kg',
         category: 'material',
-        emissionFactorId: 1, // Mapped to emission factor
+        emissionFactorId: "1", // Mapped to emission factor
         notes: undefined,
       });
 
@@ -307,7 +316,7 @@ describe('ProductSelector - BOM Loading Integration (TASK-FE-019)', () => {
         quantity: 0.02,
         unit: 'kg',
         category: 'material',
-        emissionFactorId: 2,
+        emissionFactorId: "2",
         notes: 'Collar trim',
       });
     });
@@ -348,7 +357,7 @@ describe('ProductSelector - BOM Loading Integration (TASK-FE-019)', () => {
       await waitFor(() => {
         const { bomItems } = useCalculatorStore.getState();
         expect(bomItems).toHaveLength(1);
-        expect(bomItems[0].emissionFactorId).toBe(1); // Should match despite case difference
+        expect(bomItems[0].emissionFactorId).toBe('1'); // Should match despite case difference
       });
     });
 
@@ -570,7 +579,7 @@ describe('ProductSelector - BOM Loading Integration (TASK-FE-019)', () => {
           expect(item.unit).toBeDefined();
           expect(item.category).toBeDefined();
           // emissionFactorId can be null for unmatched items
-          expect(typeof item.emissionFactorId === 'number' || item.emissionFactorId === null).toBe(true);
+          expect(typeof item.emissionFactorId === 'string' || item.emissionFactorId === null).toBe(true);
         });
       });
     });
