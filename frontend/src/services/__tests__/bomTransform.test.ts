@@ -185,7 +185,7 @@ describe('bomTransform Service', () => {
         quantity: 0.18,
         unit: 'kg',
         category: 'material',
-        emissionFactorId: 1, // Mapped from emission factor id
+        emissionFactorId: "1", // Mapped from emission factor id
         notes: undefined,
       });
 
@@ -196,7 +196,7 @@ describe('bomTransform Service', () => {
         quantity: 0.02,
         unit: 'kg',
         category: 'material',
-        emissionFactorId: 2,
+        emissionFactorId: "2",
         notes: 'Collar trim',
       });
     });
@@ -256,8 +256,8 @@ describe('bomTransform Service', () => {
       const result = transformAPIBOMToFrontend(bomWithDifferentCase, mockEmissionFactors);
 
       expect(result).toHaveLength(2);
-      expect(result[0].emissionFactorId).toBe(1); // Cotton matched
-      expect(result[1].emissionFactorId).toBe(2); // Polyester matched
+      expect(result[0].emissionFactorId).toBe('1'); // Cotton matched
+      expect(result[1].emissionFactorId).toBe('2'); // Polyester matched
     });
 
     it('should preserve original BOM item ID from API', () => {
@@ -332,9 +332,9 @@ describe('bomTransform Service', () => {
       const result = transformAPIBOMToFrontend(mixedBOM, mockEmissionFactors);
 
       expect(result).toHaveLength(3);
-      expect(result[0].emissionFactorId).toBe(1); // Cotton - matched
+      expect(result[0].emissionFactorId).toBe('1'); // Cotton - matched
       expect(result[1].emissionFactorId).toBeNull(); // Unknown - not matched
-      expect(result[2].emissionFactorId).toBe(2); // Polyester - matched
+      expect(result[2].emissionFactorId).toBe('2'); // Polyester - matched
     });
 
     it('should infer energy category for electricity components', () => {
@@ -353,7 +353,7 @@ describe('bomTransform Service', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].category).toBe('energy');
-      expect(result[0].emissionFactorId).toBe(3); // Matched to Electricity emission factor
+      expect(result[0].emissionFactorId).toBe('3'); // Matched to Electricity emission factor
     });
   });
 

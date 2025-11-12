@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, RenderOptions, RenderResult } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 
@@ -26,8 +27,18 @@ export function renderWithProviders(
   ui: React.ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>
 ): RenderResult {
+  // Create a new QueryClient for each test to ensure isolation
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false, // Disable retries in tests
+        cacheTime: 0, // Disable caching in tests
+      },
+    },
+  });
+
   function Wrapper({ children }: { children: React.ReactNode }) {
-    return <>{children}</>;
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   }
 
   return render(ui, { wrapper: Wrapper, ...options });
