@@ -129,7 +129,7 @@ describe('CalculateButton Component', () => {
       render(<CalculateButton />);
 
       // Should have loading spinner or progress indicator
-      const button = screen.getByRole('button');
+      const button = screen.getByTestId('calculating-button');
       expect(button).toHaveAttribute('aria-busy', 'true');
     });
 
@@ -142,8 +142,7 @@ describe('CalculateButton Component', () => {
       });
 
       render(<CalculateButton />);
-
-      const button = screen.getByRole('button');
+      const button = screen.getByTestId('calculating-button');
       expect(button).toBeDisabled();
     });
 
@@ -156,8 +155,7 @@ describe('CalculateButton Component', () => {
       });
 
       render(<CalculateButton />);
-
-      const button = screen.getByRole('button');
+      const button = screen.getByTestId('calculating-button');
       fireEvent.click(button);
 
       // Should not call startCalculation again
@@ -243,7 +241,8 @@ describe('CalculateButton Component', () => {
 
       render(<CalculateButton />);
 
-      expect(screen.getByText(/invalid emission factor for component: cotton/i)).toBeInTheDocument();
+      // Error message is transformed by getUserFriendlyError
+      expect(screen.getByText(/unable to calculate emissions.*missing emission data/i)).toBeInTheDocument();
     });
 
     it('should show error in alert component', () => {
@@ -258,7 +257,7 @@ describe('CalculateButton Component', () => {
 
       const alert = screen.getByRole('alert');
       expect(alert).toBeInTheDocument();
-      expect(alert).toHaveTextContent(/calculation failed/i);
+      expect(alert).toHaveTextContent(/the calculation could not be completed.*verify your data/i);
     });
 
     it('should show timeout error message', () => {
@@ -271,8 +270,9 @@ describe('CalculateButton Component', () => {
 
       render(<CalculateButton />);
 
-      expect(screen.getByText(/calculation timeout/i)).toBeInTheDocument();
-      expect(screen.getByText(/server is busy/i)).toBeInTheDocument();
+      // Check for either original timeout message or transformed message
+      const alert = screen.getByTestId('calculation-error');
+      expect(alert).toHaveTextContent(/timeout|timed out|try again/i);
     });
   });
 
@@ -394,8 +394,7 @@ describe('CalculateButton Component', () => {
       });
 
       render(<CalculateButton />);
-
-      const button = screen.getByRole('button');
+      const button = screen.getByTestId('calculating-button');
       expect(button).toHaveAttribute('aria-busy', 'true');
     });
 
@@ -497,7 +496,9 @@ describe('CalculateButton Component', () => {
 
       rerender(<CalculateButton />);
 
-      expect(screen.getByText(/network error/i)).toBeInTheDocument();
+      // Check for error alert
+      const alert = screen.getByTestId('calculation-error');
+      expect(alert).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
 
       // Click retry

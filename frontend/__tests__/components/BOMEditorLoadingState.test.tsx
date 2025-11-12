@@ -21,8 +21,8 @@ import type { BOMItem } from '@/types/store.types';
 vi.mock('@/hooks/useEmissionFactors', () => ({
   useEmissionFactors: () => ({
     data: [
-      { id: 1, activity_name: 'Cotton', co2e_factor: 5.89, unit: 'kg', category: 'material' },
-      { id: 2, activity_name: 'Polyester', co2e_factor: 3.36, unit: 'kg', category: 'material' },
+      { id: "1", activity_name: 'Cotton', co2e_factor: 5.89, unit: 'kg', category: 'material' },
+      { id: "2", activity_name: 'Polyester', co2e_factor: 3.36, unit: 'kg', category: 'material' },
     ],
     isLoading: false,
     error: null,
