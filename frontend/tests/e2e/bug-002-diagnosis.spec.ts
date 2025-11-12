@@ -37,7 +37,7 @@ test.describe('BUG-002 Diagnosis: Wizard Navigation Broken', () => {
     });
 
     // Navigate to app
-    await page.goto('http://localhost:5174');
+    await page.goto('http://localhost:5173');
     await page.waitForLoadState('networkidle');
 
     // Wait for ProductSelector to load
@@ -50,10 +50,25 @@ test.describe('BUG-002 Diagnosis: Wizard Navigation Broken', () => {
     await selectTrigger.click();
     await page.waitForTimeout(500);
 
+    // Setup listener for product detail API call BEFORE selecting
+    const productDetailPromise = page.waitForResponse(
+      (response) =>
+        response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) &&
+        response.request().method() === 'GET' &&
+        response.status() === 200,
+      { timeout: 10000 }
+    );
+
     // Select a product
     const productOption = page.locator('[data-testid="product-option-86ec41d652904f738c7f0cd85bfba490"]').first();
     await productOption.click();
-    await page.waitForTimeout(1000);
+
+    // Wait for product detail API to complete (includes BOM data)
+    await productDetailPromise;
+
+    // Give BOM transform time to process and update UI
+    // Give BOM transform more time to process and update UI (Issue A fix)
+    await page.waitForTimeout(2000);
 
     console.log('Product selected, waiting for step completion...');
 

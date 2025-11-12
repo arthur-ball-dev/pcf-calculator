@@ -167,11 +167,26 @@ test.describe('Visual & UX Flow Validation', () => {
     await expect(page.locator('h2:has-text("Select Product")')).toBeVisible();
 
     // Find and click the product selector trigger (shadcn/ui Select component)
+    // Wait for product selector to be ready (Issue B fix)
+    await page.waitForSelector('button[role="combobox"]', {
+      state: 'visible',
+      timeout: 10000
+    });
+
     const selectTrigger = page.locator('button[role="combobox"]').first();
     await selectTrigger.click();
 
     // Wait for dropdown to appear
     await page.waitForTimeout(300);
+
+    // Setup listener for product detail API call BEFORE selecting
+    const productDetailPromise = page.waitForResponse(
+      (response) =>
+        response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) &&
+        response.request().method() === 'GET' &&
+        response.status() === 200,
+      { timeout: 10000 }
+    );
 
     // Select first available product from dropdown
     // The options appear in a portal div with role="option"
@@ -179,8 +194,11 @@ test.describe('Visual & UX Flow Validation', () => {
     await expect(firstOption).toBeVisible({ timeout: 5000 });
     await firstOption.click();
 
-    // Wait for selection to be processed
-    await page.waitForTimeout(500);
+    // Wait for product detail API to complete (includes BOM data)
+    await productDetailPromise;
+
+    // Give BOM transform time to process and update UI
+    await page.waitForTimeout(2000);
 
     // Screenshot of Step 1 complete
     await page.screenshot({
@@ -223,7 +241,7 @@ test.describe('Visual & UX Flow Validation', () => {
     });
 
     // Click Calculate button
-    const calculateButton = page.locator('button:has-text("Calculate")').first();
+    const calculateButton = page.getByTestId('calculate-button');
     await expect(calculateButton).toBeVisible();
     await calculateButton.click();
 
@@ -243,7 +261,7 @@ test.describe('Visual & UX Flow Validation', () => {
 
     // Verify results contain CO2e values (check for "kg CO2e" text)
     const resultsText = await page.textContent('body');
-    expect(resultsText).toContain('kg CO2e');
+    expect(resultsText).toContain('kg CO₂e');
 
     // Test Previous button functionality
     const previousButton = page.locator('button:has-text("Previous")');
@@ -274,15 +292,29 @@ test.describe('Visual & UX Flow Validation', () => {
     await selectTrigger.click();
     await page.waitForTimeout(300);
 
+    // Setup listener for product detail API call BEFORE selecting
+    const productDetailPromise = page.waitForResponse(
+      (response) =>
+        response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) &&
+        response.request().method() === 'GET' &&
+        response.status() === 200,
+      { timeout: 10000 }
+    );
+
     const firstOption = page.locator('[role="option"]').first();
     await firstOption.click();
-    await page.waitForTimeout(500);
+
+    // Wait for product detail API to complete (includes BOM data)
+    await productDetailPromise;
+
+    // Give BOM transform time to process and update UI
+    await page.waitForTimeout(2000);
 
     // Go to Step 2
     const nextButton = page.locator('button:has-text("Next")');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
     // Verify we're on Step 2
     const step2Heading = page.locator('h2').filter({ hasText: /BOM|Bill/ });
@@ -294,7 +326,7 @@ test.describe('Visual & UX Flow Validation', () => {
     // Find first quantity input field
     // BOM Editor uses input fields for quantity editing
     const quantityInputs = page.locator('input[type="number"]');
-    const firstQuantityInput = quantityInputs.first();
+    const firstQuantityInput = page.getByTestId('bom-item-quantity').first();
 
     // Check if input exists
     const inputCount = await quantityInputs.count();
@@ -354,15 +386,29 @@ test.describe('Visual & UX Flow Validation', () => {
     await selectTrigger.click();
     await page.waitForTimeout(300);
 
+    // Setup listener for product detail API call BEFORE selecting
+    const productDetailPromise = page.waitForResponse(
+      (response) =>
+        response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) &&
+        response.request().method() === 'GET' &&
+        response.status() === 200,
+      { timeout: 10000 }
+    );
+
     const firstOption = page.locator('[role="option"]').first();
     await firstOption.click();
-    await page.waitForTimeout(500);
+
+    // Wait for product detail API to complete (includes BOM data)
+    await productDetailPromise;
+
+    // Give BOM transform time to process and update UI
+    await page.waitForTimeout(2000);
 
     // Go to Step 2
     const nextButton = page.locator('button:has-text("Next")');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
     // Verify we're on Step 2
     const step2Heading = page.locator('h2').filter({ hasText: /BOM|Bill/ });
@@ -379,7 +425,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await expect(step3Heading).toBeVisible({ timeout: 10000 });
 
     // Click Calculate button
-    const calculateButton = page.locator('button:has-text("Calculate")').first();
+    const calculateButton = page.getByTestId('calculate-button');
     await expect(calculateButton).toBeVisible();
     await calculateButton.click();
 

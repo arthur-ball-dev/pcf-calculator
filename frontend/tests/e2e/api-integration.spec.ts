@@ -27,18 +27,38 @@ import { test, expect } from '@playwright/test';
  */
 async function selectFirstProduct(page: any) {
   // Click to open dropdown
+  // Wait for product selector to be ready (Issue B fix)
+  await page.waitForSelector('[data-testid="product-select-trigger"]', {
+    state: 'visible',
+    timeout: 10000
+  });
+
+  // Optional: Additional buffer for React rendering
+  await page.waitForTimeout(500);
+
   const trigger = page.getByTestId('product-select-trigger');
   await trigger.click();
 
   // Wait for animation/render
   await page.waitForTimeout(500);
 
+  // Setup listener for product detail API call BEFORE selecting
+  const productDetailPromise = page.waitForResponse(
+    (response) =>
+      response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) &&
+      response.request().method() === 'GET' &&
+      response.status() === 200,
+    { timeout: 10000 }
+  );
+
   // Use keyboard navigation to select first option
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
 
-  // Wait for selection to complete
-  await page.waitForTimeout(500);
+  // Wait for product detail API to complete (includes BOM data)
+  await productDetailPromise;
+  // Give BOM transform time to process and update UI
+  await page.waitForTimeout(2000);
 }
 
 /**
@@ -392,6 +412,11 @@ test('completes full calculation flow end-to-end', async ({ page }) => {
   await expect(page.getByTestId('results-display')).toBeVisible({ timeout: 30000 });
   await expect(page.getByTestId('results-summary')).toBeVisible();
   await expect(page.getByTestId('total-co2e')).toBeVisible();
+
+  // Verify results contain Unicode CO₂e (Issue D fix)
+  const resultsText = await page.textContent('body');
+  expect(resultsText).toContain('kg CO₂e');
+
 
   // Verify New Calculation button exists
   await expect(page.getByTestId('new-calculation-action-button')).toBeVisible();
