@@ -10,12 +10,19 @@
  * - Maximum 100 items constraint
  *
  * Used by BOMEditor with React Hook Form's useFieldArray.
+ *
+ * UPDATED: TASK-FE-020 - UUID type system migration
+ * - emissionFactorId: z.number() → z.string()
+ * - Validates UUID strings (not numbers)
+ * - Prevents parseInt truncation at form validation layer
  */
 
 import { z } from 'zod';
 
 /**
  * Single BOM item validation schema
+ *
+ * UPDATED: emissionFactorId changed from number to string for UUID support
  */
 export const bomItemSchema = z.object({
   id: z.string().min(1, 'Item ID is required'),
@@ -35,9 +42,11 @@ export const bomItemSchema = z.object({
     errorMap: () => ({ message: 'Please select a valid category' })
   }),
 
-  emissionFactorId: z.number()
-    .int()
-    .positive('Please select an emission factor')
+  // UPDATED: number → string for UUID support
+  // Accepts string UUIDs like '471fe408a2604386bae572d9fc9a6b5c'
+  // or null if user hasn't selected an emission factor yet
+  emissionFactorId: z.string()
+    .min(1, 'Please select an emission factor')
     .nullable()
     .refine(val => val !== null, {
       message: 'Please select an emission factor'
