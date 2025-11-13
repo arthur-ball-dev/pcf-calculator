@@ -39,3 +39,12 @@ CC-project-docs/github-manual-security-audit.md
 
 # Brightway2 data (may contain local paths)
 brightway2_data/
+
+# Test artifacts and reports
+test-results/
+playwright-report/
+frontend/test-results/
+frontend/playwright-report/
+frontend/screenshots/
+frontend/debug-screenshots/
+*.backup
