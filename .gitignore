@@ -48,3 +48,8 @@ frontend/playwright-report/
 frontend/screenshots/
 frontend/debug-screenshots/
 *.backup
+frontend/performance-reports/
+project-sdlc-admin/handoffs/*/artifacts-archived-*/
+demo-screenshots/
+frontend/performance-reports/
+docs/phase4-evidence/

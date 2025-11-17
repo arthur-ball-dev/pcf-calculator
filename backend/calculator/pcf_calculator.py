@@ -246,14 +246,14 @@ class PCFCalculator:
                 if node_name not in [item["name"] for item in flat_bom]:
                     flat_bom.append({
                         "name": node_name,
-                        "quantity": cumulative_qty * float(node["quantity"]),
+                        "quantity": cumulative_qty,
                         "unit": node["unit"]
                     })
                 else:
                     # Accumulate quantities for duplicate materials
                     for item in flat_bom:
                         if item["name"] == node_name:
-                            item["quantity"] += cumulative_qty * float(node["quantity"])
+                            item["quantity"] += cumulative_qty
 
         # Start traversal from root
         traverse(bom_tree)
