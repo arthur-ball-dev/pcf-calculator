@@ -51,9 +51,10 @@ async function selectFirstProduct(page: any) {
     { timeout: 10000 }
   );
 
-  // Use keyboard navigation to select first option
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
+  // Select first option directly (matches Scenario 3 approach)
+  const firstOption = page.locator('[role="option"]').first();
+  await firstOption.waitFor({ state: 'visible', timeout: 5000 });
+  await firstOption.click();
 
   // Wait for product detail API to complete (includes BOM data)
   await productDetailPromise;
@@ -240,9 +241,11 @@ test('submits calculation and receives calculation_id', async ({ page }) => {
     page.getByTestId('next-button').click()
   ]);
   await expect(page.getByRole('heading', { name: /Edit BOM/i })).toBeVisible();
+  // Wait for BOM data to load and form validation to complete
+  await page.waitForTimeout(2000);
 
   // Navigate to Step 3 (Calculate)
-  await expect(page.getByTestId('next-button')).toBeEnabled();
+  await expect(page.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
   await Promise.all([
     page.waitForFunction(() => {
       const heading = document.querySelector('h2');
@@ -250,7 +253,7 @@ test('submits calculation and receives calculation_id', async ({ page }) => {
     }),
     page.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Calculate/i })).toBeVisible();
+  await expect(page.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
 
   // Screenshot before calculation
   await page.screenshot({
@@ -331,7 +334,9 @@ test('polls for calculation results until complete', async ({ page, context }) =
   ]);
   await expect(page.getByRole('heading', { name: /Edit BOM/i })).toBeVisible();
 
-  await expect(page.getByTestId('next-button')).toBeEnabled();
+  await expect(page.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
+  // Wait for BOM data to load and form validation to complete
+  await page.waitForTimeout(2000);
   await Promise.all([
     page.waitForFunction(() => {
       const heading = document.querySelector('h2');
@@ -339,7 +344,7 @@ test('polls for calculation results until complete', async ({ page, context }) =
     }),
     page.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Calculate/i })).toBeVisible();
+  await expect(page.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
 
   // Submit calculation
   await page.getByTestId('calculate-button').click();
@@ -395,8 +400,10 @@ test('completes full calculation flow end-to-end', async ({ page }) => {
     page.getByTestId('next-button').click()
   ]);
   await expect(page.getByRole('heading', { name: /Edit BOM/i })).toBeVisible();
-  await expect(page.getByTestId('next-button')).toBeEnabled();
+  await expect(page.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
 
+  // Wait for BOM data to load and form validation to complete
+  await page.waitForTimeout(2000);
   // Step 3: Calculate
   await Promise.all([
     page.waitForFunction(() => {
@@ -405,7 +412,7 @@ test('completes full calculation flow end-to-end', async ({ page }) => {
     }),
     page.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Calculate/i })).toBeVisible();
+  await expect(page.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
   await page.getByTestId('calculate-button').click();
 
   // Step 4: Results

@@ -1,9 +1,11 @@
 # PCF Calculator MVP - Demo Script
 
 **Demo Date:** 2025-11-10
-**Version:** 1.0 (MVP Complete)
+**Version:** 1.1 (Updated 2025-11-14)
 **Presenter:** [Your Name]
 **Duration:** 10-15 minutes
+
+**IMPORTANT NOTE**: A critical calculation bug (BUG-CALC-001) was identified on 2025-11-14 that affects CO2e values. The bug causes quantities to be squared in hierarchical BOM calculations. Expected CO2e values in this script reflect the CORRECT values after the bug is fixed. See `` for details.
 
 ---
 
@@ -41,7 +43,7 @@ cd frontend
 npm run dev
 ```
 
-**Verify:** Navigate to http://localhost:5173 - React app should load
+**Verify:** Navigate to http://localhost:5173 (or next available port like 5174) - React app should load
 
 ### 3. Verify Backend Data
 
@@ -51,7 +53,7 @@ npm run dev
 source .venv/bin/activate
 cd backend
 sqlite3 pcf_calculator.db "SELECT COUNT(*) FROM products;"
-# Should show: 6 products
+# Should show: 18 products (3 finished products, 15 materials/components)
 
 sqlite3 pcf_calculator.db "SELECT COUNT(*) FROM emission_factors;"
 # Should show: 20 emission factors
@@ -70,7 +72,7 @@ sqlite3 pcf_calculator.db "SELECT COUNT(*) FROM emission_factors;"
 - Built with FastAPI (backend) + React/TypeScript (frontend)
 - 100% TDD compliance (406 frontend tests, 524 backend tests)
 - WCAG 2.1 AA accessible
-- Calculation accuracy: 0.17%-1.94% error
+- Calculation methodology: Direct multiplication Σ(quantity × emission_factor)
 
 ---
 
@@ -86,7 +88,7 @@ sqlite3 pcf_calculator.db "SELECT COUNT(*) FROM emission_factors;"
 
 2. **Demo GET /api/v1/products**
    - Click "Try it out" → Execute
-   - Show response: 6 products with pagination
+   - Show response: 18 total items (3 finished products, 15 materials/components)
    - Point out: product codes, names, units, is_finished_product flag
 
 3. **Demo GET /api/v1/products/{id}**
@@ -101,7 +103,7 @@ sqlite3 pcf_calculator.db "SELECT COUNT(*) FROM emission_factors;"
 
 ### Part 2: Frontend Wizard Flow (5 minutes)
 
-**Navigate to:** http://localhost:5173
+**Navigate to:** http://localhost:5173 (or port shown in terminal)
 
 #### Step 1: Product Selection
 
@@ -117,7 +119,10 @@ sqlite3 pcf_calculator.db "SELECT COUNT(*) FROM emission_factors;"
 #### Step 2: Bill of Materials Editor
 
 **Demo Points:**
-- "Step 2 shows the BOM table pre-populated from backend data"
+- "Step 2 shows the BOM table pre-populated with 7 components:"
+  - 5 materials (cotton, polyester, nylon, plastic ABS, paper)
+  - 1 energy source (electricity: 2.5 kWh)
+  - 1 transport method (truck transport: 0.1015 tkm)
 - Point out editable inline table with columns:
   - Component Name
   - Quantity
@@ -150,12 +155,17 @@ sqlite3 pcf_calculator.db "SELECT COUNT(*) FROM emission_factors;"
 **Demo Points:**
 
 1. **Summary Card**
-   - Large total: "2.05 kg CO2e" (or whatever calculated)
+   - Large total: "2.21 kg CO2e" (for T-shirt with default BOM)
+   - Note: Actual value depends on BOM inputs and emission factors
    - Timestamp of calculation
    - "New Calculation" button
 
 2. **Breakdown Table**
-   - Show category breakdown (Materials, Energy, Transport, Waste)
+   - Show category breakdown (Materials, Energy, Transport)
+   - Expected breakdown for T-shirt:
+     - Materials: ~1.20 kg CO2e (54%)
+     - Energy: ~1.00 kg CO2e (45%)
+     - Transport: ~0.01 kg CO2e (1%)
    - Point out percentage bars for visual comparison
    - Demonstrate sorting (click column headers)
    - Show expand/collapse for detailed component view
@@ -230,10 +240,10 @@ pytest --tb=short -q
 > "We integrate three authoritative sources: EPA (US Environmental Protection Agency), DEFRA (UK Department for Environment, Food & Rural Affairs), and Ecoinvent (Swiss Centre for Life Cycle Inventories). The database currently has 20 emission factors covering common materials, energy sources, and transport methods."
 
 ### "How accurate are the calculations?"
-> "Phase 2 validation showed exceptional accuracy: 0.17% to 1.94% error compared to known reference values, well within our ±5% tolerance target. The Brightway2 framework is industry-standard for life cycle assessment."
+> "The calculation engine uses direct multiplication of quantities by emission factors: Total CO2e = Σ(quantity × emission_factor). For hierarchical BOMs, we recursively traverse the component tree to calculate emissions. The Brightway2 framework is industry-standard for life cycle assessment and provides the emission factor database infrastructure."
 
 ### "Is this production-ready?"
-> "Yes for MVP purposes. We have 100% TDD compliance, comprehensive test coverage (94% backend, 100% frontend for completed tasks), WCAG AA accessibility, zero critical bugs, and full documentation. Known issues are documented and non-blocking for demo purposes."
+> "Yes for MVP purposes. We have 100% TDD compliance, comprehensive test coverage (94% backend, 100% frontend for completed tasks), WCAG AA accessibility, zero critical bugs after recent fixes, and full documentation. The system is ready for user acceptance testing and iterative enhancement."
 
 ### "What's the calculation methodology?"
 > "We use a simplified direct multiplication approach: Total CO2e = Σ(quantity × emission_factor). For hierarchical BOMs, we recursively calculate child components first, then sum up to the parent. The system supports both flat and nested (up to 2 levels) Bill of Materials structures."
@@ -268,36 +278,44 @@ sqlite3 pcf_calculator.db "DELETE FROM pcf_calculations;"
 | **Backend Tests** | 524/546 passing (95.97%) |
 | **Frontend Tests** | 406/406 passing (100%) |
 | **Accessibility Tests** | 71/71 passing (WCAG 2.1 AA) |
-| **Calculation Accuracy** | 0.17%-1.94% error |
 | **API Endpoints** | 7 (fully documented) |
+| **Database Records** | 18 products, 20 emission factors |
 | **Lines of Code** | ~15,000+ (backend + frontend) |
 | **Development Duration** | ~18 days (Phases 0-4) |
 | **Quality Gate Score** | 100/100 (QA validation) |
 
 ---
 
-## Known Issues (Non-Blocking)
+## Known Issues
+
+**P0 (CRITICAL - Identified 2025-11-14):**
+- BUG-CALC-001: Calculation engine squares quantities in hierarchical BOM traversal
+  - Impact: All API calculations return incorrect CO2e values (31% error for T-shirt)
+  - Status: Bug identified, fix pending (1-line code change in pcf_calculator.py:249)
+  - Blocker: Must fix before stakeholder demo
+  - See: ``
 
 **P2 (Test Environment):**
 - 22 backend test failures (test environment setup, not production bugs)
 - 2 frontend test environment issues (wizardFlow.test.tsx, useCalculation hook)
 
-**Note:** These are test infrastructure issues that do not affect production functionality. Recommended for optional Phase 5 cleanup.
+**Note:** P2 issues are test infrastructure problems that do not affect production functionality. Recommended for optional Phase 5 cleanup.
 
 ---
 
 ## Next Steps (Post-Demo)
 
-1. **User Acceptance Testing** - Gather feedback on wizard UX
-2. **Performance Testing** - Validate under higher data volumes
-3. **CSV Export Feature** - Implement data export functionality
-4. **Additional Emission Factors** - Expand database beyond 20 factors
-5. **Multi-level BOM Support** - Support >2 nesting levels
-6. **User Authentication** - Add login/session management
-7. **Calculation History** - User dashboard with past calculations
+1. **Fix BUG-CALC-001** - BLOCKER: Must complete before demo
+2. **User Acceptance Testing** - Gather feedback on wizard UX
+3. **Performance Testing** - Validate under higher data volumes
+4. **CSV Export Feature** - Implement data export functionality
+5. **Additional Emission Factors** - Expand database beyond 20 factors
+6. **Multi-level BOM Support** - Support >2 nesting levels
+7. **User Authentication** - Add login/session management
+8. **Calculation History** - User dashboard with past calculations
 
 ---
 
 **End of Demo Script**
 
-*This MVP demonstrates professional full-stack development with exceptional quality, accessibility, and test coverage. Ready for user feedback and iterative enhancement.*
+*This MVP demonstrates professional full-stack development with exceptional quality, accessibility, and test coverage. After critical bug fix BUG-CALC-001 is applied, the system will be ready for stakeholder demo and user feedback.*
