@@ -1,0 +1,41 @@
+# Railway.toml - Railway Platform Configuration
+# Place this file in the root of your repository
+# Documentation: https://docs.railway.app/deploy/config-as-code
+
+[build]
+builder = "NIXPACKS"
+
+# Only watch these paths for changes - ignores , knowledge/, etc.
+# This prevents unnecessary deployments when you update documentation
+watchPaths = [
+  "backend/**",
+  "frontend/src/**", 
+  "frontend/public/**",
+  "data/**",
+  "backend/requirements.txt",
+  "frontend/package.json",
+  "frontend/package-lock.json",
+  "railway.toml",
+  "Procfile"
+]
+
+[deploy]
+# Command to start the application
+# Note: $PORT is automatically provided by Railway
+startCommand = "cd backend && python seed_data.py && uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+# Health check configuration
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+
+# Restart policy
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Number of replicas (1 for MVP, scale up later)
+numReplicas = 1
+
+# Railway will automatically detect Python and Node.js
+# Ensure these versions in Railway environment variables:
+# PYTHON_VERSION=3.13
+# NODE_VERSION=20
