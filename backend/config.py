@@ -39,9 +39,21 @@ class Settings(BaseSettings):
     )
 
     # CORS settings - allow multiple frontend ports (3000=old, 5173=Vite default, 5174-5175=alternates)
+    # Railway deployment: Set CORS_ORIGINS env var with Railway URL
     cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
-        description="Allowed CORS origins"
+        default=[
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:5175",
+        ],
+        description="Allowed CORS origins (comma-separated for Railway deployment)"
+    )
+
+    # Railway deployment URL (optional - auto-appends to CORS if set)
+    railway_public_url: Optional[str] = Field(
+        default=None,
+        description="Railway public domain (e.g., https://pcf-calculator-production.up.railway.app)"
     )
 
     # API settings
@@ -52,6 +64,11 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+
+    def model_post_init(self, __context) -> None:
+        """Post-initialization hook to add Railway URL to CORS origins if set"""
+        if self.railway_public_url and self.railway_public_url not in self.cors_origins:
+            self.cors_origins.append(self.railway_public_url)
 
 
 # Global settings instance
