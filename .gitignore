@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.pyc
+**/__pycache__/
 
 # Virtual environments (root level)
 .venv/
@@ -9,20 +10,27 @@ venv/
 # IDE
 .idea/
 
-# Project runtime/output
+# Project runtime/output (only allow logs/ at root)
 logs/
-backend/logs/
-hooks/utils/logs/
-data/sessions/
-project-sdlc-admin/handoffs/logs/
 *.log
 
-# Development runtime data
+# Development runtime data (only allow  at root)
 data/
 settings.local.json
 sensitive_patterns.json
 CC-project-docs/github-manual-security-audit.md
 .mcp.json
+
+# CRITICAL: Block  and logs/ directories ANYWHERE in subdirectories
+# These should ONLY exist at project root for security and deployment hygiene
+**/
+**/logs/
+
+# Explicitly allow root-level  and logs/ (negate the above rules)
+!/
+!/logs/
+!/**
+!/logs/**
 
 # Database files (runtime data)
 *.db
@@ -40,6 +48,11 @@ CC-project-docs/github-manual-security-audit.md
 # Brightway2 data (may contain local paths)
 brightway2_data/
 
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
 # Test artifacts and reports
 test-results/
 playwright-report/
@@ -51,5 +64,4 @@ frontend/debug-screenshots/
 frontend/performance-reports/
 project-sdlc-admin/handoffs/*/artifacts-archived-*/
 demo-screenshots/
-frontend/performance-reports/
 docs/phase4-evidence/
