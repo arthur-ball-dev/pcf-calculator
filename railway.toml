@@ -21,7 +21,7 @@ watchPaths = [
 
 # Nixpacks configuration for Python + Node monorepo
 [build.nixpacksPlan.phases.setup]
-nixPkgs = ["python313", "nodejs_20"]
+nixPkgs = ["python3", "nodejs_20"]
 
 [build.nixpacksPlan.phases.install]
 cmds = [
