@@ -8,4 +8,5 @@ web: PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $
 
 # Release phase - runs before web service starts
 # Runs database migrations and seeds initial data
-release: cd backend && PYTHONPATH=/app python3 -m alembic upgrade head && PYTHONPATH=/app python3 scripts/seed_data.py
+# All commands run from /app root for consistent database location
+release: PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py
