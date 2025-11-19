@@ -9,7 +9,7 @@ builder = "NIXPACKS"
 # This prevents unnecessary deployments when you update documentation
 watchPaths = [
   "backend/**",
-  "frontend/src/**", 
+  "frontend/src/**",
   "frontend/public/**",
   "data/**",
   "backend/requirements.txt",
@@ -17,6 +17,22 @@ watchPaths = [
   "frontend/package-lock.json",
   "railway.toml",
   "Procfile"
+]
+
+# Nixpacks configuration for Python + Node monorepo
+[build.nixpacksConfigPath]
+
+[build.nixpacksPlan]
+providers = ["python", "node"]
+
+[build.nixpacksPlan.phases.setup]
+nixPkgs = ["python313", "nodejs_20"]
+
+[build.nixpacksPlan.phases.install]
+cmds = [
+  "pip install -r backend/requirements.txt",
+  "cd frontend && npm ci",
+  "cd frontend && npm run build"
 ]
 
 [deploy]
@@ -34,8 +50,3 @@ restartPolicyMaxRetries = 10
 
 # Number of replicas (1 for MVP, scale up later)
 numReplicas = 1
-
-# Railway will automatically detect Python and Node.js
-# Ensure these versions in Railway environment variables:
-# PYTHON_VERSION=3.13
-# NODE_VERSION=20
