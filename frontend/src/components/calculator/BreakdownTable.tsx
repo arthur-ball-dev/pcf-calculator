@@ -10,7 +10,7 @@
  * TASK-FE-009: Results Dashboard - Breakdown Table
  */
 
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import {
   Table,

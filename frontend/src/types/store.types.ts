@@ -59,8 +59,8 @@ export interface Product {
   id: string; // UPDATED: number → string (32-char hex UUID)
   code: string;
   name: string;
-  category: string;
-  unit: UnitType;
+  category: string | null; // UPDATED: Made nullable to match API ProductListItem/ProductDetail
+  unit: string; // UPDATED: Changed from UnitType enum to string to match API
   is_finished_product: boolean;
   metadata?: Record<string, unknown>;
 }

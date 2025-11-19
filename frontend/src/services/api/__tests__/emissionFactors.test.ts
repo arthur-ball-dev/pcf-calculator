@@ -25,6 +25,7 @@ describe('emissionFactorsAPI', () => {
           {
             id: '1',
             activity_name: 'Cotton',
+            category: 'materials',
             co2e_factor: 5.89,
             unit: 'kg CO2e/kg',
             data_source: 'Ecoinvent',
@@ -36,6 +37,7 @@ describe('emissionFactorsAPI', () => {
           {
             id: '2',
             activity_name: 'Polyester',
+            category: 'materials',
             co2e_factor: 3.36,
             unit: 'kg CO2e/kg',
             data_source: 'Ecoinvent',
@@ -89,6 +91,7 @@ describe('emissionFactorsAPI', () => {
       const mockItems = Array.from({ length: 100 }, (_, i) => ({
         id: String(i + 1),
         activity_name: `Factor ${i + 1}`,
+        category: 'materials',
         co2e_factor: 1.0 + i * 0.1,
         unit: 'kg CO2e/kg',
         data_source: 'Test',

@@ -31,6 +31,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_plastic_abs',
           activity_name: 'plastic_abs', // Database format: lowercase with underscore
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -64,6 +65,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_electricity_us',
           activity_name: 'electricity_us',
+      category: 'materials',
           co2e_factor: 0.4,
           unit: 'kg CO2e/kWh',
           data_source: 'EPA',
@@ -98,6 +100,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_transport_truck',
           activity_name: 'transport_truck',
+      category: 'materials',
           co2e_factor: 0.1,
           unit: 'kg CO2e/tkm',
           data_source: 'EPA',
@@ -133,6 +136,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_cotton',
           activity_name: 'cotton',
+      category: 'materials',
           co2e_factor: 5.89,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -144,6 +148,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_polyester',
           activity_name: 'polyester',
+      category: 'materials',
           co2e_factor: 6.4,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -155,6 +160,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_nylon',
           activity_name: 'nylon',
+      category: 'materials',
           co2e_factor: 7.5,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -166,6 +172,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_plastic_abs',
           activity_name: 'plastic_abs',
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -177,6 +184,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_paper',
           activity_name: 'paper',
+      category: 'materials',
           co2e_factor: 1.3,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -188,6 +196,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_electricity_us',
           activity_name: 'electricity_us',
+      category: 'materials',
           co2e_factor: 0.4,
           unit: 'kg CO2e/kWh',
           data_source: 'EPA',
@@ -199,6 +208,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_transport_truck',
           activity_name: 'transport_truck',
+      category: 'materials',
           co2e_factor: 0.1,
           unit: 'kg CO2e/tkm',
           data_source: 'EPA',
@@ -294,6 +304,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_1',
           activity_name: 'plastic_abs', // Already normalized
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -305,6 +316,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_2',
           activity_name: 'electricity_us', // Already normalized
+      category: 'materials',
           co2e_factor: 0.4,
           unit: 'kg CO2e/kWh',
           data_source: 'EPA',
@@ -331,6 +343,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_1',
           activity_name: 'Plastic ABS', // Spaces, capitalized
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -355,6 +368,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_plastic',
           activity_name: 'plastic_abs',
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -387,6 +401,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_plastic',
           activity_name: 'plastic_abs',
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -419,6 +434,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_plastic',
           activity_name: 'plastic_abs',
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -453,6 +469,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_cotton',
           activity_name: 'cotton',
+      category: 'materials',
           co2e_factor: 5.89,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -485,6 +502,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_plastic',
           activity_name: 'plastic_abs',
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -517,6 +535,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_plastic',
           activity_name: 'plastic_abs',
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -551,6 +570,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_cotton',
           activity_name: 'cotton',
+      category: 'materials',
           co2e_factor: 5.89,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',
@@ -583,6 +603,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
         {
           id: 'ef_plastic_abs',
           activity_name: 'plastic_abs',
+      category: 'materials',
           co2e_factor: 3.8,
           unit: 'kg CO2e/kg',
           data_source: 'EPA',

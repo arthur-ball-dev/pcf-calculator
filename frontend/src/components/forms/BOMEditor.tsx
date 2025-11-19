@@ -253,7 +253,7 @@ export default function BOMEditor() {
 
                 const errorMessages = Object.entries(itemError)
                   .filter(([key]) => key !== 'fieldId' && key !== 'id')
-                  .map(([, error]) => error?.message)
+                  .map(([, error]) => (error as { message?: string })?.message)
                   .filter(Boolean);
 
                 if (errorMessages.length === 0) return null;
