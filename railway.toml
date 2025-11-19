@@ -24,7 +24,8 @@ watchPaths = [
 [deploy]
 # Command to start the application
 # Note: $PORT is automatically provided by Railway
-startCommand = "cd backend && python3 seed_data.py && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+# Note: Database migrations and seeding are handled by the release phase in Procfile
+startCommand = "cd backend && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
 
 # Health check configuration
 healthcheckPath = "/health"

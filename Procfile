@@ -7,5 +7,5 @@
 web: cd backend && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT
 
 # Release phase - runs before web service starts
-# Seeds the database with initial data
-release: cd backend && python3 seed_data.py
+# Runs database migrations and seeds initial data
+release: cd backend && alembic upgrade head && python3 scripts/seed_data.py
