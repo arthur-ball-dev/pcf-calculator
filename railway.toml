@@ -25,7 +25,7 @@ nixPkgs = ["python3", "nodejs_20"]
 
 [build.nixpacksPlan.phases.install]
 cmds = [
-  "pip install -r backend/requirements.txt",
+  "python3 -m pip install -r backend/requirements.txt",
   "cd frontend && npm ci",
   "cd frontend && npm run build"
 ]
@@ -33,7 +33,7 @@ cmds = [
 [deploy]
 # Command to start the application
 # Note: $PORT is automatically provided by Railway
-startCommand = "cd backend && python seed_data.py && uvicorn main:app --host 0.0.0.0 --port $PORT"
+startCommand = "cd backend && python3 seed_data.py && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
 
 # Health check configuration
 healthcheckPath = "/health"

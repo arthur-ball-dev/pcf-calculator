@@ -4,8 +4,8 @@
 
 # Web service - runs the FastAPI backend
 # Railway provides $PORT automatically
-web: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+web: cd backend && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT
 
 # Release phase - runs before web service starts
 # Seeds the database with initial data
-release: cd backend && python seed_data.py
+release: cd backend && python3 seed_data.py
