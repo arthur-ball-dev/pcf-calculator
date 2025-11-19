@@ -19,16 +19,6 @@ watchPaths = [
   "Procfile"
 ]
 
-# Nixpacks configuration for Python + Node monorepo
-[build.nixpacksPlan.phases.setup]
-nixPkgs = ["python3", "python3Packages.pip", "nodejs_20"]
-
-[build.nixpacksPlan.phases.install]
-cmds = [
-  "python3 -m pip install -r backend/requirements.txt",
-  "cd frontend && npm ci",
-  "cd frontend && npm run build"
-]
 
 [deploy]
 # Command to start the application
