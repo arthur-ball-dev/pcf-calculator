@@ -30,11 +30,10 @@ export interface EmissionFactor {
 /**
  * Fetch emission factors from API
  *
- * Uses full URL to backend API server (http://localhost:8000)
- * to avoid issues with relative paths and Vite dev server
+ * Uses VITE_API_BASE_URL if set (for local dev), otherwise uses relative URLs (for production)
  */
 async function fetchEmissionFactors(): Promise<EmissionFactor[]> {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   const response = await fetch(`${API_BASE_URL}/api/v1/emission-factors?limit=1000`);
 
   if (!response.ok) {
