@@ -4,6 +4,7 @@
 
 [build]
 builder = "NIXPACKS"
+buildCommand = "pip install -r backend/requirements.txt && cd frontend && npm ci && npm run build"
 
 # Only watch these paths for changes - ignores , knowledge/, etc.
 # This prevents unnecessary deployments when you update documentation
@@ -16,7 +17,8 @@ watchPaths = [
   "frontend/package.json",
   "frontend/package-lock.json",
   "railway.toml",
-  "Procfile"
+  "Procfile",
+  "nixpacks.toml"
 ]
 
 
