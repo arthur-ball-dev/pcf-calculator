@@ -22,10 +22,9 @@ watchPaths = [
 
 
 [deploy]
-# Command to start the application
-# Note: $PORT is automatically provided by Railway
-# Note: Database migrations and seeding are handled by the release phase in Procfile
-startCommand = "PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+# Startup command is controlled by nixpacks.toml [start] section
+# nixpacks.toml handles: migrations → seeding → uvicorn startup
+# DO NOT override startCommand here or it will skip database initialization
 
 # Health check configuration
 healthcheckPath = "/health"
