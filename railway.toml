@@ -23,8 +23,9 @@ watchPaths = [
 
 [deploy]
 # Complete startup sequence: migrations → seeding → server
-# This runs in a single command to ensure DB is ready before uvicorn starts
-startCommand = "cd backend && PYTHONPATH=/app python3 -m alembic upgrade head && PYTHONPATH=/app python3 scripts/seed_data.py && cd /app && PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+# All commands run from /app root to ensure database is in consistent location
+# Alembic uses -c flag to specify config file location in backend/
+startCommand = "PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py && PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
 
 # Health check configuration
 healthcheckPath = "/health"
