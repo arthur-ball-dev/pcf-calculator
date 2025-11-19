@@ -7,6 +7,6 @@
 web: PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 
 # Release phase - runs before web service starts
-# Runs database migrations and seeds initial data
+# Runs database migrations, seeds initial data, and initializes Brightway2
 # All commands run from /app root for consistent database location
-release: PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py
+release: PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py && PYTHONPATH=/app python3 backend/scripts/init_brightway.py
