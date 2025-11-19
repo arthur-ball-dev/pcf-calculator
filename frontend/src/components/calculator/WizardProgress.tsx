@@ -17,7 +17,6 @@
  * - currentStep: Current wizard step ID
  */
 
-import React from 'react';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWizardStore } from '@/store/wizardStore';

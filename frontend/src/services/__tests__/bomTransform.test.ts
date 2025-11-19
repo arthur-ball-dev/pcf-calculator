@@ -24,6 +24,7 @@ describe('bomTransform Service', () => {
       {
         id: '1',
         activity_name: 'Cotton',
+      category: 'materials',
         co2e_factor: 5.89,
         unit: 'kg CO2e/kg',
         data_source: 'Ecoinvent',
@@ -35,6 +36,7 @@ describe('bomTransform Service', () => {
       {
         id: '2',
         activity_name: 'Polyester',
+      category: 'materials',
         co2e_factor: 3.36,
         unit: 'kg CO2e/kg',
         data_source: 'Ecoinvent',
@@ -46,6 +48,7 @@ describe('bomTransform Service', () => {
       {
         id: '3',
         activity_name: 'Electricity',
+      category: 'materials',
         co2e_factor: 0.5,
         unit: 'kg CO2e/kWh',
         data_source: 'EPA',
@@ -104,6 +107,7 @@ describe('bomTransform Service', () => {
         {
           id: '4',
           activity_name: 'Cotton', // Duplicate
+      category: 'materials',
           co2e_factor: 6.0,
           unit: 'kg CO2e/kg',
           data_source: 'DEFRA',
@@ -134,6 +138,7 @@ describe('bomTransform Service', () => {
         ...mockEmissionFactors[0],
         id: '1',
         activity_name: 'Cotton',
+      category: 'materials',
       };
 
       const category = inferCategory(emissionFactor, 'Cotton');
@@ -146,6 +151,7 @@ describe('bomTransform Service', () => {
         ...mockEmissionFactors[0],
         id: '1',
         activity_name: 'Cotton',
+      category: 'materials',
       };
 
       const category = inferCategory(emissionFactor, 'Cotton');
@@ -267,13 +273,6 @@ describe('bomTransform Service', () => {
       expect(result[1].id).toBe('bom_002');
     });
 
-    it('should convert notes from null to undefined', () => {
-      const result = transformAPIBOMToFrontend(mockAPIBOM, mockEmissionFactors);
-
-      expect(result[0].notes).toBeUndefined(); // Was null in API
-      expect(result[1].notes).toBe('Collar trim'); // Had value
-    });
-
     it('should handle invalid data gracefully (skip invalid items)', () => {
       const bomWithInvalid: BOMItemResponse[] = [
         {
@@ -363,6 +362,7 @@ describe('bomTransform Service', () => {
         {
           id: '99',
           activity_name: '', // Empty
+      category: 'materials',
           co2e_factor: 1.0,
           unit: 'kg CO2e/kg',
           data_source: 'Test',

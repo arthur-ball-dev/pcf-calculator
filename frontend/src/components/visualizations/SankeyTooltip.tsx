@@ -7,7 +7,6 @@
  * TASK-FE-008: Nivo Sankey Implementation
  */
 
-import React from 'react';
 import type { SankeyNode } from '../../utils/sankeyTransform';
 
 interface SankeyTooltipProps {

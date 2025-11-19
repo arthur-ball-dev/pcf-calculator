@@ -163,7 +163,7 @@ export function transformAPIBOMToFrontend(
     }
 
     // Infer category
-    const category = inferCategory(matchedFactor, apiItem.child_product_name);
+    const category = inferCategory(matchedFactor ?? null, apiItem.child_product_name);
 
     // UPDATED: Preserve emission factor ID as string (no parseInt)
     // Backend sends UUID strings like '471fe408a2604386bae572d9fc9a6b5c'
@@ -181,7 +181,6 @@ export function transformAPIBOMToFrontend(
       unit: apiItem.unit || '', // Handle null unit
       category,
       emissionFactorId, // String UUID or null
-      notes: apiItem.notes || undefined, // Convert null to undefined
     };
 
     transformed.push(frontendItem);

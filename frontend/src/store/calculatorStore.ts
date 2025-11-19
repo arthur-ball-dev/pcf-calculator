@@ -24,7 +24,7 @@ import { useWizardStore } from './wizardStore';
 
 export const useCalculatorStore = create<CalculatorState>()(
   devtools(
-    (set, get) => ({
+    (set, _get) => ({
       // ================================================================
       // Initial State
       // ================================================================

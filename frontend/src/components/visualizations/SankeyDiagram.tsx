@@ -14,7 +14,7 @@
  * TASK-FE-008: Nivo Sankey Implementation
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { ResponsiveSankey } from '@nivo/sankey';
 import { transformToSankeyData } from '../../utils/sankeyTransform';
 import SankeyTooltip from './SankeyTooltip';
@@ -160,12 +160,14 @@ export default function SankeyDiagram({ calculation, width, height }: SankeyDiag
         labelOrientation="horizontal"
         labelPadding={16}
         labelTextColor={{ from: 'color', modifiers: [['darker', 1]] }}
-        tooltip={SankeyTooltip}
+        nodeTooltip={SankeyTooltip}
         theme={{
           background: 'transparent',
-          fontSize: 12,
-          fontFamily: 'Inter, system-ui, sans-serif',
-          textColor: '#333333',
+          text: {
+            fontSize: 12,
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fill: '#333333',
+          },
           tooltip: {
             container: {
               background: 'white',

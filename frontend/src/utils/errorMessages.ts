@@ -122,30 +122,3 @@ export function getUserFriendlyError(apiError: string): string {
   // Default fallback
   return 'An unexpected error occurred during calculation. Please try again or contact support if the problem persists.';
 }
-
-/**
- * Extract component name from error message
- *
- * Helper function to parse component names from various error formats.
- *
- * @param errorMessage - Error message containing component reference
- * @returns Component name or null if not found
- */
-function extractComponentName(errorMessage: string): string | null {
-  // Try common patterns
-  const patterns = [
-    /component[:\s]+['"]([^'"]+)['"]/i,
-    /for component[:\s]+['"]?([^'"]+)['"]?/i,
-    /component ['"]([^'"]+)['"]/i,
-    /['"]([^'"]+)['"] is missing/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = errorMessage.match(pattern);
-    if (match?.[1]) {
-      return match[1];
-    }
-  }
-
-  return null;
-}

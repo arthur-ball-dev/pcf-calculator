@@ -10,7 +10,6 @@
  * TASK-FE-009: Results Dashboard Implementation
  */
 
-import React from 'react';
 import { useWizardStore } from '../../store/wizardStore';
 import { useCalculatorStore } from '../../store/calculatorStore';
 import { Button } from '../ui/button';
