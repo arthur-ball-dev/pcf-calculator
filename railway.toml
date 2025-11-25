@@ -22,9 +22,10 @@ watchPaths = [
 
 
 [deploy]
-# Command to start the application
-# Note: $PORT is automatically provided by Railway
-startCommand = "cd backend && python3 seed_data.py && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+# Complete startup sequence: migrations → seeding → brightway init → server
+# All commands run from /app root to ensure database is in consistent location
+# Alembic uses -c flag to specify config file location in backend/
+startCommand = "PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py && PYTHONPATH=/app python3 backend/scripts/init_brightway.py && PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
 
 # Health check configuration
 healthcheckPath = "/health"
