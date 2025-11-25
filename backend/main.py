@@ -7,10 +7,12 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.errors import ServerErrorMiddleware
 
 from backend.config import settings
@@ -135,6 +137,13 @@ async def health_check():
         dict: Status and version information
     """
     return {"status": "healthy", "version": "1.0.0"}
+
+
+# Serve frontend static files (React build output)
+# Mount this AFTER API routes to avoid conflicts
+frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
 
 if __name__ == "__main__":

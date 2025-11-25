@@ -12,7 +12,9 @@ import axios, { type AxiosError } from 'axios';
 import { APIError } from './errors';
 
 // API Configuration from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Default to empty string for production (same-origin requests)
+// Set VITE_API_BASE_URL in .env for local development (e.g., http://localhost:8000)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const API_TIMEOUT = 30000; // 30 seconds
 
 /**
