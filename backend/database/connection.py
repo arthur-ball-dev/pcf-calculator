@@ -3,9 +3,10 @@ Database connection management for PCF Calculator
 Provides SQLAlchemy engine, session management, and FastAPI dependency injection
 
 This module handles:
-- SQLite database connection with proper configuration
-- Foreign keys enforcement (PRAGMA foreign_keys = ON)
-- Connection pooling
+- SQLite database connection (development) with proper configuration
+- PostgreSQL database connection (production) with connection pooling
+- Foreign keys enforcement (PRAGMA for SQLite)
+- Connection pooling (QueuePool for PostgreSQL, StaticPool option for SQLite)
 - Session lifecycle management
 - FastAPI dependency injection for database sessions
 """
@@ -15,37 +16,74 @@ from typing import Generator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import QueuePool, StaticPool, NullPool
 
 from backend.config import settings
 
 
-# Create SQLAlchemy engine with SQLite configuration
-engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
-    pool_pre_ping=True,  # Verify connections before using
-    pool_size=5,  # Maximum number of permanent connections
-    max_overflow=10,  # Maximum number of overflow connections
-    echo=settings.debug,  # Log SQL queries in debug mode
-)
-
-
-# Event listener to enable foreign keys for each SQLite connection
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_conn, connection_record):
+def _create_engine():
     """
-    Enable foreign key constraints for SQLite connections.
+    Create the appropriate SQLAlchemy engine based on database configuration.
 
-    This is critical for SQLite as foreign keys are disabled by default.
-    PRAGMA must be executed for each new connection.
+    Returns an engine configured for either SQLite or PostgreSQL.
 
-    Args:
-        dbapi_conn: Raw DB-API connection object
-        connection_record: Connection record (unused)
+    SQLite Configuration:
+    - check_same_thread: False (required for FastAPI)
+    - Foreign keys enabled via event listener
+
+    PostgreSQL Configuration:
+    - Connection pooling with configurable pool size
+    - pool_pre_ping for connection health checks
     """
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+    if settings.is_sqlite:
+        # SQLite configuration
+        engine = create_engine(
+            settings.database_url,
+            connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
+            pool_pre_ping=True,  # Verify connections before using
+            poolclass=StaticPool if "memory" in settings.database_url else QueuePool,
+            pool_size=settings.db_pool_size if "memory" not in settings.database_url else 0,
+            max_overflow=settings.db_max_overflow if "memory" not in settings.database_url else 0,
+            echo=settings.debug,  # Log SQL queries in debug mode
+        )
+
+        # Enable foreign keys for SQLite connections
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_conn, connection_record):
+            """
+            Enable foreign key constraints for SQLite connections.
+
+            This is critical for SQLite as foreign keys are disabled by default.
+            PRAGMA must be executed for each new connection.
+            """
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+        return engine
+
+    elif settings.is_postgresql:
+        # PostgreSQL configuration
+        engine = create_engine(
+            settings.database_url,
+            poolclass=QueuePool,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_pre_ping=True,  # Verify connections before using
+            echo=settings.debug,  # Log SQL queries in debug mode
+        )
+        return engine
+
+    else:
+        # Fallback for unknown database types
+        raise ValueError(
+            f"Unsupported database URL: {settings.database_url}. "
+            "Use sqlite:// or postgresql:// prefix."
+        )
+
+
+# Create SQLAlchemy engine
+engine = _create_engine()
 
 
 # Session factory for creating database sessions
@@ -111,3 +149,45 @@ def db_context() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def create_test_engine(database_url: str = "sqlite:///:memory:"):
+    """
+    Create a test engine with appropriate configuration.
+
+    Useful for creating isolated test databases.
+
+    Args:
+        database_url: Database URL for the test database
+
+    Returns:
+        Engine: SQLAlchemy engine configured for testing
+    """
+    if "sqlite" in database_url.lower():
+        test_engine = create_engine(
+            database_url,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+            echo=False,
+        )
+
+        @event.listens_for(test_engine, "connect")
+        def set_sqlite_pragma(dbapi_conn, connection_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+        return test_engine
+
+    elif "postgresql" in database_url.lower():
+        return create_engine(
+            database_url,
+            poolclass=QueuePool,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+            echo=False,
+        )
+
+    else:
+        raise ValueError(f"Unsupported test database URL: {database_url}")

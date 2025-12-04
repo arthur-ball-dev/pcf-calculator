@@ -1,8 +1,16 @@
+"""
+Alembic environment configuration for PCF Calculator.
+
+Supports both SQLite (development) and PostgreSQL (production) databases.
+Handles dialect-specific features like foreign keys (SQLite) and connection pooling.
+"""
+
 from logging.config import fileConfig
+import os
 import sys
 from pathlib import Path
 
-from sqlalchemy import engine_from_config, text, event
+from sqlalchemy import engine_from_config, text, event, create_engine
 from sqlalchemy import pool
 from sqlalchemy.engine import Engine
 
@@ -19,6 +27,11 @@ from models import Base
 # access to the values within the .ini file in use.
 config = context.config
 
+# Override sqlalchemy.url from environment variable if set
+database_url = os.environ.get("DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url)
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
@@ -28,20 +41,15 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+
+def is_sqlite_url(url: str) -> bool:
+    """Check if the database URL is for SQLite."""
+    return url.lower().startswith("sqlite")
 
 
-# Enable foreign keys for SQLite at the engine level
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_conn, connection_record):
-    """Enable foreign keys for SQLite connections"""
-    if hasattr(dbapi_conn, 'execute'):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+def is_postgresql_url(url: str) -> bool:
+    """Check if the database URL is for PostgreSQL."""
+    return "postgresql" in url.lower() or "postgres" in url.lower()
 
 
 def run_migrations_offline() -> None:
@@ -54,15 +62,18 @@ def run_migrations_offline() -> None:
 
     Calls to context.execute() here emit the given string to the
     script output.
-
     """
     url = config.get_main_option("sqlalchemy.url")
+
+    # Determine if we should use batch mode (required for SQLite)
+    render_as_batch = is_sqlite_url(url) if url else True
+
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,  # Enable batch mode for SQLite
+        render_as_batch=render_as_batch,
     )
 
     with context.begin_transaction():
@@ -75,18 +86,51 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
 
+    Supports both SQLite and PostgreSQL with appropriate configuration.
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    url = config.get_main_option("sqlalchemy.url")
+
+    # Create engine configuration
+    engine_config = config.get_section(config.config_ini_section, {})
+
+    if url and is_sqlite_url(url):
+        # SQLite-specific configuration
+        connectable = create_engine(
+            url,
+            connect_args={"check_same_thread": False},
+            poolclass=pool.NullPool,
+        )
+
+        # Enable foreign keys for SQLite
+        @event.listens_for(connectable, "connect")
+        def set_sqlite_pragma(dbapi_conn, connection_record):
+            """Enable foreign keys for SQLite connections"""
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+    elif url and is_postgresql_url(url):
+        # PostgreSQL-specific configuration
+        connectable = create_engine(
+            url,
+            poolclass=pool.NullPool,  # Don't pool during migrations
+        )
+    else:
+        # Default configuration
+        connectable = engine_from_config(
+            engine_config,
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+        )
+
+    # Determine if we should use batch mode (required for SQLite)
+    render_as_batch = is_sqlite_url(url) if url else True
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=True,  # Enable batch mode for SQLite
+            render_as_batch=render_as_batch,
         )
 
         with context.begin_transaction():
