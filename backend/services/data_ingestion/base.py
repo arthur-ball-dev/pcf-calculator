@@ -149,6 +149,7 @@ class BaseDataIngestion(ABC):
             - co2e_factor (required)
             - unit (required)
             - external_id (optional but recommended)
+            - category (optional, for filtering)
             - geography (optional, defaults to GLO)
             - data_source (optional)
             - reference_year (optional)
@@ -223,6 +224,7 @@ class BaseDataIngestion(ABC):
             "co2e_factor": factor_data.get("co2e_factor"),
             "unit": factor_data.get("unit"),
             "external_id": factor_data.get("external_id"),
+            "category": factor_data.get("category"),
             "geography": factor_data.get("geography", "GLO"),
             "data_source": factor_data.get("data_source", ""),
             "reference_year": factor_data.get("reference_year"),
@@ -256,6 +258,7 @@ class BaseDataIngestion(ABC):
                     activity_name=insert_data["activity_name"],
                     co2e_factor=insert_data["co2e_factor"],
                     unit=insert_data["unit"],
+                    category=insert_data["category"],
                     geography=insert_data["geography"],
                     data_source=insert_data["data_source"],
                     reference_year=insert_data["reference_year"],
