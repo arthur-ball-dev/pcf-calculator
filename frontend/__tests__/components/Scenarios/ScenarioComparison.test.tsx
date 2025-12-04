@@ -15,8 +15,8 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-// Import will fail until implementation exists - this is expected in TDD
-// import { ScenarioComparison } from '../../../src/components/Scenarios/ScenarioComparison';
+// Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
+import { ScenarioComparison } from '../../../src/components/Scenarios/ScenarioComparison';
 
 // Type definitions for tests
 interface BOMEntry {
@@ -51,7 +51,7 @@ interface Scenario {
 
 // Mock scenarios for testing
 const createMockScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
-  id: `scenario-${Math.random().toString(36).substring(7)}`,
+  id: 'scenario-' + Math.random().toString(36).substring(7),
   name: 'Test Scenario',
   productId: 'product-1',
   bomEntries: [
@@ -98,32 +98,6 @@ vi.mock('../../../src/store/scenarioStore', () => ({
     return selector(mockState);
   },
 }));
-
-// Mock placeholder component for tests - will be replaced when implementation exists
-const ScenarioComparison = ({ className }: { className?: string }) => {
-  const scenarios = mockGetComparisonScenarios();
-  const baseline = mockGetBaseline();
-
-  if (scenarios.length < 2) {
-    return (
-      <div role="alert" className={className}>
-        <span>Add at least 2 scenarios to compare</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className={className} data-testid="comparison-container">
-      <div data-testid="scenario-pane-left" style={{ overflow: 'auto' }}>
-        <span>{scenarios[0]?.name}</span>
-      </div>
-      <div data-testid="scenario-pane-right" style={{ overflow: 'auto' }}>
-        <span>{scenarios[1]?.name}</span>
-      </div>
-      <div data-testid="delta-visualization" />
-    </div>
-  );
-};
 
 describe('ScenarioComparison Component', () => {
   const user = userEvent.setup();

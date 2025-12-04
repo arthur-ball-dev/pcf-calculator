@@ -13,72 +13,13 @@
 
 import { describe, test, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-// Import will fail until implementation exists - this is expected in TDD
-// import { DeltaVisualization } from '../../../src/components/Scenarios/DeltaVisualization';
-
-// Type definitions for tests
-interface DeltaData {
-  scenarioId: string;
-  scenarioName: string;
-  emissions: number;
-  absoluteDelta: number;
-  percentageDelta: number;
-  direction: 'increase' | 'decrease' | 'same';
-}
-
-interface DeltaVisualizationProps {
-  deltas: DeltaData[];
-}
-
-// Mock placeholder component for tests - will be replaced when implementation exists
-const DeltaVisualization = ({ deltas }: DeltaVisualizationProps) => {
-  const maxEmissions = Math.max(...deltas.map(d => d.emissions), 1);
-
-  const getBarColor = (direction: string) => {
-    if (direction === 'increase') return 'bg-red-400';
-    if (direction === 'decrease') return 'bg-green-400';
-    return 'bg-blue-400';
-  };
-
-  return (
-    <div data-testid="delta-visualization">
-      <h4>Emissions Comparison</h4>
-      <div data-testid="bars-container">
-        {deltas.map((delta) => (
-          <div key={delta.scenarioId} data-testid={`bar-row-${delta.scenarioId}`}>
-            <span data-testid={`scenario-label-${delta.scenarioId}`}>
-              {delta.scenarioName}
-            </span>
-            <div
-              data-testid={`bar-track-${delta.scenarioId}`}
-              className="bg-gray-100"
-              style={{ width: '100%' }}
-            >
-              <div
-                data-testid={`bar-fill-${delta.scenarioId}`}
-                className={getBarColor(delta.direction)}
-                style={{ width: `${(delta.emissions / maxEmissions) * 100}%` }}
-                role="progressbar"
-                aria-valuenow={delta.emissions}
-                aria-valuemin={0}
-                aria-valuemax={maxEmissions}
-                aria-label={`${delta.scenarioName}: ${delta.emissions} kg CO2e`}
-              />
-            </div>
-            <span data-testid={`emissions-value-${delta.scenarioId}`}>
-              {delta.emissions.toFixed(1)} kg
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+// Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
+import { DeltaVisualization, type DeltaData } from '../../../src/components/Scenarios/DeltaVisualization';
 
 describe('DeltaVisualization Component', () => {
   // Helper to create delta data
   const createDelta = (overrides: Partial<DeltaData> = {}): DeltaData => ({
-    scenarioId: `scenario-${Math.random().toString(36).substring(7)}`,
+    scenarioId: 'scenario-' + Math.random().toString(36).substring(7),
     scenarioName: 'Test Scenario',
     emissions: 100,
     absoluteDelta: 0,

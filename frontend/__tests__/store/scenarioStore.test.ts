@@ -13,69 +13,17 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { act } from '@testing-library/react';
-// Import will fail until implementation exists - this is expected in TDD
-// import { useScenarioStore } from '../../src/store/scenarioStore';
-
-// Mock the store for now - tests should fail until real implementation exists
-const useScenarioStore = {
-  getState: () => ({
-    scenarios: [] as Scenario[],
-    activeScenarioId: null as string | null,
-    comparisonScenarioIds: [] as string[],
-
-    createScenario: (_name: string, _productId: string, _baseScenarioId?: string): string => '',
-    updateScenario: (_id: string, _updates: Partial<Scenario>): void => {},
-    deleteScenario: (_id: string): void => {},
-    cloneScenario: (_id: string, _newName: string): string => '',
-    setActiveScenario: (_id: string): void => {},
-    addToComparison: (_id: string): void => {},
-    removeFromComparison: (_id: string): void => {},
-    clearComparison: (): void => {},
-    setAsBaseline: (_id: string): void => {},
-
-    getScenario: (_id: string): Scenario | undefined => undefined,
-    getActiveScenario: (): Scenario | undefined => undefined,
-    getComparisonScenarios: (): Scenario[] => [],
-    getBaseline: (): Scenario | undefined => undefined,
-  }),
-  setState: (_partial: unknown): void => {},
-};
-
-// Type definitions for tests (will be implemented in src/store/scenarioStore.ts)
-interface BOMEntry {
-  id: string;
-  component_name: string;
-  quantity: number;
-  unit: string;
-  emissions?: number;
-}
-
-interface CalculationParameters {
-  transportDistance: number;
-  energySource: string;
-  productionVolume: number;
-}
-
-interface CalculationResults {
-  total_emissions: number;
-  breakdown?: Record<string, number>;
-}
-
-interface Scenario {
-  id: string;
-  name: string;
-  productId: string;
-  bomEntries: BOMEntry[];
-  parameters: CalculationParameters;
-  results: CalculationResults | null;
-  createdAt: Date;
-  isBaseline: boolean;
-}
+// Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
+import { useScenarioStore, type Scenario, type BOMEntry, type CalculationParameters, type CalculationResults } from '../../src/store/scenarioStore';
 
 describe('ScenarioStore', () => {
   beforeEach(() => {
     // Reset store to initial state before each test
-    // In real implementation: useScenarioStore.getState().reset();
+    useScenarioStore.setState({
+      scenarios: [],
+      activeScenarioId: null,
+      comparisonScenarioIds: [],
+    });
     localStorage.clear();
   });
 
