@@ -1,8 +1,10 @@
 /**
  * MSW Handlers - API Mock Responses
  * TASK-FE-011: Integration Testing Infrastructure
+ * TASK-FE-P5-001: Phase 5 MSW Mock Server Setup
  *
  * Mock Service Worker handlers for all API endpoints.
+ * Includes both MVP handlers and Phase 5 handlers.
  * Provides realistic responses for integration testing.
  */
 
@@ -13,6 +15,9 @@ import type {
   CalculationStartResponse,
   CalculationStatusResponse,
 } from '../src/types/api.types';
+
+// Import Phase 5 handlers
+import { phase5Handlers } from '../src/mocks/handlers/phase5Handlers';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -177,9 +182,9 @@ export const mockEmissionFactors = {
 };
 
 /**
- * MSW Request Handlers
+ * MVP Handlers - Original handlers for existing functionality
  */
-export const handlers = [
+const mvpHandlers = [
   // GET /api/v1/products - List all products
   rest.get(`${API_BASE_URL}/products`, (req, res, ctx) => {
     const limit = req.url.searchParams.get('limit');
@@ -265,28 +270,16 @@ export const handlers = [
       })
     );
   }),
+];
 
-  // GET /api/v1/emission-factors - List emission factors
-  rest.get(`${API_BASE_URL}/emission-factors`, (req, res, ctx) => {
-    const category = req.url.searchParams.get('category');
-    const limit = parseInt(req.url.searchParams.get('limit') || '100');
-    const offset = parseInt(req.url.searchParams.get('offset') || '0');
-    let filteredFactors = mockEmissionFactors.emission_factors;
-
-    if (category) {
-      filteredFactors = filteredFactors.filter(f => f.category === category);
-    }
-
-    return res(
-      ctx.status(200),
-      ctx.json({
-        items: filteredFactors, // API expects 'items', not 'emission_factors'
-        total: filteredFactors.length,
-        limit,
-        offset,
-      })
-    );
-  }),
+/**
+ * Combined handlers - Phase 5 + MVP
+ * Phase 5 handlers come first as they are more specific and include
+ * enhanced endpoints that should take precedence.
+ */
+export const handlers = [
+  ...phase5Handlers,
+  ...mvpHandlers,
 ];
 
 /**
