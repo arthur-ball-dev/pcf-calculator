@@ -3,6 +3,9 @@ Database models module
 Contains SQLAlchemy ORM models for PCF Calculator
 
 All models match the schema defined in backend/database/schema.sql
+
+TASK-DB-P5-002: Extended with DataSource, ProductCategory, DataSyncLog
+and additional columns for full-text search and data lineage.
 """
 
 from sqlalchemy import (
@@ -17,6 +20,7 @@ from sqlalchemy import (
     ForeignKey,
     CheckConstraint,
     UniqueConstraint,
+    Index,
     JSON
 )
 from sqlalchemy.orm import declarative_base, relationship
@@ -41,6 +45,12 @@ class Product(Base):
     Represents finished products, sub-assemblies, and raw materials
     in a flat structure. Hierarchical relationships are defined
     through BillOfMaterials.
+
+    Phase 5 Extensions:
+    - category_id: FK to ProductCategory for hierarchical categorization
+    - manufacturer: Product manufacturer name
+    - country_of_origin: ISO 3166-1 alpha-2 country code
+    - search_vector: Full-text search (TSVECTOR in PostgreSQL)
     """
     __tablename__ = "products"
 
@@ -63,7 +73,7 @@ class Product(Base):
     # Unit of measure
     unit = Column(String(20), default='unit')
 
-    # Product category
+    # Product category (legacy string field)
     category = Column(String(100), nullable=True)
 
     # Flag for finished products vs components
@@ -76,6 +86,23 @@ class Product(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime, nullable=True)
+
+    # === Phase 5 Extensions ===
+    # Foreign key to ProductCategory for hierarchical categorization
+    category_id = Column(
+        String(32),
+        ForeignKey('product_categories.id', ondelete='SET NULL'),
+        nullable=True
+    )
+
+    # Product manufacturer name
+    manufacturer = Column(String(255), nullable=True)
+
+    # Country of origin (ISO 3166-1 alpha-2 code)
+    country_of_origin = Column(String(50), nullable=True)
+
+    # Full-text search vector (Text for SQLite, TSVECTOR for PostgreSQL)
+    search_vector = Column(TEXT, nullable=True)
 
     # Relationships
     bom_items = relationship(
@@ -96,6 +123,13 @@ class Product(Base):
         back_populates="product"
     )
 
+    # Relationship to ProductCategory
+    product_category = relationship(
+        "ProductCategory",
+        back_populates="products",
+        foreign_keys=[category_id]
+    )
+
     # Provide instance-level access via __getattribute__
     def __getattribute__(self, name):
         if name == 'metadata':
@@ -108,12 +142,15 @@ class Product(Base):
         else:
             object.__setattr__(self, name, value)
 
-    # Table constraints
+    # Table constraints and indexes
     __table_args__ = (
         CheckConstraint(
             "unit IN ('unit', 'kg', 'g', 'L', 'mL', 'm', 'cm', 'kWh', 'MJ', 'tkm')",
             name="ck_product_unit"
         ),
+        Index('idx_products_category', 'category_id'),
+        Index('idx_products_manufacturer', 'manufacturer'),
+        # GIN index for search_vector would be added in PostgreSQL migration
     )
 
     def __repr__(self) -> str:
@@ -126,6 +163,13 @@ class EmissionFactor(Base):
 
     Central repository of emission factors with support for multiple
     data sources, geographies, and temporal validity.
+
+    Phase 5 Extensions:
+    - data_source_id: FK to DataSource for lineage tracking
+    - external_id: ID in the source system
+    - sync_batch_id: UUID linking to DataSyncLog
+    - is_active: Soft delete / active flag
+    - search_vector: Full-text search (TSVECTOR in PostgreSQL)
     """
     __tablename__ = "emission_factors"
 
@@ -144,7 +188,7 @@ class EmissionFactor(Base):
     # Unit of measurement
     unit = Column(String(20), nullable=False)
 
-    # Data source
+    # Data source (legacy string field)
     data_source = Column(String(100), nullable=False)
 
     # Geographic scope
@@ -171,10 +215,37 @@ class EmissionFactor(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
+    # === Phase 5 Extensions ===
+    # Foreign key to DataSource for lineage tracking
+    data_source_id = Column(
+        String(32),
+        ForeignKey('data_sources.id', ondelete='SET NULL'),
+        nullable=True
+    )
+
+    # ID in the source system (e.g., EPA ID, DEFRA ID)
+    external_id = Column(String(255), nullable=True)
+
+    # UUID linking to sync batch (DataSyncLog)
+    sync_batch_id = Column(String(32), nullable=True)
+
+    # Active flag for soft delete
+    is_active = Column(Boolean, default=True)
+
+    # Full-text search vector (Text for SQLite, TSVECTOR for PostgreSQL)
+    search_vector = Column(TEXT, nullable=True)
+
     # Relationships
     calculation_details = relationship(
         "CalculationDetail",
         back_populates="emission_factor"
+    )
+
+    # Relationship to DataSource
+    data_source_ref = relationship(
+        "DataSource",
+        back_populates="emission_factors",
+        foreign_keys=[data_source_id]
     )
 
     # Provide instance-level access
@@ -189,7 +260,7 @@ class EmissionFactor(Base):
         else:
             object.__setattr__(self, name, value)
 
-    # Table constraints
+    # Table constraints and indexes
     __table_args__ = (
         UniqueConstraint(
             'activity_name', 'data_source', 'geography', 'reference_year',
@@ -199,6 +270,10 @@ class EmissionFactor(Base):
             'co2e_factor >= 0',
             name='ck_emission_factor_non_negative'
         ),
+        Index('idx_ef_source', 'data_source_id'),
+        Index('idx_ef_external', 'external_id'),
+        Index('idx_ef_active', 'is_active'),
+        # GIN index for search_vector would be added in PostgreSQL migration
     )
 
     def __repr__(self) -> str:
@@ -437,12 +512,23 @@ class CalculationDetail(Base):
         return f"<CalculationDetail(component='{self.component_name}', emissions={self.emissions_kg_co2e})>"
 
 
+# Import new Phase 5 models
+from backend.models.data_source import DataSource
+from backend.models.product_category import ProductCategory
+from backend.models.data_sync_log import DataSyncLog
+
+
 # Export all models
 __all__ = [
     'Base',
+    'generate_uuid',
     'Product',
     'EmissionFactor',
     'BillOfMaterials',
     'PCFCalculation',
-    'CalculationDetail'
+    'CalculationDetail',
+    # Phase 5 models
+    'DataSource',
+    'ProductCategory',
+    'DataSyncLog',
 ]
