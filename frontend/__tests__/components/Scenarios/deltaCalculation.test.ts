@@ -12,44 +12,8 @@
  */
 
 import { describe, test, expect } from 'vitest';
-// Import will fail until implementation exists - this is expected in TDD
-// import { calculateDelta, calculateDeltas, DeltaResult } from '../../../src/components/Scenarios/deltaCalculation';
-
-// Type definitions for tests (will be implemented in src/components/Scenarios/deltaCalculation.ts)
-interface DeltaResult {
-  scenarioId: string;
-  scenarioName: string;
-  emissions: number;
-  absoluteDelta: number;
-  percentageDelta: number;
-  direction: 'increase' | 'decrease' | 'same';
-}
-
-interface ScenarioData {
-  id: string;
-  name: string;
-  emissions: number;
-}
-
-// Mock implementation for TDD - tests should fail until real implementation exists
-const calculateDelta = (
-  _baselineEmissions: number,
-  _alternativeEmissions: number,
-  _scenarioId: string,
-  _scenarioName: string
-): DeltaResult => ({
-  scenarioId: '',
-  scenarioName: '',
-  emissions: 0,
-  absoluteDelta: 0,
-  percentageDelta: 0,
-  direction: 'same',
-});
-
-const calculateDeltas = (
-  _baselineEmissions: number,
-  _scenarios: ScenarioData[]
-): DeltaResult[] => [];
+// Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
+import { calculateDelta, calculateDeltas, type DeltaResult, type ScenarioData } from '../../../src/components/Scenarios/deltaCalculation';
 
 describe('Delta Calculations', () => {
   describe('calculateDelta - Single Scenario Comparison', () => {

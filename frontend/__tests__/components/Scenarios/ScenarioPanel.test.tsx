@@ -14,55 +14,13 @@
 
 import { describe, test, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-// Import will fail until implementation exists - this is expected in TDD
-// import { ScenarioPanel } from '../../../src/components/Scenarios/ScenarioPanel';
-
-// Type definitions for tests
-interface BOMEntry {
-  id: string;
-  component_name: string;
-  quantity: number;
-  unit: string;
-  emissions?: number;
-}
-
-interface CalculationParameters {
-  transportDistance: number;
-  energySource: string;
-  productionVolume: number;
-}
-
-interface CalculationResults {
-  total_emissions: number;
-  breakdown?: Record<string, number>;
-}
-
-interface Scenario {
-  id: string;
-  name: string;
-  productId: string;
-  bomEntries: BOMEntry[];
-  parameters: CalculationParameters;
-  results: CalculationResults | null;
-  createdAt: Date;
-  isBaseline: boolean;
-}
-
-interface ComparisonDelta {
-  absoluteDelta: number;
-  percentageDelta: number;
-  direction: 'increase' | 'decrease' | 'same';
-}
-
-interface ScenarioPanelProps {
-  scenario: Scenario;
-  isBaseline?: boolean;
-  comparisonDelta?: ComparisonDelta;
-}
+// Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
+import { ScenarioPanel, type ComparisonDelta } from '../../../src/components/Scenarios/ScenarioPanel';
+import type { Scenario, BOMEntry } from '../../../src/store/scenarioStore';
 
 // Mock helper for creating scenarios
 const createMockScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
-  id: `scenario-${Math.random().toString(36).substring(7)}`,
+  id: 'scenario-' + Math.random().toString(36).substring(7),
   name: 'Test Scenario',
   productId: 'product-1',
   bomEntries: [
@@ -79,48 +37,6 @@ const createMockScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   isBaseline: false,
   ...overrides,
 });
-
-// Mock placeholder component for tests - will be replaced when implementation exists
-const ScenarioPanel = ({ scenario, isBaseline, comparisonDelta }: ScenarioPanelProps) => {
-  const getDeltaColor = (direction: string) => {
-    if (direction === 'increase') return 'text-red-600 bg-red-50';
-    if (direction === 'decrease') return 'text-green-600 bg-green-50';
-    return 'text-gray-600 bg-gray-50';
-  };
-
-  return (
-    <div data-testid={`scenario-panel-${scenario.id}`}>
-      <h3>{scenario.name}</h3>
-      {isBaseline && <span data-testid="baseline-badge">Baseline</span>}
-      <div data-testid="total-emissions">
-        {scenario.results?.total_emissions.toFixed(2) ?? 'N/A'} kg CO2e
-      </div>
-      {comparisonDelta && (
-        <div
-          data-testid="delta-display"
-          className={getDeltaColor(comparisonDelta.direction)}
-          data-direction={comparisonDelta.direction}
-        >
-          {comparisonDelta.percentageDelta > 0 ? '+' : ''}
-          {comparisonDelta.percentageDelta.toFixed(1)}%
-          <span data-testid="absolute-delta">
-            ({comparisonDelta.absoluteDelta > 0 ? '+' : ''}
-            {comparisonDelta.absoluteDelta.toFixed(2)} kg CO2e)
-          </span>
-        </div>
-      )}
-      <div data-testid="bom-entries">
-        {scenario.bomEntries.map((entry, index) => (
-          <div key={entry.id || index} data-testid={`bom-entry-${index}`}>
-            <span>{entry.component_name}</span>
-            <span>{entry.quantity} {entry.unit}</span>
-            <span>{entry.emissions?.toFixed(2) ?? '0.00'} kg</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 describe('ScenarioPanel Component', () => {
   describe('Scenario Name Display', () => {
@@ -154,7 +70,7 @@ describe('ScenarioPanel Component', () => {
       render(<ScenarioPanel scenario={scenario} />);
 
       // Should render without error
-      expect(screen.getByTestId(`scenario-panel-${scenario.id}`)).toBeInTheDocument();
+      expect(screen.getByTestId('scenario-panel-' + scenario.id)).toBeInTheDocument();
     });
   });
 
@@ -508,7 +424,7 @@ describe('ScenarioPanel Component', () => {
       render(<ScenarioPanel scenario={scenario} />);
 
       const bomContainer = screen.getByTestId('bom-entries');
-      expect(bomContainer.children).toHaveLength(0);
+      expect(bomContainer.querySelectorAll('[data-testid^="bom-entry-"]')).toHaveLength(0);
     });
 
     test('handles BOM entry without emissions value', () => {
@@ -526,8 +442,8 @@ describe('ScenarioPanel Component', () => {
 
     test('handles large number of BOM entries', () => {
       const manyEntries = Array.from({ length: 20 }, (_, i) => ({
-        id: `bom-${i}`,
-        component_name: `Material ${i + 1}`,
+        id: 'bom-' + i,
+        component_name: 'Material ' + (i + 1),
         quantity: i + 1,
         unit: 'kg',
         emissions: (i + 1) * 2,
