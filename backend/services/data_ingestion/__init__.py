@@ -5,6 +5,7 @@ TASK-DATA-P5-001: Base Ingestion Framework
 TASK-DATA-P5-002: EPA Data Connector
 TASK-DATA-P5-003: DEFRA Data Connector
 TASK-DATA-P5-004: Exiobase Data Connector
+TASK-DATA-P5-005: Product Catalog Expansion
 
 This package provides the foundation for data ingestion from external sources:
 - BaseDataIngestion: Abstract base class for all connectors
@@ -14,6 +15,11 @@ This package provides the foundation for data ingestion from external sources:
 - DataIngestionHTTPClient: HTTP client with retry logic
 - Custom exceptions for error handling
 - Pydantic schemas for validation
+
+Product Catalog Expansion (TASK-DATA-P5-005):
+- CategoryLoader: Load hierarchical product categories
+- ProductGenerator: Generate sample products per category
+- FullTextSearchIndexer: Update FTS vectors for products and categories
 
 Usage:
     from backend.services.data_ingestion import (
@@ -27,6 +33,10 @@ Usage:
         ParseError,
         TransformError,
         ValidationError,
+        # Product Catalog Expansion
+        CategoryLoader,
+        ProductGenerator,
+        FullTextSearchIndexer,
     )
 
     # Using EPA connector
@@ -50,6 +60,18 @@ Usage:
         data_source_id="exiobase-source-uuid"
     )
     result = await ingestion.execute_sync()
+
+    # Product Catalog Expansion
+    loader = CategoryLoader()
+    tree = loader.generate_category_tree()
+    await loader.load_categories_from_json(db, tree)
+
+    generator = ProductGenerator()
+    await generator.generate_products(db, categories, products_per_category=10)
+
+    indexer = FullTextSearchIndexer()
+    await indexer.update_product_vectors(db)
+    await indexer.update_category_vectors(db)
 
     # Custom connector
     class MyConnector(BaseDataIngestion):
@@ -85,6 +107,11 @@ from backend.services.data_ingestion.exceptions import (
     ValidationError,
 )
 
+# TASK-DATA-P5-005: Product Catalog Expansion
+from backend.services.data_ingestion.category_loader import CategoryLoader
+from backend.services.data_ingestion.product_generator import ProductGenerator
+from backend.services.data_ingestion.fts_indexer import FullTextSearchIndexer
+
 
 __all__ = [
     # Base class
@@ -101,4 +128,8 @@ __all__ = [
     "ParseError",
     "TransformError",
     "ValidationError",
+    # Product Catalog Expansion (TASK-DATA-P5-005)
+    "CategoryLoader",
+    "ProductGenerator",
+    "FullTextSearchIndexer",
 ]
