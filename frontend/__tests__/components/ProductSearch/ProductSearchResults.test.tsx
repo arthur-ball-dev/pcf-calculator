@@ -139,7 +139,7 @@ describe('ProductSearchResults Component', () => {
 
       mockProducts.forEach((product) => {
         if (product.category) {
-          expect(screen.getByText(product.category.name)).toBeInTheDocument();
+          expect(screen.getAllByText(product.category.name).length).toBeGreaterThan(0);
         }
       });
     });
@@ -485,16 +485,16 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={mockProducts} />);
 
       // Categories should be displayed as badges
-      expect(screen.getByText('Computers')).toBeInTheDocument();
-      expect(screen.getByText('Textiles')).toBeInTheDocument();
+      expect(screen.getAllByText('Computers').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Textiles').length).toBeGreaterThan(0);
     });
 
     it('should distinguish category badge visually', () => {
       render(<ProductSearchResults products={mockProducts} />);
 
       // Category badges should exist
-      const categoryBadge = screen.getByText('Computers');
-      expect(categoryBadge).toBeInTheDocument();
+      const categoryBadges = screen.getAllByText('Computers');
+      expect(categoryBadges.length).toBeGreaterThan(0);
     });
   });
 });

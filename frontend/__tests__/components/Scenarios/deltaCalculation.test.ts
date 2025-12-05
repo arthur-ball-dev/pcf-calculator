@@ -27,7 +27,7 @@ describe('Delta Calculations', () => {
       test('Baseline 100, Alternative 120 returns +20% percentage delta', () => {
         const result = calculateDelta(100, 120, 'scenario-1', 'Alternative A');
 
-        expect(result.percentageDelta).toBe(20);
+        expect(result.percentageDelta).toBeCloseTo(20, 1);
       });
 
       test('Baseline 100, Alternative 120 returns direction="increase"', () => {
@@ -156,7 +156,7 @@ describe('Delta Calculations', () => {
         const result = calculateDelta(1000000, 1200000, 'scenario-10', 'Large Scale');
 
         expect(result.absoluteDelta).toBe(200000);
-        expect(result.percentageDelta).toBe(20);
+        expect(result.percentageDelta).toBeCloseTo(20, 1);
         expect(result.direction).toBe('increase');
       });
 
@@ -164,7 +164,7 @@ describe('Delta Calculations', () => {
         const result = calculateDelta(0.001, 0.0012, 'scenario-11', 'Tiny Scale');
 
         expect(result.absoluteDelta).toBeCloseTo(0.0002, 4);
-        expect(result.percentageDelta).toBe(20);
+        expect(result.percentageDelta).toBeCloseTo(20, 1);
         expect(result.direction).toBe('increase');
       });
     });

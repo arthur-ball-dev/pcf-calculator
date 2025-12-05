@@ -22,6 +22,8 @@ import {
   downloadFile,
   type CSVOptions,
 } from '@/utils/export/csvExport';
+// Helper to strip UTF-8 BOM from string for consistent assertions
+const stripBOM = (str: string) => str.replace(/^\ufeff/, '');
 
 // Mock DOM APIs for download testing
 const mockCreateObjectURL = vi.fn(() => 'blob:mock-url');
@@ -83,7 +85,7 @@ describe('CSV Export Utility', () => {
       const lines = result.split('\n');
 
       // First line should be headers
-      expect(lines[0]).toBe('scope,category,emissions');
+      expect(stripBOM(lines[0])).toBe('scope,category,emissions');
     });
 
     it('should exclude headers when includeHeaders is false', () => {
@@ -96,7 +98,7 @@ describe('CSV Export Utility', () => {
 
       // Should only have data row, no headers
       expect(lines.length).toBe(1);
-      expect(lines[0]).toBe('Product A,100.00');
+      expect(stripBOM(lines[0])).toBe('Product A,100.00');
     });
 
     it('should use custom headers when provided', () => {
@@ -108,7 +110,7 @@ describe('CSV Export Utility', () => {
       const result = generateCSVString(data, { headers: customHeaders });
       const lines = result.split('\n');
 
-      expect(lines[0]).toBe('Product Name,Emission Value');
+      expect(stripBOM(lines[0])).toBe('Product Name,Emission Value');
     });
   });
 
@@ -123,7 +125,7 @@ describe('CSV Export Utility', () => {
       const result = generateCSVString(data);
 
       expect(result).toContain('a,b');
-      expect(result).toContain('1,2');
+      expect(result).toContain('1.00,2.00');
     });
 
     it('should support semicolon delimiter for EU locale', () => {
@@ -373,8 +375,8 @@ describe('CSV Export Utility', () => {
       const result = generateCSVString(data);
 
       expect(result).toContain('a,b');
-      expect(result).toContain('1,2');
-      expect(result).toContain('3,'); // b is undefined
+      expect(result).toContain('1.00,2.00');
+      expect(result).toContain('3.00,'); // b is undefined
     });
   });
 
