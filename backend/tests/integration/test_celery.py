@@ -41,8 +41,11 @@ def celery_config():
 
 
 @pytest.fixture
-def celery_app_integration(celery_config):
-    """Create Celery app with integration config."""
+def celery_app_integration(celery_config, require_redis):
+    """Create Celery app with integration config.
+
+    Depends on require_redis fixture to skip tests when Redis is unavailable.
+    """
     from backend.core.celery_app import celery_app
 
     original_config = {
