@@ -169,6 +169,7 @@ class EmissionFactor(Base):
     - external_id: ID in the source system
     - sync_batch_id: UUID linking to DataSyncLog
     - is_active: Soft delete / active flag
+    - scope: GHG Protocol scope (Scope 1, Scope 2, Scope 3)
     - search_vector: Full-text search (TSVECTOR in PostgreSQL)
     """
     __tablename__ = "emission_factors"
@@ -232,6 +233,10 @@ class EmissionFactor(Base):
     # Active flag for soft delete
     is_active = Column(Boolean, default=True)
 
+    # GHG Protocol scope classification
+    # Values: "Scope 1" (direct), "Scope 2" (energy), "Scope 3" (indirect)
+    scope = Column(String(20), nullable=True)
+
     # Full-text search vector (Text for SQLite, TSVECTOR for PostgreSQL)
     search_vector = Column(TEXT, nullable=True)
 
@@ -273,6 +278,7 @@ class EmissionFactor(Base):
         Index('idx_ef_source', 'data_source_id'),
         Index('idx_ef_external', 'external_id'),
         Index('idx_ef_active', 'is_active'),
+        Index('idx_ef_scope', 'scope'),
         # GIN index for search_vector would be added in PostgreSQL migration
     )
 
