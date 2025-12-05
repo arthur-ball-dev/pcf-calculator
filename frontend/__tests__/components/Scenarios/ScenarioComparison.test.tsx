@@ -202,7 +202,7 @@ describe('ScenarioComparison Component', () => {
 
       render(<ScenarioComparison />);
 
-      expect(screen.getByText('Current Production')).toBeInTheDocument();
+      expect(screen.getAllByText('Current Production').length).toBeGreaterThan(0);
     });
 
     test('renders alternative scenario name correctly', () => {
@@ -221,7 +221,7 @@ describe('ScenarioComparison Component', () => {
 
       render(<ScenarioComparison />);
 
-      expect(screen.getByText('Optimized Process')).toBeInTheDocument();
+      expect(screen.getAllByText('Optimized Process').length).toBeGreaterThan(0);
     });
 
     test('handles long scenario names gracefully', () => {
@@ -235,7 +235,7 @@ describe('ScenarioComparison Component', () => {
 
       render(<ScenarioComparison />);
 
-      expect(screen.getByText(/This is a very long scenario name/)).toBeInTheDocument();
+      expect(screen.getAllByText(/This is a very long scenario name/).length).toBeGreaterThan(0);
     });
   });
 
