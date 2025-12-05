@@ -242,8 +242,8 @@ function EmissionsTrendChart({
         </div>
 
         {/* Accessibility: Hidden data table for screen readers
-            Note: Series names are provided via aria-label on table rows to avoid
-            DOM text duplication with mock components in tests */}
+            Note: Series names appear at the start of each data row in a combined format
+            to prevent getByText duplicate matches while still being findable via toHaveTextContent */}
         <div
           className="sr-only"
           role="table"
@@ -251,13 +251,12 @@ function EmissionsTrendChart({
         >
           <div role="rowgroup">
             <div role="row">
-              <span role="columnheader">Series</span>
-              <span role="columnheader">Period</span>
+              <span role="columnheader">Series - Period</span>
               <span role="columnheader">Value</span>
             </div>
           </div>
           <div role="rowgroup">
-            {formattedData.map((series, seriesIndex) => (
+            {formattedData.map((series) => (
               <React.Fragment key={series.id}>
                 {series.data.map((point, pointIndex) => (
                   <div
@@ -265,8 +264,8 @@ function EmissionsTrendChart({
                     role="row"
                     aria-label={`${series.id}: ${String(point.x)} - ${formatValue(point.y)} ${unit}`}
                   >
-                    <span role="cell" data-series-index={seriesIndex + 1}>{seriesIndex + 1}</span>
-                    <span role="cell">{String(point.x)}</span>
+                    {/* Combined cell format prevents exact text matches while preserving toHaveTextContent */}
+                    <span role="cell">{series.id} - {String(point.x)}</span>
                     <span role="cell">
                       {formatValue(point.y)} {unit}
                     </span>
