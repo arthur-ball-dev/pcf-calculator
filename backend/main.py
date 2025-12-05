@@ -20,6 +20,7 @@ from backend.middleware import SecurityHeadersMiddleware
 from backend.api.routes.products import router as products_router
 from backend.api.routes.calculations import router as calculations_router
 from backend.api.routes.emission_factors import router as emission_factors_router
+from backend.api.routes.admin import router as admin_router
 
 # Configure logging
 logging.basicConfig(
@@ -112,7 +113,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": {
-                "code": "CALCULATION_FAILED",
+                "code": "INTERNAL_ERROR",
                 "message": "Internal server error",
                 "details": []
             },
@@ -126,6 +127,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(products_router)
 app.include_router(calculations_router)
 app.include_router(emission_factors_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")
