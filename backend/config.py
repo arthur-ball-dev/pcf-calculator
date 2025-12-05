@@ -3,6 +3,8 @@ Configuration module for PCF Calculator Backend
 Handles environment variables and application settings
 
 Supports both SQLite (development) and PostgreSQL (production) databases.
+
+TASK-BE-P5-001: Added Celery and Redis configuration settings.
 """
 
 import os
@@ -31,6 +33,11 @@ class Settings(BaseSettings):
         db_max_overflow: Maximum overflow connections
         cors_origins: Allowed CORS origins for frontend
         api_v1_prefix: API version 1 prefix
+        CELERY_BROKER_URL: Celery broker URL (Redis)
+        CELERY_RESULT_BACKEND: Celery result backend URL (Redis)
+        REDIS_HOST: Redis host
+        REDIS_PORT: Redis port
+        REDIS_DB: Redis database number
     """
 
     model_config = SettingsConfigDict(
@@ -95,6 +102,30 @@ class Settings(BaseSettings):
 
     # API settings
     api_v1_prefix: str = Field(default="/api/v1", description="API v1 prefix")
+
+    # Celery settings
+    CELERY_BROKER_URL: str = Field(
+        default="redis://localhost:6379/0",
+        description="Celery broker URL (Redis)"
+    )
+    CELERY_RESULT_BACKEND: str = Field(
+        default="redis://localhost:6379/1",
+        description="Celery result backend URL (Redis)"
+    )
+
+    # Redis settings
+    REDIS_HOST: str = Field(
+        default="localhost",
+        description="Redis host"
+    )
+    REDIS_PORT: int = Field(
+        default=6379,
+        description="Redis port"
+    )
+    REDIS_DB: int = Field(
+        default=0,
+        description="Redis database number"
+    )
 
     @property
     def is_postgresql(self) -> bool:
