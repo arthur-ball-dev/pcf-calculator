@@ -4,11 +4,13 @@ Data Ingestion Service Package.
 TASK-DATA-P5-001: Base Ingestion Framework
 TASK-DATA-P5-002: EPA Data Connector
 TASK-DATA-P5-003: DEFRA Data Connector
+TASK-DATA-P5-004: Exiobase Data Connector
 
 This package provides the foundation for data ingestion from external sources:
 - BaseDataIngestion: Abstract base class for all connectors
 - EPAEmissionFactorsIngestion: EPA GHG Emission Factors Hub connector
 - DEFRAEmissionFactorsIngestion: DEFRA UK Government Conversion Factors
+- ExiobaseEmissionFactorsIngestion: Exiobase 3.8.2 MRIO connector
 - DataIngestionHTTPClient: HTTP client with retry logic
 - Custom exceptions for error handling
 - Pydantic schemas for validation
@@ -18,6 +20,7 @@ Usage:
         BaseDataIngestion,
         EPAEmissionFactorsIngestion,
         DEFRAEmissionFactorsIngestion,
+        ExiobaseEmissionFactorsIngestion,
         DataIngestionHTTPClient,
         DataIngestionError,
         FetchError,
@@ -38,6 +41,13 @@ Usage:
     ingestion = DEFRAEmissionFactorsIngestion(
         db=async_session,
         data_source_id="defra-source-uuid"
+    )
+    result = await ingestion.execute_sync()
+
+    # Using Exiobase connector
+    ingestion = ExiobaseEmissionFactorsIngestion(
+        db=async_session,
+        data_source_id="exiobase-source-uuid"
     )
     result = await ingestion.execute_sync()
 
@@ -63,6 +73,9 @@ from backend.services.data_ingestion.epa_ingestion import (
 from backend.services.data_ingestion.defra_ingestion import (
     DEFRAEmissionFactorsIngestion
 )
+from backend.services.data_ingestion.exiobase_ingestion import (
+    ExiobaseEmissionFactorsIngestion
+)
 from backend.services.data_ingestion.http_client import DataIngestionHTTPClient
 from backend.services.data_ingestion.exceptions import (
     DataIngestionError,
@@ -79,6 +92,7 @@ __all__ = [
     # Connectors
     "EPAEmissionFactorsIngestion",
     "DEFRAEmissionFactorsIngestion",
+    "ExiobaseEmissionFactorsIngestion",
     # HTTP client
     "DataIngestionHTTPClient",
     # Exceptions
