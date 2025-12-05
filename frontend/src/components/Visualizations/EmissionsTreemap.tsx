@@ -142,6 +142,8 @@ function EmissionsTreemap({
   const [drillPath, setDrillPath] = useState<string[]>([]);
   const liveRegionRef = useRef<HTMLDivElement>(null);
   const prevDataRef = useRef<TreemapNode | null | undefined>(data);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevDrillPathLength = useRef<number>(0);
 
   // Reset drill path when data changes
   useEffect(() => {
@@ -154,6 +156,18 @@ function EmissionsTreemap({
     }
     prevDataRef.current = data;
   }, [data]);
+
+  // Focus management after drill-down: blur active element so tab starts from beginning
+  useEffect(() => {
+    if (drillPath.length !== prevDrillPathLength.current) {
+      // Focus the container (tabIndex=-1 makes it focusable but not in tab order)
+      // This resets focus so Tab will go to the first tabbable element
+      if (containerRef.current) {
+        containerRef.current.focus();
+      }
+    }
+    prevDrillPathLength.current = drillPath.length;
+  }, [drillPath.length]);
 
   // Get current data based on drill path
   const currentData = useMemo(() => {
@@ -251,7 +265,12 @@ function EmissionsTreemap({
   }
 
   return (
-    <Card className={className} data-testid="emissions-treemap">
+    <Card
+      ref={containerRef}
+      className={className}
+      data-testid="emissions-treemap"
+      tabIndex={-1}
+    >
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Emissions Breakdown</CardTitle>
         {drillPath.length > 0 && (
