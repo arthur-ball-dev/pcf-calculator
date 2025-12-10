@@ -15,8 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import { render, screen, waitFor, userEvent } from '../../testUtils';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { ProductSearchFilters } from '@/components/ProductSearch/ProductSearchFilters';

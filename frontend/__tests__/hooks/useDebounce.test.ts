@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act } from '../testUtils';
 import { useDebounce } from '@/hooks/useDebounce';
 
 describe('useDebounce Hook', () => {

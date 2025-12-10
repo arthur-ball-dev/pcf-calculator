@@ -12,7 +12,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { act } from '@testing-library/react';
+import { act } from '../testUtils';
 // Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
 import { useScenarioStore, type Scenario, type BOMEntry, type CalculationParameters, type CalculationResults } from '../../src/store/scenarioStore';
 

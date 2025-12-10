@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '../testUtils';
 import { CalculateButton } from '../../src/components/calculator/CalculateButton';
 import { useCalculation } from '../../src/hooks/useCalculation';
 import { useCalculatorStore } from '../../src/store/calculatorStore';

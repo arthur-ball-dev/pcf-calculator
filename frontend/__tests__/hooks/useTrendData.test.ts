@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act } from '../testUtils';
 
 // Hook to be created at: frontend/src/hooks/useTrendData.ts
 import { useTrendData } from '../../src/hooks/useTrendData';

@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen } from '../testUtils';
 import { ResultsDisplayContent } from '../../src/components/calculator/ResultsDisplayContent';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import type { Calculation } from '../../src/types/store.types';

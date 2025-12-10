@@ -12,7 +12,7 @@
  * Test Protocol: Written test-first to validate Fix #11 from TASK-FE-013
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act, waitFor } from '../testUtils';
 import { useCalculation } from '../../src/hooks/useCalculation';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { server } from '../../__mocks__/server';

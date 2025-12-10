@@ -18,8 +18,7 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import { render, screen, waitFor, within, userEvent } from '../../testUtils';
 
 // Components to be implemented
 // import { TourProvider, useTour } from '@/contexts/TourContext';

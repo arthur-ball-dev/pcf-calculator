@@ -13,7 +13,7 @@
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen } from '../../testUtils';
 
 // Configuration to be implemented
 // import { TOUR_STEPS, TOUR_STEP_IDS } from '@/config/tourSteps';
