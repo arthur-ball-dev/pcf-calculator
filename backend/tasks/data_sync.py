@@ -34,7 +34,7 @@ from typing import Dict, Any
 
 from sqlalchemy import select
 
-from backend.core.celery_app import celery_app
+from backend.core.celery_app import celery_app, BoundTask
 from backend.database.connection import SessionLocal
 from backend.models import DataSource, DataSyncLog
 from backend.services.data_ingestion import (
@@ -70,6 +70,7 @@ async def async_session_maker():
 
 @celery_app.task(
     bind=True,
+    base=BoundTask,
     name="backend.tasks.data_sync.sync_data_source",
     autoretry_for=(ConnectionError, TimeoutError, OSError),
     retry_backoff=True,
@@ -184,6 +185,7 @@ async def _async_sync_data_source(
 
 @celery_app.task(
     bind=True,
+    base=BoundTask,
     name="backend.tasks.data_sync.check_sync_status",
 )
 def check_sync_status(self, sync_log_id: str) -> Dict[str, Any]:

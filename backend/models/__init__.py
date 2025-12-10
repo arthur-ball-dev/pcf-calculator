@@ -23,19 +23,13 @@ from sqlalchemy import (
     Index,
     JSON
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-import uuid
 
-# Create declarative base
-Base = declarative_base()
-
-
-def generate_uuid() -> str:
-    """Generate lowercase hex UUID for primary keys"""
-    return uuid.uuid4().hex
+# Import Base and generate_uuid from base module to avoid circular imports
+from backend.models.base import Base, generate_uuid
 
 
 class Product(Base):
@@ -518,11 +512,11 @@ class CalculationDetail(Base):
         return f"<CalculationDetail(component='{self.component_name}', emissions={self.emissions_kg_co2e})>"
 
 
-# Import new Phase 5 models
+# Import Phase 5 models AFTER all base classes are defined
+# This ensures SQLAlchemy can resolve string-based relationship references
 from backend.models.data_source import DataSource
 from backend.models.product_category import ProductCategory
 from backend.models.data_sync_log import DataSyncLog
-
 
 # Export all models
 __all__ = [

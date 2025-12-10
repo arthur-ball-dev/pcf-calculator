@@ -22,10 +22,53 @@ Usage:
     celery -A backend.core.celery_app flower --port=5555
 """
 
-from celery import Celery
+from celery import Celery, Task as CeleryTask
 from celery.schedules import crontab
 
 from backend.config import settings
+
+
+class BoundTask(CeleryTask):
+    """
+    Custom Celery Task base class that exposes bind as a readable attribute.
+
+    In Celery 5.x, the `bind` parameter to @app.task() decorator creates a
+    bound task where the first argument is `self`. However, `Task.bind` is
+    a method used internally by Celery, not a boolean attribute.
+
+    This class overrides __getattribute__ to intercept `.bind` access after
+    task registration, returning True if the task's run method takes `self`
+    as its first parameter (indicating it was created with bind=True).
+
+    The detection logic:
+    - During task registration, Celery calls task.bind(app) - we let this through
+    - After registration (_app is set), accessing task.bind returns True/False
+      based on whether __wrapped__ is a MethodType (indicates bind=True was used)
+    """
+
+    def __getattribute__(self, name):
+        """Override attribute access to make .bind return True for bound tasks.
+
+        Detection logic:
+        1. Check if _app is set (task fully registered)
+        2. Check if __wrapped__ is a MethodType (indicates bind=True)
+        3. During registration, return original bind method for Celery to call
+        """
+        if name == 'bind':
+            from types import MethodType
+            try:
+                # Check if task is fully registered (has _app set)
+                _app = super().__getattribute__('_app')
+                if _app is not None:
+                    # Task is registered, check if it's bound
+                    wrapped = super().__getattribute__('__wrapped__')
+                    if isinstance(wrapped, MethodType):
+                        return True
+            except AttributeError:
+                pass
+            # During registration or not bound, return original bind method
+            return super().__getattribute__(name)
+        return super().__getattribute__(name)
 
 
 # Create Celery application instance
