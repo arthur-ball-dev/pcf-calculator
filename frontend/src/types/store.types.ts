@@ -10,6 +10,9 @@
  * - Product.id: number → string (32-char hex UUID)
  * - selectedProductId: number | null → string | null
  * - BOMItem.emissionFactorId: number | null → string | null
+ *
+ * UPDATED: TEST-FIX - Added notes field to BOMItem
+ * - notes: string | undefined - optional field from API BOMItemResponse
  */
 
 // ============================================================================
@@ -53,6 +56,7 @@ export interface BOMItem {
   unit: string;
   category: BOMItemCategory;
   emissionFactorId: string | null; // UPDATED: number | null → string | null (UUID)
+  notes?: string; // ADDED: Optional notes from API BOMItemResponse
 }
 
 export interface Product {

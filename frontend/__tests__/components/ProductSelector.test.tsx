@@ -53,11 +53,6 @@ const mockProducts: Product[] = [
 
 // Mock the products API
 
-const mockProducts = [
-  { id: "1", name: 'Test Product', category: 'Electronics', code: 'TEST-001' },
-  { id: "2", name: 'Another Product', category: 'Textiles', code: 'TEST-002' },
-];
-
 vi.mock('../../src/services/api/products', () => ({
   productsAPI: {
     list: vi.fn(),
