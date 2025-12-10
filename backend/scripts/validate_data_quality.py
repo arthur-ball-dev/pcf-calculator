@@ -26,7 +26,7 @@ sys.path.insert(0, str(backend_dir))
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker, Session
 
-from models import (
+from backend.models import (
     Product,
     EmissionFactor,
     BillOfMaterials,

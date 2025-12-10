@@ -40,7 +40,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from backend.models import Base, generate_uuid
+from backend.models.base import Base, generate_uuid
 
 
 class DataSyncLog(Base):

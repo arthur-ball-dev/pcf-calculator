@@ -18,10 +18,11 @@ from alembic import context
 
 # Add parent directory to path to import models
 backend_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(backend_dir))
+project_root = backend_dir.parent
+sys.path.insert(0, str(project_root))
 
 # Import models for autogenerate support
-from models import Base
+from backend.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
