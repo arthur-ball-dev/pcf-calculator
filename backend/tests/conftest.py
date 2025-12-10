@@ -182,7 +182,6 @@ def pytest_configure(config):
     )
 
 
-# Make fixtures from subfolder conftest files available
-pytest_plugins = [
-    "backend.tests.fixtures.conftest",
-]
+# Note: Fixtures from backend/tests/fixtures/conftest.py are auto-discovered
+# by pytest when traversing the directory structure. Do NOT add them to
+# pytest_plugins as this causes duplicate plugin registration errors.
