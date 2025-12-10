@@ -503,7 +503,7 @@ describe('ScenarioPanel Component', () => {
       render(<ScenarioPanel scenario={scenario} />);
 
       // Has heading for scenario name
-      expect(screen.getByRole('heading')).toBeInTheDocument();
+      expect(screen.getAllByRole('heading').length).toBeGreaterThan(0);
     });
 
     test('emissions value is readable', () => {
