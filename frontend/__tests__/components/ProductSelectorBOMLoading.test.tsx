@@ -112,10 +112,6 @@ vi.mock('../../src/services/api/products', () => ({
   },
   fetchProducts: vi.fn(),
 }));
-    list: vi.fn(),
-    getById: vi.fn(),
-  },
-}));
 
 vi.mock('../../src/services/api/emissionFactors', () => ({
   emissionFactorsAPI: {

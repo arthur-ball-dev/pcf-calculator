@@ -26,18 +26,21 @@ import type { Calculation } from '../../src/types/store.types';
 // Mock the API
 
 // Mock products API
-const mockProducts = [
-  { id: "product-1", name: 'Cotton T-Shirt', category: 'Textiles', code: 'COTTON-001' },
-  { id: "product-2", name: 'Polyester Jacket', category: 'Textiles', code: 'POLY-002' },
-];
+vi.mock('../../src/services/api/products', () => {
+  const mockProducts = [
+    { id: "product-1", name: 'Cotton T-Shirt', category: 'Textiles', code: 'COTTON-001' },
+    { id: "product-2", name: 'Polyester Jacket', category: 'Textiles', code: 'POLY-002' },
+  ];
+  return {
+    productsAPI: {
+      list: vi.fn().mockResolvedValue(mockProducts),
+      getById: vi.fn().mockResolvedValue(mockProducts[0]),
+    },
+    fetchProducts: vi.fn().mockResolvedValue(mockProducts),
+  };
+});
 
-vi.mock('../../src/services/api/products', () => ({
-  productsAPI: {
-    list: vi.fn().mockResolvedValue(mockProducts),
-    getById: vi.fn().mockResolvedValue(mockProducts[0]),
-  },
-  fetchProducts: vi.fn().mockResolvedValue(mockProducts),
-}));
+describe('CalculationWizard', () => {
   const user = userEvent.setup();
 
   beforeEach(() => {

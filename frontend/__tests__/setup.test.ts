@@ -122,7 +122,7 @@ describe('TASK-FE-001: Project Setup Verification', () => {
     test('src/store/ directory structure exists', () => {
       const storeDirs = [
         'src/store',
-        'src/store/slices',
+        'src/store/middleware',
       ];
 
       storeDirs.forEach(dir => {

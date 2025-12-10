@@ -33,19 +33,19 @@ import type { Calculation } from '@/types/store.types';
 expect.extend(toHaveNoViolations);
 
 // Mock API calls
-// Mock API calls
-const mockProducts = [
-  { id: "1", name: 'Test Product', category: 'Electronics', code: 'TEST-001' },
-  { id: "2", name: 'Another Product', category: 'Textiles', code: 'TEST-002' },
-];
-
-vi.mock('@/services/api/products', () => ({
-  productsAPI: {
-    list: vi.fn().mockResolvedValue(mockProducts),
-    getById: vi.fn().mockResolvedValue(mockProducts[0]),
-  },
-  fetchProducts: vi.fn().mockResolvedValue(mockProducts),
-}));
+vi.mock('@/services/api/products', () => {
+  const mockProducts = [
+    { id: "1", name: 'Test Product', category: 'Electronics', code: 'TEST-001' },
+    { id: "2", name: 'Another Product', category: 'Textiles', code: 'TEST-002' },
+  ];
+  return {
+    productsAPI: {
+      list: vi.fn().mockResolvedValue(mockProducts),
+      getById: vi.fn().mockResolvedValue(mockProducts[0]),
+    },
+    fetchProducts: vi.fn().mockResolvedValue(mockProducts),
+  };
+});
 
 vi.mock('@/hooks/useEmissionFactors', () => ({
   useEmissionFactors: () => ({
