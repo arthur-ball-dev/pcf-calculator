@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, waitFor, act } from '../testUtils';
 import { useCalculation } from '../../src/hooks/useCalculation';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { useWizardStore } from '../../src/store/wizardStore';

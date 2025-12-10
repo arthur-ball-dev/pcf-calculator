@@ -13,8 +13,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor, userEvent } from '../testUtils';
 import { ExportDialog } from '@/components/ExportDialog';
 import type { CalculationStatusResponse } from '@/types/api.types';
 

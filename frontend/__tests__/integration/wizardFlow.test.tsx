@@ -23,9 +23,8 @@
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { render } from '../testUtils';
+import { render, screen, waitFor, within } from '../testUtils';
 import { server } from '../../__mocks__/server';
 import { rest } from 'msw';
 import CalculationWizard from '../../src/components/calculator/CalculationWizard';

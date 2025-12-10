@@ -15,8 +15,7 @@
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import { render, screen, waitFor, within, userEvent } from '../testUtils';
 import ProductSelector from '../../src/components/calculator/ProductSelector';
 import { useWizardStore } from '../../src/store/wizardStore';
 import { useCalculatorStore } from '../../src/store/calculatorStore';

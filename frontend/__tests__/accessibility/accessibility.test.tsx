@@ -14,9 +14,8 @@
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, userEvent } from '../testUtils';
 import { axe, toHaveNoViolations } from 'jest-axe';
-import userEvent from '@testing-library/user-event';
 import ProductSelector from '@/components/calculator/ProductSelector';
 import BOMEditor from '@/components/forms/BOMEditor';
 import CalculationWizard from '@/components/calculator/CalculationWizard';

@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act } from '../testUtils';
 
 // Hook to be created at: frontend/src/hooks/useTreemapData.ts
 import { useTreemapData } from '../../src/hooks/useTreemapData';

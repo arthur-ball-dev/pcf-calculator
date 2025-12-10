@@ -13,8 +13,7 @@
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import { render, screen, fireEvent, waitFor, userEvent } from '../../testUtils';
 // Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
 import { ScenarioComparison } from '../../../src/components/Scenarios/ScenarioComparison';
 

@@ -14,8 +14,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, fireEvent, waitFor, userEvent } from '../testUtils';
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import BOMEditor from '@/components/forms/BOMEditor';
 import { useCalculatorStore } from '@/store/calculatorStore';

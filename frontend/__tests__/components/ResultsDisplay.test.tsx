@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '../testUtils';
 import ResultsDisplay from '../../src/components/calculator/ResultsDisplay';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { useWizardStore } from '../../src/store/wizardStore';

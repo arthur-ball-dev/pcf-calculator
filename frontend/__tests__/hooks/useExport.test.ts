@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act, waitFor } from '../testUtils';
 import { useExport } from '@/hooks/useExport';
 import type { CalculationStatusResponse } from '@/types/api.types';
 

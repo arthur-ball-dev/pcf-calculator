@@ -14,8 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import { render, screen, userEvent } from '../../testUtils';
 import { ProductSearchResults } from '@/components/ProductSearch/ProductSearchResults';
 import type { MockProduct } from '@/mocks/data/products';
 

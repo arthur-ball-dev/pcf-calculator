@@ -17,8 +17,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor, userEvent } from '../testUtils';
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { UndoRedoControls } from '@/components/Calculator/UndoRedoControls';
 

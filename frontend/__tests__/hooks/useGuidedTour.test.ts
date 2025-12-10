@@ -15,7 +15,7 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act, cleanup } from '@testing-library/react';
+import { renderHook, act, cleanup } from '../testUtils';
 
 // Hook to be implemented
 // import { useGuidedTour } from '@/hooks/useGuidedTour';
