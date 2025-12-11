@@ -45,9 +45,20 @@ export const bomItemSchema = z.object({
     .min(1, 'Component name is required')
     .max(100, 'Component name must be less than 100 characters'),
 
+  // UPDATED: TASK-FIX-P5-006 - Use refine() to catch NaN values
+  // HTML5 number inputs with min="0" return NaN via valueAsNumber when typing negative values
+  // Zod's .positive() only validates actual numbers, not NaN
+  // Using refine() ensures NaN is caught and proper error message is displayed
   quantity: z.number()
-    .positive('Quantity must be greater than zero')
-    .max(999999, 'Quantity cannot exceed 999,999'),
+    .refine((val) => !Number.isNaN(val), {
+      message: 'Quantity must be greater than zero'
+    })
+    .refine((val) => val > 0, {
+      message: 'Quantity must be greater than zero'
+    })
+    .refine((val) => val <= 999999, {
+      message: 'Quantity cannot exceed 999,999'
+    }),
 
   unit: z.string()
     .min(1, 'Unit is required'),
