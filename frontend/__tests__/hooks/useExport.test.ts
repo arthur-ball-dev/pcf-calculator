@@ -82,7 +82,8 @@ describe('useExport Hook', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    // Reset all mocks including their implementations
+    vi.resetAllMocks();
     vi.useFakeTimers();
   });
 
