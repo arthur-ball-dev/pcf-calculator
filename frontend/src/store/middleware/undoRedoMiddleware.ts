@@ -14,8 +14,9 @@
  * TASK-FE-P5-003
  */
 
-import { StateCreator, StoreMutatorIdentifier } from 'zustand';
-import { enablePatches, produceWithPatches, applyPatches, Patch } from 'immer';
+import type { StateCreator, StoreMutatorIdentifier } from 'zustand';
+import { enablePatches, produceWithPatches, applyPatches } from 'immer';
+import type { Patch } from 'immer';
 
 // Enable Immer patches globally
 enablePatches();
@@ -48,16 +49,6 @@ interface UndoRedoOptions {
   debounceMs?: number;
 }
 
-// Middleware type declaration
-type UndoRedoMiddleware = <
-  T extends object,
-  Mps extends [StoreMutatorIdentifier, unknown][] = [],
-  Mcs extends [StoreMutatorIdentifier, unknown][] = []
->(
-  config: StateCreator<T, Mps, Mcs>,
-  options?: UndoRedoOptions
-) => StateCreator<T & UndoRedoActions, Mps, Mcs>;
-
 // ============================================================================
 // Constants
 // ============================================================================
@@ -83,6 +74,16 @@ function extractDataState<T extends object>(state: T): Partial<T> {
 // Middleware Implementation
 // ============================================================================
 
+// Simplified middleware type that works with Zustand's type system
+type UndoRedoMiddleware = <
+  T extends object,
+  Mps extends [StoreMutatorIdentifier, unknown][] = [],
+  Mcs extends [StoreMutatorIdentifier, unknown][] = []
+>(
+  config: StateCreator<T, Mps, Mcs>,
+  options?: UndoRedoOptions
+) => StateCreator<T & UndoRedoActions, Mps, Mcs>;
+
 export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get, api) => {
   const { limit = DEFAULT_HISTORY_LIMIT, debounceMs = DEFAULT_DEBOUNCE_MS } = options;
 
@@ -100,13 +101,16 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
   // Flag to prevent recording during undo/redo operations
   let isUndoRedoOperation = false;
 
+  // Type-safe getter that works with extended state
+  const getState = () => get() as unknown;
+
   /**
    * Flush any pending (debounced) changes to history
    */
   const flushPendingChanges = () => {
     if (hasPendingChanges && batchStartState !== null) {
-      const currentState = get();
-      const currentDataState = extractDataState(currentState);
+      const currentState = getState();
+      const currentDataState = extractDataState(currentState as object);
 
       // Create patches from batchStartState to currentDataState
       try {
@@ -155,21 +159,29 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
     return JSON.parse(JSON.stringify(dataState));
   };
 
+  // Type-safe setter
+  const setState = (partial: unknown, replace?: boolean) => {
+    (set as (partial: unknown, replace?: boolean) => void)(partial, replace);
+  };
+
   /**
-   * Wrapped set function that tracks changes
+   * Wrapped set function that tracks changes and supports Immer-style mutations
+   * Accepts both standard Zustand partial updates and Immer-style void-returning mutations
    */
-  const trackedSet: typeof set = (partial, replace) => {
+  const trackedSet: typeof set = ((
+    partial: unknown,
+    replace?: boolean
+  ) => {
     // Skip tracking during undo/redo operations
     if (isUndoRedoOperation) {
-      // @ts-expect-error - Zustand type complexity
-      return set(partial, replace);
+      return setState(partial, replace);
     }
 
-    const currentState = get();
+    const currentState = getState();
 
     // Capture data-only state before batch if this is the first change in a batch
     if (!hasPendingChanges) {
-      batchStartState = cloneDataState(currentState);
+      batchStartState = cloneDataState(currentState as object);
       hasPendingChanges = true;
     }
 
@@ -177,8 +189,8 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
     if (typeof partial === 'function') {
       try {
         const [nextState] = produceWithPatches(
-          currentState,
-          partial as (draft: typeof currentState) => void
+          currentState as object,
+          partial as (draft: object) => void
         );
 
         // Reset debounce timer
@@ -187,18 +199,16 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
         }
         debounceTimer = setTimeout(flushPendingChanges, debounceMs);
 
-        // @ts-expect-error - Zustand type complexity
-        return set(nextState, replace);
+        return setState(nextState, replace);
       } catch {
         // If Immer fails, fall back to direct set
-        // @ts-expect-error - Zustand type complexity
-        return set(partial, replace);
+        return setState(partial, replace);
       }
     } else {
       // Direct partial object update
       try {
         const [nextState] = produceWithPatches(
-          currentState,
+          currentState as object,
           (draft) => {
             Object.assign(draft, partial);
           }
@@ -210,14 +220,12 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
         }
         debounceTimer = setTimeout(flushPendingChanges, debounceMs);
 
-        // @ts-expect-error - Zustand type complexity
-        return set(nextState, replace);
+        return setState(nextState, replace);
       } catch {
-        // @ts-expect-error - Zustand type complexity
-        return set(partial, replace);
+        return setState(partial, replace);
       }
     }
-  };
+  }) as typeof set;
 
   // ============================================================================
   // Undo/Redo Actions
@@ -234,8 +242,8 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
       const lastEntry = history.past.pop();
       if (!lastEntry) return;
 
-      const currentState = get();
-      const currentDataState = extractDataState(currentState);
+      const currentState = getState();
+      const currentDataState = extractDataState(currentState as object);
 
       // Apply inverse patches to revert (on data-only state)
       const newDataState = applyPatches(currentDataState, lastEntry.inversePatches);
@@ -248,8 +256,7 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
 
       // Apply without tracking - use partial update (not replace!)
       isUndoRedoOperation = true;
-      // @ts-expect-error - Zustand type complexity
-      set(newDataState, false); // false = merge, not replace
+      setState(newDataState, false);
       isUndoRedoOperation = false;
     },
 
@@ -260,8 +267,8 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
       const nextEntry = history.future.shift();
       if (!nextEntry) return;
 
-      const currentState = get();
-      const currentDataState = extractDataState(currentState);
+      const currentState = getState();
+      const currentDataState = extractDataState(currentState as object);
 
       // Apply the inverse patches (which are actually the forward patches)
       const newDataState = applyPatches(currentDataState, nextEntry.inversePatches);
@@ -274,8 +281,7 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
 
       // Apply without tracking - use partial update (not replace!)
       isUndoRedoOperation = true;
-      // @ts-expect-error - Zustand type complexity
-      set(newDataState, false); // false = merge, not replace
+      setState(newDataState, false);
       isUndoRedoOperation = false;
     },
 
@@ -320,8 +326,20 @@ export const undoRedo: UndoRedoMiddleware = (config, options = {}) => (set, get,
   // Return Combined State
   // ============================================================================
 
+  // Create inner config with the tracked set function
+  // Cast to work around Zustand's complex middleware type system
+  type InnerSet = Parameters<typeof config>[0];
+  type InnerGet = Parameters<typeof config>[1];
+  type InnerApi = Parameters<typeof config>[2];
+
+  const innerConfig = config(
+    trackedSet as unknown as InnerSet,
+    get as unknown as InnerGet,
+    api as unknown as InnerApi
+  );
+
   return {
-    ...config(trackedSet, get, api),
+    ...innerConfig,
     ...undoRedoActions,
   };
 };

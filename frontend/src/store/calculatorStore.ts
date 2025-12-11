@@ -25,6 +25,7 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
 import type { CalculatorState, BOMItem, Product, Calculation } from '../types/store.types';
 import { useWizardStore } from './wizardStore';
 import { undoRedo, type UndoRedoActions } from './middleware/undoRedoMiddleware';
@@ -56,7 +57,7 @@ const getInitialStateValues = () => ({
 export const useCalculatorStore = create<CalculatorStoreState>()(
   devtools(
     undoRedo(
-      (set, _get) => ({
+      immer((set, _get) => ({
         // ================================================================
         // Initial State
         // ================================================================
@@ -182,7 +183,7 @@ export const useCalculatorStore = create<CalculatorStoreState>()(
           // Clear history again to remove the reset change from history
           useCalculatorStore.getState().clearHistory();
         },
-      }),
+      })),
       {
         limit: 50,
         debounceMs: 500,

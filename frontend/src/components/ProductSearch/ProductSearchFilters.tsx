@@ -9,13 +9,12 @@
  * - Clear filters button
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 
@@ -153,6 +152,11 @@ export function ProductSearchFilters({
     return selectedManufacturer || 'Any';
   };
 
+  // Convert null to ALL_VALUE to keep Select always controlled
+  const industryValue = selectedIndustry || ALL_VALUE;
+  const categoryValue = selectedCategory || ALL_VALUE;
+  const manufacturerValue = selectedManufacturer || ALL_VALUE;
+
   return (
     <div className={`space-y-4 ${className || ''}`} data-testid="filter-popover">
       <h4 className="font-medium">Filters</h4>
@@ -161,7 +165,7 @@ export function ProductSearchFilters({
       <div>
         <label className="text-sm font-medium mb-2 block" id="industry-label">Industry</label>
         <Select
-          value={selectedIndustry || undefined}
+          value={industryValue}
           onValueChange={handleIndustryChange}
           onOpenChange={setIndustryOpen}
           open={industryOpen}
@@ -186,7 +190,7 @@ export function ProductSearchFilters({
       <div>
         <label className="text-sm font-medium mb-2 block" id="category-label">Category</label>
         <Select
-          value={selectedCategory || undefined}
+          value={categoryValue}
           onValueChange={handleCategoryChange}
           onOpenChange={setCategoryOpen}
           open={categoryOpen}
@@ -208,7 +212,7 @@ export function ProductSearchFilters({
         <div>
           <label className="text-sm font-medium mb-2 block" id="manufacturer-label">Manufacturer</label>
           <Select
-            value={selectedManufacturer || undefined}
+            value={manufacturerValue}
             onValueChange={handleManufacturerChange}
             onOpenChange={setManufacturerOpen}
             open={manufacturerOpen}
