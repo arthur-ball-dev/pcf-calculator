@@ -43,7 +43,6 @@ export interface SheetConfig {
 }
 
 type WorkBook = XLSX.WorkBook;
-type WorkSheet = XLSX.WorkSheet;
 
 /**
  * Create a new workbook

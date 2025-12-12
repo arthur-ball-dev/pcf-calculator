@@ -32,7 +32,6 @@ import { X } from 'lucide-react';
  * Custom tooltip component for consistent styling
  */
 function CustomTooltip({
-  continuous,
   index,
   step,
   backProps,

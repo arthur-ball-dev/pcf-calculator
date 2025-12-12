@@ -169,8 +169,8 @@ function EmissionsTrendChart({
               },
             ]}
             fill={[{ match: '*', id: 'gradient' }]}
-            startLabel="id"
-            endLabel="id"
+            startLabel={(serie) => serie.id}
+            endLabel={(serie) => serie.id}
             axisTop={{
               tickSize: 5,
               tickPadding: 5,

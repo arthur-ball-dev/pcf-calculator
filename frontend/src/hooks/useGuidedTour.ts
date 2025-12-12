@@ -27,7 +27,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import type { CallBackProps, STATUS, ACTIONS, EVENTS } from 'react-joyride';
+import type { CallBackProps } from 'react-joyride';
 
 // Constants
 export const TOUR_STORAGE_KEY = 'pcf-calculator-tour-completed';
@@ -195,7 +195,7 @@ export function useGuidedTour(
    */
   const handleJoyrideCallback = useCallback(
     (data: CallBackProps) => {
-      const { status, action, index, type } = data;
+      const { status, action, type } = data;
 
       // Type guards for status and action
       const finishedStatuses: string[] = ['finished', 'skipped'];

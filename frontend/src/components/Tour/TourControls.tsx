@@ -36,7 +36,7 @@ import {
  * Uses TourContext to access tour state and actions.
  */
 export function TourControls() {
-  const { hasCompletedTour, resetTour, isTourActive } = useTour();
+  const { hasCompletedTour, resetTour } = useTour();
 
   // Don't show restart button while tour is active
   const tooltipText = hasCompletedTour

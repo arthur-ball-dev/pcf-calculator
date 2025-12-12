@@ -359,7 +359,7 @@ function EmissionsTreemap({
                     {formatNodeValue(node.value as number)}
                   </div>
                   {/* Show drill-down hint if enableDrillDown is true and node has children property */}
-                  {enableDrillDown && node.data.children && (
+                  {enableDrillDown && (node.data as TreemapNode).children && (
                     <div className="text-xs text-gray-400 mt-1">
                       Click to drill down
                     </div>

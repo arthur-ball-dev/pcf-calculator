@@ -362,7 +362,7 @@ export const phase5Handlers = [
   // Admin Coverage Stats Endpoint
   // GET /admin/emission-factors/coverage
   // ============================================================================
-  rest.get(`${API_BASE_URL}/admin/emission-factors/coverage`, (req, res, ctx) => {
+  rest.get(`${API_BASE_URL}/admin/emission-factors/coverage`, (_req, res, ctx) => {
     const activeSources = mockDataSources.filter((s) => s.is_active);
 
     // Calculate summary from actual mock data
