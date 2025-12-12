@@ -15,11 +15,24 @@ const queryClient = new QueryClient({
 })
 
 /**
- * Enable MSW mocking in development environment
- * TASK-FE-P5-001: MSW Mock Server Setup
+ * Enable MSW mocking conditionally based on environment variable
+ *
+ * TASK-FE-P5-006: Switch to Real Backend
+ *
+ * By default (VITE_USE_MOCKS not set or set to 'false'), MSW is disabled
+ * and the frontend connects to the real backend API.
+ *
+ * To enable mocking for development without backend:
+ * 1. Set VITE_USE_MOCKS=true in .env or .env.development
+ * 2. Restart the dev server
+ *
+ * For production builds, MSW is never enabled regardless of env vars.
  */
 async function enableMocking(): Promise<void> {
-  if (import.meta.env.DEV) {
+  // Only enable MSW in development mode AND when explicitly requested
+  const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+
+  if (import.meta.env.DEV && useMocks) {
     const { worker } = await import('./mocks/browser')
     await worker.start({
       onUnhandledRequest: 'warn',
@@ -28,6 +41,8 @@ async function enableMocking(): Promise<void> {
       },
     })
     console.log('[MSW] Mock Service Worker enabled')
+  } else if (import.meta.env.DEV) {
+    console.log('[API] Connecting to real backend (MSW disabled)')
   }
 }
 
