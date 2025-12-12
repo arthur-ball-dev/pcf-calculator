@@ -28,8 +28,10 @@ export interface MockProduct {
 }
 
 // Manufacturers by industry
+// Note: Manufacturer names should not contain industry names like "Electronics"
+// to avoid selector conflicts in UI tests
 const manufacturers: Record<string, string[]> = {
-  electronics: ['Apple Inc.', 'Samsung Electronics', 'Dell Technologies', 'HP Inc.', 'Lenovo', 'ASUS', 'Acer'],
+  electronics: ['Apple Inc.', 'Samsung', 'Dell Technologies', 'HP Inc.', 'Lenovo', 'ASUS', 'Acer'],
   apparel: ['Nike Inc.', 'Adidas AG', 'H&M', 'Zara', 'Uniqlo', 'Levi Strauss', 'Gap Inc.'],
   automotive: ['Toyota Motor', 'Volkswagen AG', 'Ford Motor', 'General Motors', 'Tesla Inc.', 'BMW AG'],
   construction: ['HeidelbergCement', 'LafargeHolcim', 'US Steel', 'Weyerhaeuser', 'Boise Cascade'],
