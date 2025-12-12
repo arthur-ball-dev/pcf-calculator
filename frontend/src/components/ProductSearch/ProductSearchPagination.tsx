@@ -6,7 +6,6 @@
  * Supports "Load More" and traditional page navigation variants.
  */
 
-import React from 'react';
 import { Button } from '@/components/ui/button';
 
 /**

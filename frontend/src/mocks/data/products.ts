@@ -6,7 +6,7 @@
  * distributed across all industry sectors.
  */
 
-import { getAllCategoriesFlat, type MockCategory } from './categories';
+import { getAllCategoriesFlat } from './categories';
 
 export interface MockProduct {
   id: string;
