@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import uuid
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func
@@ -667,7 +667,7 @@ def list_products(
     description="Get detailed product information including bill of materials"
 )
 def get_product(
-    product_id: str,
+    product_id: str = Path(..., description="Unique product identifier (UUID or alphanumeric ID)"),
     db: Session = Depends(get_db)
 ) -> ProductDetailResponse:
     """

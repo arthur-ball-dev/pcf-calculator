@@ -7,9 +7,9 @@
  * - Shared types and enums
  *
  * UPDATED: TASK-FE-020 - Migrated UUID fields from number to string
- * - Product.id: number → string (32-char hex UUID)
- * - selectedProductId: number | null → string | null
- * - BOMItem.emissionFactorId: number | null → string | null
+ * - Product.id: number -> string (32-char hex UUID)
+ * - selectedProductId: number | null -> string | null
+ * - BOMItem.emissionFactorId: number | null -> string | null
  *
  * UPDATED: TEST-FIX - Added notes field to BOMItem
  * - notes: string | undefined - optional field from API BOMItemResponse
@@ -55,12 +55,12 @@ export interface BOMItem {
   quantity: number;
   unit: string;
   category: BOMItemCategory;
-  emissionFactorId: string | null; // UPDATED: number | null → string | null (UUID)
+  emissionFactorId: string | null; // UPDATED: number | null -> string | null (UUID)
   notes?: string; // ADDED: Optional notes from API BOMItemResponse
 }
 
 export interface Product {
-  id: string; // UPDATED: number → string (32-char hex UUID)
+  id: string; // UPDATED: number -> string (32-char hex UUID)
   code: string;
   name: string;
   category: string | null; // UPDATED: Made nullable to match API ProductListItem/ProductDetail
@@ -74,12 +74,16 @@ export interface Calculation {
   status: CalculationStatus;
   product_id?: string;
   created_at?: string;
+  updated_at?: string;
+  calculation_type?: CalculationType;
 
   // Present when completed
+  total_co2e?: number;
   total_co2e_kg?: number;
   materials_co2e?: number;
   energy_co2e?: number;
   transport_co2e?: number;
+  waste_co2e?: number;
   calculation_time_ms?: number;
 
   // Present when failed
@@ -88,7 +92,7 @@ export interface Calculation {
 
 export interface CalculatorState {
   // Product selection
-  selectedProductId: string | null; // UPDATED: number | null → string | null (UUID)
+  selectedProductId: string | null; // UPDATED: number | null -> string | null (UUID)
   selectedProduct: Product | null;
 
   // BOM data
@@ -103,7 +107,7 @@ export interface CalculatorState {
   isLoadingBOM: boolean;
 
   // Actions - Product
-  setSelectedProduct: (productId: string | null) => void; // UPDATED: number | null → string | null
+  setSelectedProduct: (productId: string | null) => void; // UPDATED: number | null -> string | null
   setSelectedProductDetails: (product: Product | null) => void;
 
   // Actions - BOM
@@ -131,6 +135,7 @@ export interface StepConfig {
   id: WizardStep;
   label: string;
   description: string;
+  progressLabel?: string; // Optional shorter label for progress indicator
   component?: React.ComponentType;
   validate?: () => Promise<boolean>;
 }

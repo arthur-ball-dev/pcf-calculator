@@ -1,5 +1,5 @@
 activity_name,co2e_factor,unit,data_source,geography
-cotton,5.89,kg,EPA,GLO
+cotton,5.0,kg,EPA,GLO
 polyester,6.4,kg,EPA,GLO
 plastic_pet,3.5,kg,EPA,GLO
 plastic_abs,3.8,kg,EPA,GLO

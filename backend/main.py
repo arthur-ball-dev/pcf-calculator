@@ -33,7 +33,11 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="PCF Calculator API",
     version="1.0.0",
-    description="Product Carbon Footprint Calculator MVP"
+    description=(
+        "Product Carbon Footprint Calculator MVP - A full-stack application for calculating "
+        "cradle-to-gate carbon emissions using Bill of Materials (BOM) data and emission factors "
+        "from EPA, DEFRA, and Ecoinvent databases. Implements ISO 14067 and GHG Protocol standards."
+    )
 )
 
 # Configure CORS middleware
