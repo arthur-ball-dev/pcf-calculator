@@ -1,6 +1,7 @@
 """
 Calculations API Routes
 TASK-API-002: Implementation of async calculation endpoints
+TASK-BE-P5-010: Fix Backend Test Failures - Add enum validation for calculation_type
 
 Endpoints:
 - POST /api/v1/calculate - Start async PCF calculation (returns 202 Accepted)
@@ -14,12 +15,13 @@ This module implements the async calculation pattern:
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime, UTC
+from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.database.connection import get_db
 from backend.models import Product, PCFCalculation, generate_uuid
@@ -30,14 +32,25 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# Enums and Types
+# ============================================================================
+
+class CalculationType(str, Enum):
+    """Valid calculation types for PCF calculations."""
+    cradle_to_gate = "cradle_to_gate"
+    cradle_to_grave = "cradle_to_grave"
+    gate_to_gate = "gate_to_gate"
+
+
+# ============================================================================
 # Pydantic Request/Response Models
 # ============================================================================
 
 class CalculationRequest(BaseModel):
     """Request model for POST /calculate"""
     product_id: str = Field(..., description="UUID of product to calculate PCF for")
-    calculation_type: str = Field(
-        default="cradle_to_gate",
+    calculation_type: CalculationType = Field(
+        default=CalculationType.cradle_to_gate,
         description="Type of calculation (cradle_to_gate, cradle_to_grave, gate_to_gate)"
     )
 
@@ -238,20 +251,21 @@ async def start_calculation(
     Request Body:
     - product_id: UUID of product to calculate
     - calculation_type: Type of calculation (default: cradle_to_gate)
+        Valid values: cradle_to_gate, cradle_to_grave, gate_to_gate
 
     Returns:
     - 202 Accepted: Calculation started
         - calculation_id: UUID for polling status
         - status: "processing" (always)
 
-    - 422 Unprocessable Entity: Invalid request (missing product_id)
+    - 422 Unprocessable Entity: Invalid request (missing product_id or invalid calculation_type)
     """
     # Generate calculation ID
     calc_id = generate_uuid()
 
     logger.info(
         f"Received calculation request: calc_id={calc_id}, "
-        f"product_id={request.product_id}, type={request.calculation_type}"
+        f"product_id={request.product_id}, type={request.calculation_type.value}"
     )
 
     # Create initial calculation record
@@ -261,7 +275,7 @@ async def start_calculation(
         calculation = PCFCalculation(
             id=calc_id,
             product_id=request.product_id,
-            calculation_type=request.calculation_type,
+            calculation_type=request.calculation_type.value,  # Use enum value
             status="pending",
             total_co2e_kg=0.0,  # Placeholder until calculation completes
             created_at=datetime.now(UTC)
@@ -284,7 +298,7 @@ async def start_calculation(
         execute_calculation,
         calc_id,
         request.product_id,
-        request.calculation_type,
+        request.calculation_type.value,  # Use enum value
         db  # This session will be used by background task
     )
 
