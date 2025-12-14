@@ -21,6 +21,9 @@ from backend.api.routes.products import router as products_router
 from backend.api.routes.calculations import router as calculations_router
 from backend.api.routes.emission_factors import router as emission_factors_router
 from backend.api.routes.admin import router as admin_router
+from backend.calculator.brightway_setup import initialize_brightway
+from backend.calculator.emission_factor_sync import sync_emission_factors
+from backend.database.connection import db_context
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +42,23 @@ app = FastAPI(
         "from EPA, DEFRA, and Ecoinvent databases. Implements ISO 14067 and GHG Protocol standards."
     )
 )
+
+# Startup event: Initialize Brightway2 and sync emission factors
+@app.on_event("startup")
+async def startup_event():
+    """Initialize Brightway2 and sync emission factors on server startup."""
+    try:
+        logger.info("Initializing Brightway2 for PCF calculations...")
+        initialize_brightway()
+
+        # Sync emission factors from SQLite to Brightway2
+        with db_context() as session:
+            result = sync_emission_factors(db_session=session)
+            logger.info(f"Synced {result['synced_count']} emission factors to Brightway2")
+    except Exception as e:
+        logger.error(f"Failed to initialize Brightway2: {e}", exc_info=True)
+        # Don't fail startup - allow server to run for debugging
+
 
 # Configure CORS middleware
 # Order: CORS should be first to handle preflight requests
