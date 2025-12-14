@@ -257,7 +257,7 @@ const ProductSelector: React.FC = () => {
    * Main render
    */
   return (
-    <div className="space-y-4" data-testid="product-selector">
+    <div className="space-y-4" data-testid="product-selector" data-tour="product-select">
       <div className="space-y-2">
         <Label htmlFor="product-select">Select Product</Label>
         <Select

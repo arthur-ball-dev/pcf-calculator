@@ -5,9 +5,10 @@
  * - ResultsSummary: Total CO2e with timestamp
  * - SankeyDiagram: Visual flow of emissions
  * - BreakdownTable: Detailed category breakdown
- * - Action buttons: New Calculation, CSV Export (future)
+ * - Action buttons: New Calculation, Export (CSV/Excel)
  *
  * TASK-FE-009: Results Dashboard Implementation
+ * TASK-FE-P5-011: Integrated ExportButton component for CSV/Excel export
  */
 
 import { useWizardStore } from '../../store/wizardStore';
@@ -17,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import ResultsSummary from './ResultsSummary';
 import BreakdownTable from './BreakdownTable';
 import SankeyDiagram from '../visualizations/SankeyDiagram';
+import { ExportButton } from '../ExportButton';
 
 /**
  * ResultsDisplay Component
@@ -26,7 +28,7 @@ import SankeyDiagram from '../visualizations/SankeyDiagram';
  */
 export default function ResultsDisplay() {
   const { reset: resetWizard } = useWizardStore();
-  const { calculation, reset: resetCalculator } = useCalculatorStore();
+  const { calculation, selectedProduct, reset: resetCalculator } = useCalculatorStore();
 
   /**
    * Handle New Calculation button click
@@ -46,6 +48,20 @@ export default function ResultsDisplay() {
     );
   }
 
+  // Prepare calculation results for export
+  // Map the Calculation type to the expected CalculationStatusResponse format
+  const exportResults = {
+    calculation_id: calculation.id,
+    status: calculation.status,
+    product_id: calculation.product_id ?? null,
+    created_at: calculation.created_at ?? null,
+    total_co2e_kg: calculation.total_co2e_kg,
+    materials_co2e: calculation.materials_co2e,
+    energy_co2e: calculation.energy_co2e,
+    transport_co2e: calculation.transport_co2e,
+    calculation_time_ms: calculation.calculation_time_ms,
+  };
+
   return (
     <div className="space-y-8" data-testid="results-display">
       {/* Summary Card */}
@@ -56,7 +72,7 @@ export default function ResultsDisplay() {
       />
 
       {/* Sankey Diagram */}
-      <Card>
+      <Card data-tour="visualization-tabs">
         <CardHeader>
           <CardTitle>Carbon Flow Visualization</CardTitle>
         </CardHeader>
@@ -83,13 +99,15 @@ export default function ResultsDisplay() {
       </Card>
 
       {/* Actions */}
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-4 items-start" data-tour="export-buttons">
         <Button onClick={handleNewCalculation} variant="outline" data-testid="new-calculation-action-button">
           New Calculation
         </Button>
-        <Button variant="outline" disabled>
-          Export CSV (Coming Soon)
-        </Button>
+        <ExportButton
+          results={exportResults}
+          productName={selectedProduct?.name || 'Unknown Product'}
+          productCode={selectedProduct?.code || 'UNKNOWN'}
+        />
       </div>
     </div>
   );

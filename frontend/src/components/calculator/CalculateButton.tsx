@@ -64,7 +64,7 @@ export function CalculateButton() {
       )}
 
       {/* Main Action Card */}
-      <div className="border rounded-lg p-8 bg-card shadow-sm">
+      <div className="border rounded-lg p-8 bg-card shadow-sm" data-tour="calculate-button">
         <div className="flex flex-col items-center justify-center space-y-6">
           {/* Instruction Text */}
           <div className="text-center space-y-2">

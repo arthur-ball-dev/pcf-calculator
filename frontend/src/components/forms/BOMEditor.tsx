@@ -181,7 +181,7 @@ export default function BOMEditor() {
     <Form {...form}>
       <form className="space-y-6">
         {/* BOM Table */}
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-hidden" data-tour="bom-table">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
