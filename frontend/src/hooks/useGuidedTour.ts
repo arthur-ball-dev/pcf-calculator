@@ -28,10 +28,25 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import type { CallBackProps } from 'react-joyride';
+import { TOUR_STEP_IDS } from '@/config/tourSteps';
 
 // Constants
 export const TOUR_STORAGE_KEY = 'pcf-calculator-tour-completed';
 const DEFAULT_TOTAL_STEPS = 8;
+
+/**
+ * Find the first tour step that has a valid target in the DOM
+ */
+function findFirstValidStepIndex(): number {
+  for (let i = 0; i < TOUR_STEP_IDS.length; i++) {
+    const targetId = TOUR_STEP_IDS[i];
+    const element = document.querySelector(`[data-tour="${targetId}"]`);
+    if (element) {
+      return i;
+    }
+  }
+  return 0; // Default to first step if none found
+}
 
 export interface UseGuidedTourOptions {
   /** Total number of tour steps (default: 8) */
@@ -113,11 +128,14 @@ export function useGuidedTour(
   });
   const [currentStep, setCurrentStepState] = useState<number>(0);
 
-  // Read from localStorage on mount (handles SSR)
+  // Read from localStorage on mount and find first valid step (handles SSR)
   useEffect(() => {
     const completed = getStoredCompletionStatus();
     setHasCompletedTour(completed);
     if (!completed) {
+      // Find the first valid step in the DOM before starting
+      const firstValidStep = findFirstValidStepIndex();
+      setCurrentStepState(firstValidStep);
       setIsTourActive(true);
     }
   }, []);
@@ -134,10 +152,12 @@ export function useGuidedTour(
   );
 
   /**
-   * Start the tour from the beginning
+   * Start the tour from the first step that has a valid target in the DOM
+   * This ensures the tour works correctly regardless of which wizard step you're on
    */
   const startTour = useCallback(() => {
-    setCurrentStepState(0);
+    const firstValidStep = findFirstValidStepIndex();
+    setCurrentStepState(firstValidStep);
     setIsTourActive(true);
   }, []);
 
@@ -192,6 +212,12 @@ export function useGuidedTour(
 
   /**
    * Handle Joyride callback events
+   *
+   * Handles:
+   * - Tour completion (finished/skipped status)
+   * - Close/skip actions
+   * - Step navigation (next/prev)
+   * - Missing targets (skip to next step with valid target)
    */
   const handleJoyrideCallback = useCallback(
     (data: CallBackProps) => {
@@ -210,6 +236,26 @@ export function useGuidedTour(
       // Handle close/skip actions
       if (closeActions.includes(action as string)) {
         completeTour();
+        return;
+      }
+
+      // Handle missing target - skip to next valid step automatically
+      // This happens when the tour tries to show a step for an element
+      // that doesn't exist on the current wizard step
+      if (type === 'error:target_not_found') {
+        // Find the next step that has a valid target in the DOM
+        setCurrentStepState((prev) => {
+          for (let i = prev + 1; i < TOUR_STEP_IDS.length; i++) {
+            const targetId = TOUR_STEP_IDS[i];
+            const element = document.querySelector(`[data-tour="${targetId}"]`);
+            if (element) {
+              return i;
+            }
+          }
+          // No more valid steps found, complete the tour
+          completeTour();
+          return prev;
+        });
         return;
       }
 
