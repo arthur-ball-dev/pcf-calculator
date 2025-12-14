@@ -51,15 +51,15 @@ export function TourControls() {
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={handleClick}
           data-testid="tour-restart-button"
           aria-label={tooltipText}
-          className="h-9"
+          className="h-9 gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
         >
-          <HelpCircle className="h-5 w-5" />
-          <span className="sr-only">{tooltipText}</span>
+          <HelpCircle className="h-4 w-4" />
+          <span className="text-sm font-medium">Tour</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent>
