@@ -124,6 +124,7 @@ export function UndoRedoControls({
     <div
       className={`flex items-center gap-1 ${className || ''}`}
       data-testid="undo-redo-toolbar"
+      data-tour="undo-redo"
       role="group"
       aria-label="Undo and Redo controls"
     >

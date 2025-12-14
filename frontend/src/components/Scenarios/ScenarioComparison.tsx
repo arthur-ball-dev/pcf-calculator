@@ -96,6 +96,7 @@ export function ScenarioComparison({ className }: ScenarioComparisonProps) {
     <div
       className={`h-full flex flex-col ${className || ''}`}
       data-testid="comparison-container"
+      data-tour="scenario-compare"
     >
       <ComparisonHeader scenarios={scenarios} deltas={deltas} />
 
