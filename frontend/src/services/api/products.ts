@@ -30,8 +30,9 @@ export const productsAPI = {
       params: {
         limit: params?.limit || 100,
         offset: params?.offset || 0,
+        // Backend expects 'is_finished' not 'is_finished_product'
         ...(params?.is_finished_product !== undefined && {
-          is_finished_product: params.is_finished_product,
+          is_finished: params.is_finished_product,
         }),
       },
     });
