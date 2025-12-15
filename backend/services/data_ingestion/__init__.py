@@ -6,6 +6,7 @@ TASK-DATA-P5-002: EPA Data Connector
 TASK-DATA-P5-003: DEFRA Data Connector
 TASK-DATA-P5-004: Exiobase Data Connector
 TASK-DATA-P5-005: Product Catalog Expansion
+TASK-BE-P7-002: Connector Registry
 
 This package provides the foundation for data ingestion from external sources:
 - BaseDataIngestion: Abstract base class for all connectors
@@ -15,6 +16,7 @@ This package provides the foundation for data ingestion from external sources:
 - DataIngestionHTTPClient: HTTP client with retry logic
 - Custom exceptions for error handling
 - Pydantic schemas for validation
+- Connector Registry: Maps data source names to connector classes
 
 Product Catalog Expansion (TASK-DATA-P5-005):
 - CategoryLoader: Load hierarchical product categories
@@ -33,6 +35,11 @@ Usage:
         ParseError,
         TransformError,
         ValidationError,
+        # Connector Registry (TASK-BE-P7-002)
+        get_connector_class,
+        CONNECTOR_REGISTRY,
+        is_connector_available,
+        list_registered_connectors,
         # Product Catalog Expansion
         CategoryLoader,
         ProductGenerator,
@@ -60,6 +67,11 @@ Usage:
         data_source_id="exiobase-source-uuid"
     )
     result = await ingestion.execute_sync()
+
+    # Using connector registry (TASK-BE-P7-002)
+    ConnectorClass = get_connector_class("EPA GHG Emission Factors Hub")
+    connector = ConnectorClass(db=session, data_source_id=source_id)
+    result = await connector.execute_sync()
 
     # Product Catalog Expansion
     loader = CategoryLoader()
@@ -107,6 +119,14 @@ from backend.services.data_ingestion.exceptions import (
     ValidationError,
 )
 
+# TASK-BE-P7-002: Connector Registry
+from backend.services.data_ingestion.registry import (
+    CONNECTOR_REGISTRY,
+    get_connector_class,
+    is_connector_available,
+    list_registered_connectors,
+)
+
 # TASK-DATA-P5-005: Product Catalog Expansion
 from backend.services.data_ingestion.category_loader import CategoryLoader
 from backend.services.data_ingestion.product_generator import ProductGenerator
@@ -128,6 +148,11 @@ __all__ = [
     "ParseError",
     "TransformError",
     "ValidationError",
+    # Connector Registry (TASK-BE-P7-002)
+    "CONNECTOR_REGISTRY",
+    "get_connector_class",
+    "is_connector_available",
+    "list_registered_connectors",
     # Product Catalog Expansion (TASK-DATA-P5-005)
     "CategoryLoader",
     "ProductGenerator",
