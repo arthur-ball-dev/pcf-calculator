@@ -7,15 +7,16 @@ This module handles:
 - PostgreSQL database connection (production) with connection pooling
 - Foreign keys enforcement (PRAGMA for SQLite)
 - Connection pooling (QueuePool for PostgreSQL, StaticPool option for SQLite)
-- Session lifecycle management
+- Session lifecycle management (sync and async)
 - FastAPI dependency injection for database sessions
 """
 
-from contextlib import contextmanager
-from typing import Generator
+from contextlib import contextmanager, asynccontextmanager
+from typing import Generator, AsyncGenerator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool, NullPool
 
 from backend.config import settings
@@ -191,3 +192,66 @@ def create_test_engine(database_url: str = "sqlite:///:memory:"):
 
     else:
         raise ValueError(f"Unsupported test database URL: {database_url}")
+
+
+# =============================================================================
+# Async Database Support
+# =============================================================================
+
+def _create_async_engine():
+    """
+    Create an async SQLAlchemy engine based on database configuration.
+
+    Uses the async_database_url from settings which converts:
+    - sqlite:/// to sqlite+aiosqlite:///
+    - postgresql:// to postgresql+asyncpg://
+    """
+    async_url = settings.async_database_url
+
+    if settings.is_sqlite:
+        return create_async_engine(
+            async_url,
+            echo=settings.debug,
+        )
+    elif settings.is_postgresql:
+        return create_async_engine(
+            async_url,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_pre_ping=True,
+            echo=settings.debug,
+        )
+    else:
+        raise ValueError(f"Unsupported database URL: {settings.database_url}")
+
+
+# Create async engine
+async_engine = _create_async_engine()
+
+# Async session factory
+AsyncSessionLocal = async_sessionmaker(
+    bind=async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Async context manager for database sessions.
+
+    Usage:
+        async with get_async_session() as db:
+            result = await db.execute(select(Model))
+
+    Yields:
+        AsyncSession: SQLAlchemy async database session
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
