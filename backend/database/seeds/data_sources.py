@@ -2,6 +2,7 @@
 Seed data for data_sources table.
 
 TASK-DB-P5-002: Extended Database Schema
+TASK-DATA-P7-001: Seed Data Sources Table
 
 Initial data sources for emission factors:
 - EPA GHG Emission Factors Hub
@@ -47,6 +48,13 @@ SEED_DATA_SOURCES: List[Dict[str, Any]] = [
         "is_active": True,
     },
 ]
+
+# Expected data source names for verification
+EXPECTED_DATA_SOURCE_NAMES = {
+    "EPA GHG Emission Factors Hub",
+    "DEFRA Conversion Factors",
+    "Exiobase",
+}
 
 
 def seed_data_sources(session: Session, skip_existing: bool = True) -> int:
@@ -115,3 +123,33 @@ def get_data_source_by_name(session: Session, name: str):
     return session.query(DataSource).filter(
         DataSource.name == name
     ).first()
+
+
+def verify_data_sources(session: Session) -> bool:
+    """
+    Verify that all expected data sources are present in the database.
+
+    Checks that EPA, DEFRA, and Exiobase data sources all exist.
+
+    Args:
+        session: SQLAlchemy database session
+
+    Returns:
+        True if all expected data sources are present, False otherwise
+
+    Example:
+        from backend.database.connection import db_context
+        from backend.database.seeds.data_sources import verify_data_sources
+
+        with db_context() as session:
+            if verify_data_sources(session):
+                print("All data sources are seeded")
+            else:
+                print("Missing data sources - run seed_data_sources()")
+    """
+    from backend.models import DataSource
+
+    sources = session.query(DataSource).all()
+    actual_names = {s.name for s in sources}
+
+    return EXPECTED_DATA_SOURCE_NAMES.issubset(actual_names)

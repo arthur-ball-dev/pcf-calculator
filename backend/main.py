@@ -24,6 +24,7 @@ from backend.api.routes.admin import router as admin_router
 from backend.calculator.brightway_setup import initialize_brightway
 from backend.calculator.emission_factor_sync import sync_emission_factors
 from backend.database.connection import db_context
+from backend.database.seeds.data_sources import seed_data_sources, verify_data_sources
 
 # Configure logging
 logging.basicConfig(
@@ -43,15 +44,41 @@ app = FastAPI(
     )
 )
 
-# Startup event: Initialize Brightway2 and sync emission factors
+# Startup event: Initialize Brightway2, seed data sources, and sync emission factors
 @app.on_event("startup")
 async def startup_event():
-    """Initialize Brightway2 and sync emission factors on server startup."""
+    """
+    Initialize application on server startup.
+
+    Performs the following initialization steps:
+    1. Seeds data_sources table with EPA, DEFRA, Exiobase entries (idempotent)
+    2. Initializes Brightway2 for LCA calculations
+    3. Syncs emission factors from SQLite to Brightway2
+    """
+    # Step 1: Seed data sources (idempotent - safe to call on every startup)
+    try:
+        with db_context() as session:
+            count = seed_data_sources(session, skip_existing=True)
+            if count > 0:
+                logger.info(f"Seeded {count} new data sources (EPA, DEFRA, Exiobase)")
+            else:
+                logger.info("Data sources already seeded, skipping")
+
+            # Verify seeding was successful
+            if verify_data_sources(session):
+                logger.info("Data sources verification passed")
+            else:
+                logger.warning("Data sources verification failed - some sources may be missing")
+    except Exception as e:
+        logger.error(f"Failed to seed data sources: {e}", exc_info=True)
+        # Don't fail startup - allow server to run for debugging
+
+    # Step 2: Initialize Brightway2
     try:
         logger.info("Initializing Brightway2 for PCF calculations...")
         initialize_brightway()
 
-        # Sync emission factors from SQLite to Brightway2
+        # Step 3: Sync emission factors from SQLite to Brightway2
         with db_context() as session:
             result = sync_emission_factors(db_session=session)
             logger.info(f"Synced {result['synced_count']} emission factors to Brightway2")
