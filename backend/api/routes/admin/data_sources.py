@@ -2,24 +2,29 @@
 Admin Data Sources API Routes.
 
 TASK-API-P5-001: Admin Data Sources Endpoints
+TASK-BE-P7-002: Activate Data Connector Admin Endpoints
 
 Endpoints:
 - GET /admin/data-sources - List all data sources with status
 - GET /admin/data-sources/{id} - Get single data source details
-- POST /admin/data-sources/{id}/sync - Trigger manual sync (returns 202)
+- POST /admin/data-sources/{id}/sync - Trigger manual sync with real connectors
 
 Contract References:
 - phase5-contracts/admin-data-sources-contract.yaml
 - phase5-contracts/admin-sync-contract.yaml
 """
 
+import asyncio
+import logging
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Callable
+from typing import Optional, Callable, Type
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from backend.database.connection import get_db
 from backend.models import DataSource, DataSyncLog, EmissionFactor
@@ -39,6 +44,15 @@ from backend.schemas.admin import (
     ErrorBody,
     ErrorDetailItem,
 )
+from backend.services.data_ingestion.registry import (
+    get_connector_class,
+    is_connector_available,
+)
+from backend.services.data_ingestion.base import BaseDataIngestion
+
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -49,21 +63,186 @@ router = APIRouter(tags=["admin-data-sources"])
 
 
 # ============================================================================
+# Background Sync Execution
+# ============================================================================
+
+
+async def execute_sync_task(
+    data_source_id: str,
+    data_source_name: str,
+    sync_log_id: str,
+    force_refresh: bool = False,
+    dry_run: bool = False,
+) -> None:
+    """
+    Execute data sync for a specific data source.
+
+    This function runs the actual connector to fetch and import data.
+    It creates its own async database session for the background task.
+
+    Args:
+        data_source_id: UUID of the data source to sync
+        data_source_name: Name of the data source (used to look up connector)
+        sync_log_id: UUID of the sync log entry to update
+        force_refresh: Whether to force a full refresh
+        dry_run: Whether to validate without persisting
+    """
+    from backend.config import settings
+
+    # Create async engine and session for background task
+    # Use SQLite async driver for SQLite databases
+    database_url = settings.DATABASE_URL
+    if database_url.startswith("sqlite:///"):
+        async_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+    elif database_url.startswith("postgresql://"):
+        async_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+    else:
+        async_url = database_url
+
+    engine = create_async_engine(async_url, echo=False)
+    async_session_maker = async_sessionmaker(engine, class_=AsyncSession)
+
+    try:
+        async with async_session_maker() as session:
+            # Get connector class
+            ConnectorClass = get_connector_class(data_source_name)
+
+            # Instantiate connector
+            connector = ConnectorClass(
+                db=session,
+                data_source_id=data_source_id,
+                sync_type="manual",
+            )
+
+            # Update sync log status to in_progress
+            sync_log = await session.get(DataSyncLog, sync_log_id)
+            if sync_log:
+                sync_log.status = "in_progress"
+                await session.commit()
+
+            # Execute the sync
+            logger.info(f"Starting sync for data source: {data_source_name}")
+            result = await connector.execute_sync()
+            logger.info(
+                f"Sync completed for {data_source_name}: "
+                f"{result.records_created} created, "
+                f"{result.records_updated} updated, "
+                f"{result.records_failed} failed"
+            )
+
+            # Update sync log with results
+            sync_log = await session.get(DataSyncLog, sync_log_id)
+            if sync_log:
+                sync_log.status = result.status
+                sync_log.completed_at = datetime.now(timezone.utc)
+                sync_log.records_processed = result.records_processed
+                sync_log.records_created = result.records_created
+                sync_log.records_updated = result.records_updated
+                sync_log.records_failed = result.records_failed
+                await session.commit()
+
+    except Exception as e:
+        logger.error(f"Sync failed for {data_source_name}: {str(e)}")
+        # Try to update sync log with failure
+        try:
+            async with async_session_maker() as session:
+                sync_log = await session.get(DataSyncLog, sync_log_id)
+                if sync_log:
+                    sync_log.status = "failed"
+                    sync_log.completed_at = datetime.now(timezone.utc)
+                    sync_log.error_message = str(e)
+                    await session.commit()
+        except Exception as log_error:
+            logger.error(f"Failed to update sync log: {log_error}")
+        raise
+
+    finally:
+        await engine.dispose()
+
+
+def execute_sync_in_background(
+    data_source_id: str,
+    data_source_name: str,
+    sync_log_id: str,
+    force_refresh: bool = False,
+    dry_run: bool = False,
+) -> None:
+    """
+    Execute sync task in a background thread with its own event loop.
+
+    This allows the API to return immediately while the sync runs.
+
+    Args:
+        data_source_id: UUID of the data source to sync
+        data_source_name: Name of the data source
+        sync_log_id: UUID of the sync log entry
+        force_refresh: Whether to force a full refresh
+        dry_run: Whether to validate without persisting
+    """
+    def run_async_sync():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(
+                execute_sync_task(
+                    data_source_id=data_source_id,
+                    data_source_name=data_source_name,
+                    sync_log_id=sync_log_id,
+                    force_refresh=force_refresh,
+                    dry_run=dry_run,
+                )
+            )
+        except Exception as e:
+            logger.error(f"Background sync failed: {e}")
+        finally:
+            loop.close()
+
+    thread = threading.Thread(target=run_async_sync, daemon=True)
+    thread.start()
+
+
+# ============================================================================
 # Dependency for Celery Task Trigger (Mock-friendly)
 # ============================================================================
 
 
 def default_sync_task_trigger(
     data_source_id: str,
+    data_source_name: str,
+    sync_log_id: str,
     force_refresh: bool = False,
     dry_run: bool = False,
     priority: str = "normal"
 ) -> str:
     """
-    Default sync task trigger. Creates a mock task ID.
-    In production, this would call sync_data_source.apply_async().
+    Default sync task trigger. Executes real connector in background.
+
+    In production with Celery, this would call sync_data_source.apply_async().
+    For now, we use threading for background execution.
+
+    Args:
+        data_source_id: UUID of the data source
+        data_source_name: Name of the data source (for connector lookup)
+        sync_log_id: UUID of the sync log entry
+        force_refresh: Force full refresh
+        dry_run: Validate without persisting
+        priority: Task priority (for future Celery integration)
+
+    Returns:
+        Task ID string
     """
-    return f"celery-task-{uuid.uuid4().hex}"
+    task_id = f"sync-task-{uuid.uuid4().hex}"
+
+    # Execute in background thread
+    execute_sync_in_background(
+        data_source_id=data_source_id,
+        data_source_name=data_source_name,
+        sync_log_id=sync_log_id,
+        force_refresh=force_refresh,
+        dry_run=dry_run,
+    )
+
+    return task_id
 
 
 # Global variable for task trigger (allows test mocking)
@@ -428,7 +607,7 @@ def get_data_source(
     responses={
         404: {"description": "Data source not found"},
         409: {"description": "Sync already in progress"},
-        422: {"description": "Data source is inactive"},
+        422: {"description": "Data source is inactive or no connector available"},
         503: {"description": "Task queue unavailable"},
     },
 )
@@ -440,7 +619,7 @@ def trigger_sync(
     """
     Manually trigger a data sync for a specific data source.
 
-    Creates a Celery task and returns immediately with task_id.
+    Creates a background task and returns immediately with task_id.
     Use GET /admin/sync-logs to monitor sync progress.
 
     Path Parameters:
@@ -453,14 +632,14 @@ def trigger_sync(
 
     Returns:
     - 202: Sync task accepted and queued
-    - task_id: Celery task ID for tracking
+    - task_id: Task ID for tracking
     - sync_log_id: ID of created sync log entry
     - poll_url: URL to check sync status
 
     Raises:
     - 404: Data source not found
     - 409: Sync already in progress
-    - 422: Data source is inactive
+    - 422: Data source is inactive or no connector registered
     """
     # Set defaults if no request body
     if request is None:
@@ -498,6 +677,23 @@ def trigger_sync(
             ),
         )
 
+    # Check if connector is available for this data source
+    if not is_connector_available(data_source.name):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=create_error_response(
+                code="NO_CONNECTOR",
+                message=f"No connector registered for data source: '{data_source.name}'",
+                details=[
+                    {
+                        "field": "name",
+                        "message": f"No connector is available to sync '{data_source.name}'. "
+                                   "Only EPA, DEFRA, and Exiobase sources are supported."
+                    }
+                ],
+            ),
+        )
+
     # Check for existing sync in progress
     active_sync = check_active_sync(db, data_source_id)
     if active_sync:
@@ -512,22 +708,13 @@ def trigger_sync(
             ),
         )
 
-    # Trigger the sync task
-    trigger = get_sync_task_trigger()
-    task_id = trigger(
-        data_source_id=data_source_id,
-        force_refresh=request.force_refresh,
-        dry_run=request.dry_run,
-        priority=request.priority.value,
-    )
-
-    # Create sync log entry
+    # Create sync log entry first
     sync_log = DataSyncLog(
         id=uuid.uuid4().hex,
         data_source_id=data_source_id,
         sync_type="manual",
         status="queued",
-        celery_task_id=task_id,
+        celery_task_id=None,  # Will be updated by trigger
         started_at=datetime.now(timezone.utc),
         records_processed=0,
         records_created=0,
@@ -543,6 +730,21 @@ def trigger_sync(
     db.add(sync_log)
     db.commit()
     db.refresh(sync_log)
+
+    # Trigger the sync task with real connector
+    trigger = get_sync_task_trigger()
+    task_id = trigger(
+        data_source_id=data_source_id,
+        data_source_name=data_source.name,
+        sync_log_id=sync_log.id,
+        force_refresh=request.force_refresh,
+        dry_run=request.dry_run,
+        priority=request.priority.value,
+    )
+
+    # Update sync log with task ID
+    sync_log.celery_task_id = task_id
+    db.commit()
 
     # Build message
     message = "Sync task queued successfully"

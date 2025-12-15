@@ -5,6 +5,7 @@ Handles environment variables and application settings
 Supports both SQLite (development) and PostgreSQL (production) databases.
 
 TASK-BE-P5-001: Added Celery and Redis configuration settings.
+TASK-BE-P7-003: Fixed database path resolution to use absolute path from project root.
 """
 
 import os
@@ -17,6 +18,46 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Load environment variables from .env file
 load_dotenv()
+
+
+def get_project_root() -> Path:
+    """
+    Get the project root directory.
+
+    The project root is identified as the directory containing both
+    'backend' and 'frontend' directories, or the parent of the 'backend' directory
+    if this file is inside backend/.
+
+    This ensures consistent database path resolution regardless of the
+    current working directory when starting the server.
+
+    TASK-BE-P7-003: Added to fix database path resolution bug where
+    'cd backend && uvicorn main:app' would use a different database
+    than 'uvicorn backend.main:app' from project root.
+    """
+    # This file is at: <project_root>/backend/config.py
+    # So project root is the parent of the directory containing this file
+    current_file = Path(__file__).resolve()
+    backend_dir = current_file.parent
+    project_root = backend_dir.parent
+
+    return project_root
+
+
+def get_default_database_url() -> str:
+    """
+    Get the default SQLite database URL with absolute path.
+
+    Uses the project root to ensure the database path is always the same
+    regardless of the current working directory.
+
+    TASK-BE-P7-003: Changed from relative path './pcf_calculator.db' to
+    absolute path to fix bug where different working directories would
+    resolve to different database files.
+    """
+    project_root = get_project_root()
+    db_path = project_root / "pcf_calculator.db"
+    return f"sqlite:///{db_path}"
 
 
 class Settings(BaseSettings):
@@ -51,8 +92,9 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, description="Debug mode")
 
     # Database settings - supports both SQLite and PostgreSQL
+    # TASK-BE-P7-003: Default now uses absolute path via get_default_database_url()
     database_url: str = Field(
-        default="sqlite:///./pcf_calculator.db",
+        default_factory=get_default_database_url,
         description="Database connection URL (SQLite or PostgreSQL)"
     )
 
