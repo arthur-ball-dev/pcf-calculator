@@ -371,6 +371,10 @@ def calculate_next_scheduled_sync(
     if not base_time:
         return None
 
+    # Ensure base_time is timezone-aware (database stores naive UTC)
+    if base_time.tzinfo is None:
+        base_time = base_time.replace(tzinfo=timezone.utc)
+
     # Calculate interval based on frequency
     frequency_days = {
         "daily": 1,
