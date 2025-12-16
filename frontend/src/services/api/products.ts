@@ -14,6 +14,28 @@ import type {
 } from '@/types/api.types';
 
 /**
+ * Search parameters for product search endpoint
+ */
+export interface ProductSearchParams extends PaginationParams {
+  query?: string;
+  is_finished_product?: boolean;
+  has_bom?: boolean;
+  category_id?: string;
+  industry?: string;
+}
+
+/**
+ * Search response from backend
+ */
+interface ProductSearchResponse {
+  items: ProductDetail[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+/**
  * Products API service
  */
 export const productsAPI = {
@@ -30,13 +52,46 @@ export const productsAPI = {
       params: {
         limit: params?.limit || 100,
         offset: params?.offset || 0,
+        // Backend expects 'is_finished' not 'is_finished_product'
         ...(params?.is_finished_product !== undefined && {
-          is_finished_product: params.is_finished_product,
+          is_finished: params.is_finished_product,
         }),
       },
     });
 
     return response.data.items as unknown as ProductDetail[];
+  },
+
+  /**
+   * Search products with full-text search
+   *
+   * @param params - Search and filter parameters
+   * @returns Promise resolving to search results with total count
+   */
+  search: async (
+    params?: ProductSearchParams
+  ): Promise<{ items: ProductDetail[]; total: number; has_more: boolean }> => {
+    const response = await client.get<ProductSearchResponse>('/api/v1/products/search', {
+      params: {
+        limit: params?.limit || 50,
+        offset: params?.offset || 0,
+        ...(params?.query && { query: params.query }),
+        ...(params?.is_finished_product !== undefined && {
+          is_finished_product: params.is_finished_product,
+        }),
+        ...(params?.has_bom !== undefined && {
+          has_bom: params.has_bom,
+        }),
+        ...(params?.category_id && { category_id: params.category_id }),
+        ...(params?.industry && { industry: params.industry }),
+      },
+    });
+
+    return {
+      items: response.data.items,
+      total: response.data.total,
+      has_more: response.data.has_more,
+    };
   },
 
   /**

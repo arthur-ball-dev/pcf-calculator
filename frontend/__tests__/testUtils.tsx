@@ -1,14 +1,9 @@
-/**
- * Test Utilities
- * TASK-FE-011: Integration Testing Infrastructure
- *
- * Provides custom render functions and utilities for testing React components.
- */
-
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, RenderOptions, RenderResult } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { TourProvider } from '@/contexts/TourContext';
 
 /**
  * Custom render function with all necessary providers
@@ -38,7 +33,15 @@ export function renderWithProviders(
   });
 
   function Wrapper({ children }: { children: React.ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <TourProvider>
+            {children}
+          </TourProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
   }
 
   return render(ui, { wrapper: Wrapper, ...options });

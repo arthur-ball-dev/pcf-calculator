@@ -49,16 +49,62 @@ class EmissionFactorListResponse(BaseModel):
 
 class EmissionFactorCreateRequest(BaseModel):
     """Request body for creating emission factor"""
-    activity_name: str = Field(..., min_length=1, description="Activity or material name")
-    category: Optional[str] = Field(None, description="Category (material, energy, transport, other)")
-    co2e_factor: float = Field(..., ge=0, description="CO2e emission factor (kg CO2e per unit)")
-    unit: str = Field(..., min_length=1, description="Unit of measurement")
-    data_source: str = Field(..., min_length=1, description="Data source identifier")
-    geography: str = Field(default="GLO", description="Geographic scope (default: GLO)")
-    reference_year: Optional[int] = Field(default=None, description="Reference year for data")
-    data_quality_rating: Optional[float] = Field(default=None, ge=0, le=1, description="Data quality rating (0-1)")
-    uncertainty_min: Optional[float] = Field(default=None, description="Minimum uncertainty bound")
-    uncertainty_max: Optional[float] = Field(default=None, description="Maximum uncertainty bound")
+    activity_name: str = Field(
+        ...,
+        min_length=1,
+        description="Activity or material name",
+        examples=["custom_steel_alloy"]
+    )
+    category: Optional[str] = Field(
+        None,
+        description="Category (material, energy, transport, other)",
+        examples=["material"]
+    )
+    co2e_factor: float = Field(
+        ...,
+        ge=0,
+        description="CO2e emission factor (kg CO2e per unit)",
+        examples=[2.8]
+    )
+    unit: str = Field(
+        ...,
+        min_length=1,
+        description="Unit of measurement",
+        examples=["kg"]
+    )
+    data_source: str = Field(
+        ...,
+        min_length=1,
+        description="Data source identifier",
+        examples=["custom"]
+    )
+    geography: str = Field(
+        default="GLO",
+        description="Geographic scope (default: GLO)",
+        examples=["GLO"]
+    )
+    reference_year: Optional[int] = Field(
+        default=None,
+        description="Reference year for data",
+        examples=[2024]
+    )
+    data_quality_rating: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Data quality rating (0-1)",
+        examples=[0.8]
+    )
+    uncertainty_min: Optional[float] = Field(
+        default=None,
+        description="Minimum uncertainty bound",
+        examples=[2.5]
+    )
+    uncertainty_max: Optional[float] = Field(
+        default=None,
+        description="Maximum uncertainty bound",
+        examples=[3.1]
+    )
 
     @field_validator('co2e_factor')
     @classmethod
@@ -67,6 +113,20 @@ class EmissionFactorCreateRequest(BaseModel):
         if v < 0:
             raise ValueError('co2e_factor must be non-negative')
         return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "activity_name": "custom_steel_alloy",
+                "category": "material",
+                "co2e_factor": 2.8,
+                "unit": "kg",
+                "data_source": "custom",
+                "geography": "GLO",
+                "reference_year": 2024,
+                "data_quality_rating": 0.8
+            }
+        }
 
 
 class EmissionFactorCreateResponse(BaseModel):

@@ -40,7 +40,7 @@ function formatDate(date: Date): string {
  */
 export default function ResultsSummary({ totalCO2e, unit, calculatedAt }: ResultsSummaryProps) {
   return (
-    <Card data-testid="results-summary">
+    <Card data-testid="results-summary" data-tour="results-summary">
       <CardHeader>
         <CardTitle>Total Carbon Footprint</CardTitle>
       </CardHeader>

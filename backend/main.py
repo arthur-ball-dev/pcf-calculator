@@ -20,6 +20,11 @@ from backend.middleware import SecurityHeadersMiddleware
 from backend.api.routes.products import router as products_router
 from backend.api.routes.calculations import router as calculations_router
 from backend.api.routes.emission_factors import router as emission_factors_router
+from backend.api.routes.admin import router as admin_router
+from backend.calculator.brightway_setup import initialize_brightway
+from backend.calculator.emission_factor_sync import sync_emission_factors
+from backend.database.connection import db_context
+from backend.database.seeds.data_sources import seed_data_sources, verify_data_sources
 
 # Configure logging
 logging.basicConfig(
@@ -32,8 +37,55 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="PCF Calculator API",
     version="1.0.0",
-    description="Product Carbon Footprint Calculator MVP"
+    description=(
+        "Product Carbon Footprint Calculator MVP - A full-stack application for calculating "
+        "cradle-to-gate carbon emissions using Bill of Materials (BOM) data and emission factors "
+        "from EPA, DEFRA, and Ecoinvent databases. Implements ISO 14067 and GHG Protocol standards."
+    )
 )
+
+# Startup event: Initialize Brightway2, seed data sources, and sync emission factors
+@app.on_event("startup")
+async def startup_event():
+    """
+    Initialize application on server startup.
+
+    Performs the following initialization steps:
+    1. Seeds data_sources table with EPA, DEFRA, Exiobase entries (idempotent)
+    2. Initializes Brightway2 for LCA calculations
+    3. Syncs emission factors from SQLite to Brightway2
+    """
+    # Step 1: Seed data sources (idempotent - safe to call on every startup)
+    try:
+        with db_context() as session:
+            count = seed_data_sources(session, skip_existing=True)
+            if count > 0:
+                logger.info(f"Seeded {count} new data sources (EPA, DEFRA, Exiobase)")
+            else:
+                logger.info("Data sources already seeded, skipping")
+
+            # Verify seeding was successful
+            if verify_data_sources(session):
+                logger.info("Data sources verification passed")
+            else:
+                logger.warning("Data sources verification failed - some sources may be missing")
+    except Exception as e:
+        logger.error(f"Failed to seed data sources: {e}", exc_info=True)
+        # Don't fail startup - allow server to run for debugging
+
+    # Step 2: Initialize Brightway2
+    try:
+        logger.info("Initializing Brightway2 for PCF calculations...")
+        initialize_brightway()
+
+        # Step 3: Sync emission factors from SQLite to Brightway2
+        with db_context() as session:
+            result = sync_emission_factors(db_session=session)
+            logger.info(f"Synced {result['synced_count']} emission factors to Brightway2")
+    except Exception as e:
+        logger.error(f"Failed to initialize Brightway2: {e}", exc_info=True)
+        # Don't fail startup - allow server to run for debugging
+
 
 # Configure CORS middleware
 # Order: CORS should be first to handle preflight requests
@@ -112,7 +164,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": {
-                "code": "CALCULATION_FAILED",
+                "code": "INTERNAL_ERROR",
                 "message": "Internal server error",
                 "details": []
             },
@@ -126,6 +178,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(products_router)
 app.include_router(calculations_router)
 app.include_router(emission_factors_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")

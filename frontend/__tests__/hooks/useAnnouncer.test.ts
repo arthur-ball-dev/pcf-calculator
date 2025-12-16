@@ -10,7 +10,7 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, cleanup } from '@testing-library/react';
+import { renderHook, act, cleanup } from '../testUtils';
 import { useAnnouncer } from '@/hooks/useAnnouncer';
 
 describe('useAnnouncer', () => {
