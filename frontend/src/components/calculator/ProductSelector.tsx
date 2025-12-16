@@ -7,6 +7,7 @@
  * Features:
  * - Searchable product list with debounced queries
  * - Server-side search (queries backend API)
+ * - BOM filter toggle to show products with BOMs only (default) or all products
  * - Loads full product details with BOM when product selected
  * - Transforms API BOM format to frontend format
  * - Populates calculator store with valid BOM items
@@ -16,6 +17,7 @@
  * - Accessibility-compliant (ARIA labels, keyboard navigation)
  *
  * Enhanced in Phase 7: Replaced simple Select with searchable Command combobox
+ * Enhanced in Phase 8: Added BOM filter toggle
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -120,6 +122,42 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 /**
+ * BOM Filter Toggle Component
+ * Allows users to filter products by whether they have BOMs
+ */
+interface BomFilterToggleProps {
+  showOnlyWithBom: boolean;
+  onToggle: (value: boolean) => void;
+}
+
+const BomFilterToggle: React.FC<BomFilterToggleProps> = ({ showOnlyWithBom, onToggle }) => {
+  return (
+    <div className="flex gap-1 p-2 border-b" data-testid="bom-filter-toggle">
+      <Button
+        variant={showOnlyWithBom ? "default" : "outline"}
+        size="sm"
+        onClick={() => onToggle(true)}
+        className="flex-1 text-xs"
+        data-testid="bom-filter-with-bom"
+        aria-pressed={showOnlyWithBom}
+      >
+        With BOMs
+      </Button>
+      <Button
+        variant={!showOnlyWithBom ? "default" : "outline"}
+        size="sm"
+        onClick={() => onToggle(false)}
+        className="flex-1 text-xs"
+        data-testid="bom-filter-all"
+        aria-pressed={!showOnlyWithBom}
+      >
+        All Products
+      </Button>
+    </div>
+  );
+};
+
+/**
  * Main ProductSelector component
  */
 const ProductSelector: React.FC = () => {
@@ -127,6 +165,9 @@ const ProductSelector: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
+
+  // BOM filter state - default to showing only products with BOMs
+  const [showOnlyWithBom, setShowOnlyWithBom] = useState(true);
 
   // Products state
   const [products, setProducts] = useState<ProductDetail[]>([]);
@@ -169,7 +210,7 @@ const ProductSelector: React.FC = () => {
   /**
    * Search products with debounced query using backend search API
    */
-  const searchProducts = useCallback(async (query: string) => {
+  const searchProducts = useCallback(async (query: string, hasBom: boolean) => {
     setIsSearching(true);
     setError(null);
 
@@ -180,6 +221,7 @@ const ProductSelector: React.FC = () => {
         limit: 50,
         offset: 0,
         is_finished_product: true,
+        has_bom: hasBom || undefined, // Only pass has_bom when filtering for products with BOMs
       });
 
       setProducts(result.items);
@@ -192,13 +234,13 @@ const ProductSelector: React.FC = () => {
   }, []);
 
   /**
-   * Initial load and search effect
+   * Effect to trigger search when debounced search query or BOM filter changes
    */
   useEffect(() => {
     if (open) {
-      searchProducts(debouncedSearch);
+      searchProducts(debouncedSearch, showOnlyWithBom);
     }
-  }, [open, debouncedSearch, searchProducts]);
+  }, [open, debouncedSearch, showOnlyWithBom, searchProducts]);
 
   /**
    * Load initial products when popover opens
@@ -206,9 +248,9 @@ const ProductSelector: React.FC = () => {
   useEffect(() => {
     if (open && products.length === 0 && !isSearching) {
       setIsLoading(true);
-      searchProducts('').finally(() => setIsLoading(false));
+      searchProducts('', showOnlyWithBom).finally(() => setIsLoading(false));
     }
-  }, [open, products.length, isSearching, searchProducts]);
+  }, [open, products.length, isSearching, showOnlyWithBom, searchProducts]);
 
   /**
    * Sync wizard step completion based on selection
@@ -220,6 +262,15 @@ const ProductSelector: React.FC = () => {
       markStepIncomplete('select');
     }
   }, [selectedProductId, markStepComplete, markStepIncomplete]);
+
+  /**
+   * Handle BOM filter toggle change
+   */
+  const handleBomFilterChange = (value: boolean) => {
+    setShowOnlyWithBom(value);
+    // Clear current products to trigger a fresh search
+    setProducts([]);
+  };
 
   /**
    * Handle product selection with full BOM loading
@@ -278,7 +329,7 @@ const ProductSelector: React.FC = () => {
    */
   const retryLoad = () => {
     setError(null);
-    searchProducts(debouncedSearch);
+    searchProducts(debouncedSearch, showOnlyWithBom);
   };
 
   /**
@@ -319,6 +370,10 @@ const ProductSelector: React.FC = () => {
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0 bg-white border shadow-lg" align="start">
             <Command shouldFilter={false} className="bg-white">
+              <BomFilterToggle
+                showOnlyWithBom={showOnlyWithBom}
+                onToggle={handleBomFilterChange}
+              />
               <CommandInput
                 placeholder="Type to search products..."
                 value={searchQuery}
@@ -338,7 +393,9 @@ const ProductSelector: React.FC = () => {
                     <CommandEmpty>
                       {searchQuery
                         ? `No products found for "${searchQuery}"`
-                        : 'No products available'}
+                        : showOnlyWithBom
+                          ? 'No products with BOMs available'
+                          : 'No products available'}
                     </CommandEmpty>
                     <CommandGroup heading={`Products (${totalProducts}${totalProducts >= 50 ? '+' : ''})`}>
                       {products.map((product) => (
@@ -359,7 +416,7 @@ const ProductSelector: React.FC = () => {
                             <span>{product.name}</span>
                             <span className="text-xs text-muted-foreground">
                               {product.code}
-                              {product.category && ` • ${product.category}`}
+                              {product.category && ` - ${product.category}`}
                             </span>
                           </div>
                         </CommandItem>
@@ -385,7 +442,7 @@ const ProductSelector: React.FC = () => {
       {selectedProductId && (
         <Alert className="bg-muted border-muted-foreground/20" data-testid="product-selected-confirmation">
           <AlertDescription className="text-sm text-muted-foreground">
-            ✓ Product selected: <strong>{selectedProductName}</strong>. Click "Next" to edit the Bill of Materials.
+            Product selected: <strong>{selectedProductName}</strong>. Click "Next" to edit the Bill of Materials.
           </AlertDescription>
         </Alert>
       )}

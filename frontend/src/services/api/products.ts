@@ -19,6 +19,7 @@ import type {
 export interface ProductSearchParams extends PaginationParams {
   query?: string;
   is_finished_product?: boolean;
+  has_bom?: boolean;
   category_id?: string;
   industry?: string;
 }
@@ -77,6 +78,9 @@ export const productsAPI = {
         ...(params?.query && { query: params.query }),
         ...(params?.is_finished_product !== undefined && {
           is_finished_product: params.is_finished_product,
+        }),
+        ...(params?.has_bom !== undefined && {
+          has_bom: params.has_bom,
         }),
         ...(params?.category_id && { category_id: params.category_id }),
         ...(params?.industry && { industry: params.industry }),
