@@ -21,3 +21,5 @@ aiohttp>=3.9.0
 openpyxl>=3.1.0
 # HTTP mocking for tests
 respx>=0.22.0
+# Async database drivers
+aiosqlite>=0.20.0  # SQLite async driver
