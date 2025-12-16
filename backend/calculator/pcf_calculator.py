@@ -578,6 +578,12 @@ class PCFCalculator:
         For MVP, we use simple name matching. In future phases, this could
         use a mapping table or fuzzy matching.
 
+        The matching strategy (in priority order):
+        1. Exact name match (case-insensitive)
+        2. Name with spaces preserved (lowercase)
+        3. Code normalized (lowercase, hyphens to underscores, trailing numbers removed)
+        4. Name with spaces as underscores
+
         Args:
             product: Product model instance
 
@@ -586,31 +592,35 @@ class PCFCalculator:
 
         Example:
             Product code "COTTON-001" → emission factor "cotton"
+            Product name "Plastic (ABS)" → emission factor "plastic (abs)"
         """
-        # Try to match by code (lowercase, remove numbers and hyphens)
-        code_normalized = product.code.lower().replace("-", "_")
-
-        # Remove trailing numbers
         import re
+
+        # Strategy 1: Try exact name match (lowercase, preserve spacing/punctuation)
+        # This handles names like "Plastic (ABS)" -> "plastic (abs)"
+        name_exact = product.name.lower()
+        if name_exact in self._name_to_activity:
+            return name_exact
+
+        # Strategy 2: Try code normalized (lowercase, hyphens to underscores)
+        code_normalized = product.code.lower().replace("-", "_")
+        # Remove trailing numbers
         code_normalized = re.sub(r'_?\d+$', '', code_normalized)
 
-        # Check if this matches an emission factor
         if code_normalized in self._name_to_activity:
             return code_normalized
 
-        # Try matching by name (lowercase)
-        name_normalized = product.name.lower().replace(" ", "_")
+        # Strategy 3: Try name with underscores (for legacy compatibility)
+        name_underscored = product.name.lower().replace(" ", "_")
+        if name_underscored in self._name_to_activity:
+            return name_underscored
 
-        # Check if this matches an emission factor
-        if name_normalized in self._name_to_activity:
-            return name_normalized
-
-        # Fallback: return code as-is
+        # Fallback: return name as-is (will cause helpful error message)
         logger.warning(
-            f"Could not map product {product.code} to emission factor. "
-            f"Using code as-is: {code_normalized}"
+            f"Could not map product {product.code} ({product.name}) to emission factor. "
+            f"Using name as-is: {name_exact}"
         )
-        return code_normalized
+        return name_exact
 
     def _get_co2e_from_activity(self, activity) -> float:
         """

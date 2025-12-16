@@ -3,12 +3,14 @@
  *
  * Transforms calculation results to Nivo Sankey format.
  * Handles data transformation, color mapping, and metadata enrichment.
+ * Supports drill-down expansion to show individual items within a category.
  *
  * TASK-FE-008: Nivo Sankey Implementation
+ * TASK-FE-P8-002: In-chart drill-down expansion
  */
 
 import { EMISSION_CATEGORY_COLORS } from '../constants/colors';
-import type { Calculation } from '../types/store.types';
+import type { Calculation, BreakdownByComponent } from '../types/store.types';
 
 /**
  * Sankey node interface matching Nivo requirements
@@ -159,4 +161,146 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
   }
 
   return { nodes, links };
+}
+
+/**
+ * Classify a component name into a category based on naming patterns
+ *
+ * @param name - Component name
+ * @returns Category: 'materials' | 'energy' | 'transport'
+ */
+function classifyComponent(name: string): 'materials' | 'energy' | 'transport' {
+  const nameLower = name.toLowerCase();
+
+  // Energy patterns
+  if (
+    nameLower.includes('electricity') ||
+    nameLower.includes('power') ||
+    nameLower.includes('energy') ||
+    nameLower.includes('kwh')
+  ) {
+    return 'energy';
+  }
+
+  // Transport patterns
+  if (
+    nameLower.includes('transport') ||
+    nameLower.includes('truck') ||
+    nameLower.includes('ship') ||
+    nameLower.includes('freight') ||
+    nameLower.includes('logistics')
+  ) {
+    return 'transport';
+  }
+
+  // Default to materials
+  return 'materials';
+}
+
+/**
+ * Transform calculation results to expanded Sankey format for drill-down view.
+ * Shows individual items within a category flowing to total.
+ *
+ * @param calculation - Calculation result from backend
+ * @param expandedCategory - The category to expand ('materials', 'energy', 'transport')
+ * @returns Sankey data structure with individual items as nodes
+ */
+export function transformToExpandedSankeyData(
+  calculation: Calculation | null,
+  expandedCategory: string
+): SankeyData {
+  // Return empty data for invalid input
+  if (!calculation || calculation.status !== 'completed' || !calculation.breakdown) {
+    return { nodes: [], links: [] };
+  }
+
+  const nodes: SankeyNode[] = [];
+  const links: SankeyLink[] = [];
+  const breakdown = calculation.breakdown as BreakdownByComponent;
+
+  // Get base color for the expanded category
+  const categoryColor = getNodeColor(expandedCategory);
+
+  // Filter items belonging to the expanded category
+  const categoryItems: Array<{ name: string; co2e: number }> = [];
+
+  Object.entries(breakdown).forEach(([componentName, co2e]) => {
+    const componentCategory = classifyComponent(componentName);
+    if (componentCategory === expandedCategory && co2e > 0) {
+      categoryItems.push({ name: componentName, co2e });
+    }
+  });
+
+  // Sort by CO2e value descending
+  categoryItems.sort((a, b) => b.co2e - a.co2e);
+
+  // Calculate total for the expanded category
+  const categoryTotal = categoryItems.reduce((sum, item) => sum + item.co2e, 0);
+
+  // Create nodes for each item
+  categoryItems.forEach((item, index) => {
+    // Use item name as ID (sanitized), with index suffix to ensure uniqueness
+    const itemId = `${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${index}`;
+    // Generate slightly different shade for each item
+    const shade = 0.8 + (index * 0.03); // Vary from 80% to lighter
+
+    nodes.push({
+      id: itemId,
+      label: item.name, // Display the actual item name
+      nodeColor: adjustColorBrightness(categoryColor, shade),
+      metadata: {
+        co2e: item.co2e,
+        unit: 'kg',
+        category: expandedCategory,
+      },
+    });
+
+    // Link from item to category subtotal
+    links.push({
+      source: itemId,
+      target: 'category-total',
+      value: item.co2e,
+    });
+  });
+
+  // Add category subtotal node
+  if (nodes.length > 0) {
+    nodes.push({
+      id: 'category-total',
+      label: `${expandedCategory.charAt(0).toUpperCase() + expandedCategory.slice(1)} Total`,
+      nodeColor: categoryColor,
+      metadata: {
+        co2e: categoryTotal,
+        unit: 'kg',
+        category: expandedCategory,
+      },
+    });
+  }
+
+  return { nodes, links };
+}
+
+/**
+ * Adjust color brightness
+ *
+ * @param hexColor - Hex color string
+ * @param factor - Brightness factor (1 = original, >1 = lighter, <1 = darker)
+ * @returns Adjusted hex color
+ */
+function adjustColorBrightness(hexColor: string, factor: number): string {
+  // Remove # if present
+  const hex = hexColor.replace('#', '');
+
+  // Parse RGB
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  // Adjust brightness
+  const newR = Math.min(255, Math.round(r * factor));
+  const newG = Math.min(255, Math.round(g * factor));
+  const newB = Math.min(255, Math.round(b * factor));
+
+  // Convert back to hex
+  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
 }

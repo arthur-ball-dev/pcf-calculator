@@ -64,11 +64,11 @@ export function CalculateButton() {
       )}
 
       {/* Main Action Card */}
-      <div className="border rounded-lg p-8 bg-card shadow-sm">
+      <div className="border rounded-lg p-8 bg-card shadow-sm" data-tour="calculate-button">
         <div className="flex flex-col items-center justify-center space-y-6">
           {/* Instruction Text */}
           <div className="text-center space-y-2">
-            <h3 className="text-lg font-semibold">Ready to Calculate</h3>
+            <h3 className="text-lg font-semibold">Ready to Run</h3>
             <p className="text-sm text-muted-foreground max-w-md">
               Click the button below to run the Product Carbon Footprint calculation based on your Bill of Materials.
             </p>

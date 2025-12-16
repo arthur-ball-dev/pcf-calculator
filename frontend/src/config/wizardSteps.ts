@@ -36,7 +36,7 @@ export const WIZARD_STEPS: StepConfig[] = [
   },
   {
     id: 'edit',
-    label: 'Edit BOM',
+    label: 'Edit Bill of Materials (BOM)',
     description: 'Review and modify the Bill of Materials',
     component: BOMEditor,
     validate: async () => {

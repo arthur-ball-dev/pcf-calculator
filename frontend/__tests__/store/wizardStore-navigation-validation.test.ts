@@ -11,7 +11,7 @@
  * Test Protocol: Written test-first to validate Fix #8-9 from TASK-FE-013
  */
 
-import { act } from '@testing-library/react';
+import { act } from '../testUtils';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 

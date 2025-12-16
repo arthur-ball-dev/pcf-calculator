@@ -14,6 +14,10 @@
  * - emissionFactorId: string (was number via parseInt)
  * - Preserves full UUID strings from emission factor IDs
  * - No type coercion or truncation
+ *
+ * UPDATED: TEST-FIX - Added notes field to transformation
+ * - Preserves notes from API BOMItemResponse
+ * - Converts null notes to undefined for optional field
  */
 
 import type {
@@ -129,6 +133,10 @@ export function inferCategory(
  * - Handles full UUID strings from API (e.g., '471fe408a2604386bae572d9fc9a6b5c')
  * - No truncation or type coercion
  *
+ * UPDATED: TEST-FIX - Added notes field to transformation
+ * - Preserves notes from API BOMItemResponse
+ * - Converts null notes to undefined for optional field
+ *
  * @param apiBOM - BOM array from API (ProductDetail.bill_of_materials)
  * @param emissionFactors - All emission factors from API
  * @returns Array of BOMItem with emissionFactorId mapped
@@ -174,6 +182,7 @@ export function transformAPIBOMToFrontend(
       : null;
 
     // Transform to frontend format
+    // UPDATED: Include notes field (convert null to undefined)
     const frontendItem: BOMItem = {
       id: apiItem.id,
       name: apiItem.child_product_name,
@@ -181,6 +190,7 @@ export function transformAPIBOMToFrontend(
       unit: apiItem.unit || '', // Handle null unit
       category,
       emissionFactorId, // String UUID or null
+      notes: apiItem.notes ?? undefined, // Convert null to undefined
     };
 
     transformed.push(frontendItem);

@@ -203,15 +203,8 @@ describe('BOM Schema - UUID Validation', () => {
       };
 
       const result = bomFormSchema.safeParse(validData);
-      // Note: Current schema requires non-null, but this test validates behavior
-      // Schema should be updated to allow null OR require string
-      expect(result.success).toBe(false); // Expected with current schema
-      if (!result.success) {
-        const error = result.error.issues.find((issue) =>
-          issue.path.includes('emissionFactorId')
-        );
-        expect(error).toBeDefined();
-      }
+      // Schema allows null emissionFactorId for user to select later
+      expect(result.success).toBe(true);
     });
   });
 

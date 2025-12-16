@@ -5,13 +5,15 @@
  * Following TDD protocol: Write tests FIRST, implementation SECOND.
  *
  * TASK-FE-009: Results Dashboard Implementation
+ * TASK-FE-P5-011: Updated tests for ExportButton integration (TDD Exception approved)
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, userEvent } from '../testUtils';
 import ResultsDisplay from '../../src/components/calculator/ResultsDisplay';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { useWizardStore } from '../../src/store/wizardStore';
+import { useExport } from '../../src/hooks/useExport';
 import type { Calculation } from '../../src/types/store.types';
 
 // Mock Nivo Sankey component
@@ -22,6 +24,9 @@ vi.mock('@nivo/sankey', () => ({
 // Mock stores
 vi.mock('../../src/store/calculatorStore');
 vi.mock('../../src/store/wizardStore');
+
+// Mock useExport hook for ExportButton
+vi.mock('../../src/hooks/useExport');
 
 describe('ResultsDisplay', () => {
   const mockCalculation: Calculation = {
@@ -38,6 +43,9 @@ describe('ResultsDisplay', () => {
 
   const mockResetCalculator = vi.fn();
   const mockResetWizard = vi.fn();
+  const mockExportToCSV = vi.fn().mockResolvedValue(undefined);
+  const mockExportToExcel = vi.fn().mockResolvedValue(undefined);
+  const mockClearError = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,6 +83,15 @@ describe('ResultsDisplay', () => {
       goNext: vi.fn(),
       goBack: vi.fn(),
       reset: mockResetWizard,
+    });
+
+    // Setup useExport hook mock
+    vi.mocked(useExport).mockReturnValue({
+      exportToCSV: mockExportToCSV,
+      exportToExcel: mockExportToExcel,
+      isExporting: false,
+      error: null,
+      clearError: mockClearError,
     });
   });
 
@@ -267,25 +284,63 @@ describe('ResultsDisplay', () => {
     });
   });
 
-  describe('CSV Export Button', () => {
-    it('should render CSV export button', () => {
+  describe('ExportButton Integration', () => {
+    it('should render ExportButton component', () => {
       render(<ResultsDisplay />);
 
-      const button = screen.getByRole('button', { name: /export csv/i });
-      expect(button).toBeInTheDocument();
+      // ExportButton renders a container with data-testid="export-buttons"
+      expect(screen.getByTestId('export-buttons')).toBeInTheDocument();
     });
 
-    it('should show CSV export button as disabled', () => {
+    it('should render export dropdown button', () => {
       render(<ResultsDisplay />);
 
-      const button = screen.getByRole('button', { name: /export csv/i });
-      expect(button).toBeDisabled();
+      const exportDropdown = screen.getByTestId('export-dropdown');
+      expect(exportDropdown).toBeInTheDocument();
     });
 
-    it('should show "Coming Soon" text on CSV export button', () => {
+    it('should display "Export" text on dropdown button', () => {
       render(<ResultsDisplay />);
 
-      expect(screen.getByText(/coming soon/i)).toBeInTheDocument();
+      expect(screen.getByText('Export')).toBeInTheDocument();
+    });
+
+    it('should trigger CSV export when CSV option clicked', async () => {
+      const user = userEvent.setup();
+      render(<ResultsDisplay />);
+
+      // Open dropdown and click CSV option
+      await user.click(screen.getByTestId('export-dropdown'));
+      await user.click(screen.getByTestId('export-csv-option'));
+
+      expect(mockExportToCSV).toHaveBeenCalled();
+    });
+
+    it('should trigger Excel export when Excel option clicked', async () => {
+      const user = userEvent.setup();
+      render(<ResultsDisplay />);
+
+      // Open dropdown and click Excel option
+      await user.click(screen.getByTestId('export-dropdown'));
+      await user.click(screen.getByTestId('export-excel-option'));
+
+      expect(mockExportToExcel).toHaveBeenCalled();
+    });
+
+    it('should show loading state during export', () => {
+      vi.mocked(useExport).mockReturnValue({
+        exportToCSV: mockExportToCSV,
+        exportToExcel: mockExportToExcel,
+        isExporting: true,
+        error: null,
+        clearError: mockClearError,
+      });
+
+      render(<ResultsDisplay />);
+
+      const exportDropdown = screen.getByTestId('export-dropdown');
+      expect(exportDropdown).toHaveAttribute('aria-busy', 'true');
+      expect(screen.getByText('Exporting...')).toBeInTheDocument();
     });
   });
 

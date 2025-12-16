@@ -23,6 +23,8 @@
  * - calculatorStore: Product selection, BOM data, calculation results
  * - WIZARD_STEPS: Step configuration with components and validation
  * - useAnnouncer: Screen reader announcements
+ *
+ * TASK-FE-P5-012: Added TourControls button to header for guided tour
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -30,6 +32,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { useWizardStore } from '@/store/wizardStore';
 import { useAnnouncer } from '@/hooks/useAnnouncer';
 import { WIZARD_STEPS } from '@/config/wizardSteps';
+import { TourControls } from '@/components/Tour/TourControls';
 import WizardProgress from './WizardProgress';
 import WizardNavigation from './WizardNavigation';
 
@@ -135,17 +138,20 @@ const CalculationWizard: React.FC = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {/* Header with title and progress indicator */}
-      <header className="border-b bg-background" role="banner">
+      <header className="border-b bg-white dark:bg-gray-950 sticky top-0 z-50 shadow-sm" role="banner">
         <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-semibold mb-4">PCF Calculator</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-semibold">PCF Calculator</h1>
+            <TourControls />
+          </div>
           <WizardProgress steps={WIZARD_STEPS} currentStep={currentStep} />
         </div>
       </header>
 
       {/* Main content area - renders current step component */}
-      <main className="flex-1 overflow-auto" role="main">
+      <main className="flex-1 bg-background" role="main">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           {/* Step heading and description with completion indicator */}
           <div className="mb-6">
@@ -175,15 +181,13 @@ const CalculationWizard: React.FC = () => {
           <div className="mb-8">
             <CurrentStepComponent />
           </div>
+
+          {/* Navigation controls - follows content instead of fixed footer */}
+          <div className="border-t pt-6 mt-8">
+            <WizardNavigation />
+          </div>
         </div>
       </main>
-
-      {/* Footer with navigation controls */}
-      <footer className="border-t bg-background" role="contentinfo">
-        <div className="container mx-auto px-4 py-4">
-          <WizardNavigation />
-        </div>
-      </footer>
     </div>
   );
 };

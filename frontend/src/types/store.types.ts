@@ -7,9 +7,15 @@
  * - Shared types and enums
  *
  * UPDATED: TASK-FE-020 - Migrated UUID fields from number to string
- * - Product.id: number → string (32-char hex UUID)
- * - selectedProductId: number | null → string | null
- * - BOMItem.emissionFactorId: number | null → string | null
+ * - Product.id: number -> string (32-char hex UUID)
+ * - selectedProductId: number | null -> string | null
+ * - BOMItem.emissionFactorId: number | null -> string | null
+ *
+ * UPDATED: TEST-FIX - Added notes field to BOMItem
+ * - notes: string | undefined - optional field from API BOMItemResponse
+ *
+ * UPDATED: TASK-FE-P8-003 - Added breakdown field to Calculation
+ * - breakdown: Record<string, number> - component-level emissions breakdown
  */
 
 // ============================================================================
@@ -52,11 +58,12 @@ export interface BOMItem {
   quantity: number;
   unit: string;
   category: BOMItemCategory;
-  emissionFactorId: string | null; // UPDATED: number | null → string | null (UUID)
+  emissionFactorId: string | null; // UPDATED: number | null -> string | null (UUID)
+  notes?: string; // ADDED: Optional notes from API BOMItemResponse
 }
 
 export interface Product {
-  id: string; // UPDATED: number → string (32-char hex UUID)
+  id: string; // UPDATED: number -> string (32-char hex UUID)
   code: string;
   name: string;
   category: string | null; // UPDATED: Made nullable to match API ProductListItem/ProductDetail
@@ -65,18 +72,31 @@ export interface Product {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Component-level breakdown - maps component name to CO2e value in kg
+ * TASK-FE-P8-003: Added to support expandable breakdown items
+ */
+export type BreakdownByComponent = Record<string, number>;
+
 export interface Calculation {
   id: string;
   status: CalculationStatus;
   product_id?: string;
   created_at?: string;
+  updated_at?: string;
+  calculation_type?: CalculationType;
 
   // Present when completed
+  total_co2e?: number;
   total_co2e_kg?: number;
   materials_co2e?: number;
   energy_co2e?: number;
   transport_co2e?: number;
+  waste_co2e?: number;
   calculation_time_ms?: number;
+
+  // TASK-FE-P8-003: Detailed breakdown by component for expandable items
+  breakdown?: BreakdownByComponent;
 
   // Present when failed
   error_message?: string;
@@ -84,7 +104,7 @@ export interface Calculation {
 
 export interface CalculatorState {
   // Product selection
-  selectedProductId: string | null; // UPDATED: number | null → string | null (UUID)
+  selectedProductId: string | null; // UPDATED: number | null -> string | null (UUID)
   selectedProduct: Product | null;
 
   // BOM data
@@ -99,7 +119,7 @@ export interface CalculatorState {
   isLoadingBOM: boolean;
 
   // Actions - Product
-  setSelectedProduct: (productId: string | null) => void; // UPDATED: number | null → string | null
+  setSelectedProduct: (productId: string | null) => void; // UPDATED: number | null -> string | null
   setSelectedProductDetails: (product: Product | null) => void;
 
   // Actions - BOM
@@ -127,6 +147,7 @@ export interface StepConfig {
   id: WizardStep;
   label: string;
   description: string;
+  progressLabel?: string; // Optional shorter label for progress indicator
   component?: React.ComponentType;
   validate?: () => Promise<boolean>;
 }
@@ -137,7 +158,13 @@ export interface EmissionBreakdown {
   percentage: number;
 }
 
-export interface CalculationResult extends Calculation {
-  breakdown: EmissionBreakdown[];
+/**
+ * Extended calculation result with category-level breakdown array
+ * Note: This uses categoryBreakdown (array format) instead of breakdown (object format)
+ * to differentiate from the component-level breakdown in Calculation
+ */
+export interface CalculationResult extends Omit<Calculation, 'breakdown'> {
+  categoryBreakdown: EmissionBreakdown[];
+  breakdown?: BreakdownByComponent; // Component-level breakdown
   data_quality_score?: number;
 }

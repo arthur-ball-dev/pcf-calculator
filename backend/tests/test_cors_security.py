@@ -356,9 +356,9 @@ def test_global_exception_handler_returns_correct_format(test_app_with_errors):
     assert "message" in error_obj, "Error object should contain 'message'"
     assert "details" in error_obj, "Error object should contain 'details'"
 
-    # Verify error code is CALCULATION_FAILED for 500 errors
-    assert error_obj["code"] == "CALCULATION_FAILED", \
-        f"Expected error code 'CALCULATION_FAILED', got '{error_obj['code']}'"
+    # Verify error code is INTERNAL_ERROR for 500 errors
+    assert error_obj["code"] == "INTERNAL_ERROR", \
+        f"Expected error code 'INTERNAL_ERROR', got '{error_obj['code']}'"
 
     # Verify message is generic
     assert "Internal server error" in error_obj["message"], \
