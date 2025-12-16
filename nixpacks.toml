@@ -8,4 +8,4 @@ cmds = ["pip3 install --break-system-packages -r backend/requirements.txt", "cd 
 cmds = ["cd frontend && npm run build"]
 
 [start]
-cmd = "PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py && PYTHONPATH=/app python3 backend/scripts/init_brightway.py && PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+cmd = "sh -c 'PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py && PYTHONPATH=/app python3 backend/scripts/init_brightway.py && PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT'"
