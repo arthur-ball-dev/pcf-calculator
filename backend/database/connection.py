@@ -225,17 +225,32 @@ def _create_async_engine():
         raise ValueError(f"Unsupported database URL: {settings.database_url}")
 
 
-# Create async engine
-async_engine = _create_async_engine()
+# Lazy async engine initialization
+# Avoids import-time errors in scripts that only need sync database access
+_async_engine = None
+_AsyncSessionLocal = None
 
-# Async session factory
-AsyncSessionLocal = async_sessionmaker(
-    bind=async_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
+
+def _get_async_engine():
+    """Get or create the async engine lazily."""
+    global _async_engine
+    if _async_engine is None:
+        _async_engine = _create_async_engine()
+    return _async_engine
+
+
+def _get_async_session_maker():
+    """Get or create the async session maker lazily."""
+    global _AsyncSessionLocal
+    if _AsyncSessionLocal is None:
+        _AsyncSessionLocal = async_sessionmaker(
+            bind=_get_async_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autocommit=False,
+            autoflush=False,
+        )
+    return _AsyncSessionLocal
 
 
 @asynccontextmanager
@@ -250,6 +265,7 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     Yields:
         AsyncSession: SQLAlchemy async database session
     """
+    AsyncSessionLocal = _get_async_session_maker()
     async with AsyncSessionLocal() as session:
         try:
             yield session
