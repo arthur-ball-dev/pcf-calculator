@@ -97,6 +97,7 @@ export function useCalculation(): UseCalculationReturn {
           energy_co2e: status.energy_co2e,
           transport_co2e: status.transport_co2e,
           calculation_time_ms: status.calculation_time_ms,
+          breakdown: status.breakdown,
         };
 
         setCalculation(calculation);

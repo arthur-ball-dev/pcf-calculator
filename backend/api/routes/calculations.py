@@ -2,6 +2,7 @@
 Calculations API Routes
 TASK-API-002: Implementation of async calculation endpoints
 TASK-BE-P5-010: Fix Backend Test Failures - Add enum validation for calculation_type
+TASK-FE-P8-003: Added breakdown field to response for expandable items
 
 Endpoints:
 - POST /api/v1/calculate - Start async PCF calculation (returns 202 Accepted)
@@ -15,7 +16,7 @@ This module implements the async calculation pattern:
 """
 
 import logging
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict
 from datetime import datetime, UTC
 from enum import Enum
 
@@ -91,6 +92,12 @@ class CalculationStatusResponse(BaseModel):
     transport_co2e: Optional[float] = Field(None, description="Transport emissions in kg CO2e")
     calculation_time_ms: Optional[int] = Field(None, description="Calculation duration in milliseconds")
 
+    # TASK-FE-P8-003: Detailed breakdown by component for expandable items
+    breakdown: Optional[Dict[str, float]] = Field(
+        None,
+        description="Detailed breakdown by component (component_name -> co2e_kg)"
+    )
+
     # Fields present when failed
     error_message: Optional[str] = Field(None, description="Error details if status=failed")
 
@@ -105,7 +112,13 @@ class CalculationStatusResponse(BaseModel):
                 "materials_co2e": 1.80,
                 "energy_co2e": 0.15,
                 "transport_co2e": 0.10,
-                "calculation_time_ms": 150
+                "calculation_time_ms": 150,
+                "breakdown": {
+                    "cotton": 1.50,
+                    "polyester": 0.30,
+                    "electricity_us": 0.15,
+                    "truck_transport": 0.10
+                }
             }
         }
 
@@ -338,7 +351,7 @@ def get_calculation_status(
     Returns:
     - 200 OK: Calculation found
         - status="processing": Still calculating (no result yet)
-        - status="completed": Done (includes total_co2e_kg and breakdown)
+        - status="completed": Done (includes total_co2e_kg, breakdown, and category totals)
         - status="failed": Error occurred (includes error_message)
 
     - 404 Not Found: calculation_id not found
@@ -352,7 +365,13 @@ def get_calculation_status(
         "materials_co2e": 1.80,
         "energy_co2e": 0.15,
         "transport_co2e": 0.10,
-        "calculation_time_ms": 150
+        "calculation_time_ms": 150,
+        "breakdown": {
+            "cotton": 1.50,
+            "polyester": 0.30,
+            "electricity_us": 0.15,
+            "truck_transport": 0.10
+        }
     }
     """
     # Query calculation record
@@ -379,7 +398,9 @@ def get_calculation_status(
             "materials_co2e": float(calculation.materials_co2e) if calculation.materials_co2e else None,
             "energy_co2e": float(calculation.energy_co2e) if calculation.energy_co2e else None,
             "transport_co2e": float(calculation.transport_co2e) if calculation.transport_co2e else None,
-            "calculation_time_ms": calculation.calculation_time_ms
+            "calculation_time_ms": calculation.calculation_time_ms,
+            # TASK-FE-P8-003: Include breakdown for expandable items in frontend
+            "breakdown": calculation.breakdown if calculation.breakdown else None
         })
 
     # Add error message if failed

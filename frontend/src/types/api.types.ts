@@ -65,6 +65,23 @@ export interface CalculationStartResponse {
   status: string;
 }
 
+/**
+ * Component-level breakdown item
+ * Each item represents emissions from a single BOM component
+ */
+export interface BreakdownItem {
+  name: string;
+  co2e: number;
+  quantity?: number;
+  unit?: string;
+}
+
+/**
+ * Breakdown by component - maps component name to CO2e value
+ * This is the raw format from the backend
+ */
+export type BreakdownByComponent = Record<string, number>;
+
 export interface CalculationStatusResponse {
   calculation_id: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
@@ -77,6 +94,10 @@ export interface CalculationStatusResponse {
   energy_co2e?: number;
   transport_co2e?: number;
   calculation_time_ms?: number;
+
+  // Detailed breakdown by component (component_name -> co2e_kg)
+  // TASK-FE-P8-003: Added to support expandable breakdown items
+  breakdown?: BreakdownByComponent;
 
   // Present when failed
   error_message?: string;

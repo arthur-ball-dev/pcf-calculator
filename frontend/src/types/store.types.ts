@@ -13,6 +13,9 @@
  *
  * UPDATED: TEST-FIX - Added notes field to BOMItem
  * - notes: string | undefined - optional field from API BOMItemResponse
+ *
+ * UPDATED: TASK-FE-P8-003 - Added breakdown field to Calculation
+ * - breakdown: Record<string, number> - component-level emissions breakdown
  */
 
 // ============================================================================
@@ -69,6 +72,12 @@ export interface Product {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Component-level breakdown - maps component name to CO2e value in kg
+ * TASK-FE-P8-003: Added to support expandable breakdown items
+ */
+export type BreakdownByComponent = Record<string, number>;
+
 export interface Calculation {
   id: string;
   status: CalculationStatus;
@@ -85,6 +94,9 @@ export interface Calculation {
   transport_co2e?: number;
   waste_co2e?: number;
   calculation_time_ms?: number;
+
+  // TASK-FE-P8-003: Detailed breakdown by component for expandable items
+  breakdown?: BreakdownByComponent;
 
   // Present when failed
   error_message?: string;
@@ -146,7 +158,13 @@ export interface EmissionBreakdown {
   percentage: number;
 }
 
-export interface CalculationResult extends Calculation {
-  breakdown: EmissionBreakdown[];
+/**
+ * Extended calculation result with category-level breakdown array
+ * Note: This uses categoryBreakdown (array format) instead of breakdown (object format)
+ * to differentiate from the component-level breakdown in Calculation
+ */
+export interface CalculationResult extends Omit<Calculation, 'breakdown'> {
+  categoryBreakdown: EmissionBreakdown[];
+  breakdown?: BreakdownByComponent; // Component-level breakdown
   data_quality_score?: number;
 }
