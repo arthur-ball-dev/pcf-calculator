@@ -19,3 +19,6 @@ electricity_us,0.4,kWh,EPA,US
 transport_truck,0.1,tkm,EPA,GLO
 transport_ship,0.01,tkm,DEFRA,GLO
 water,0.001,L,EPA,GLO
+packaging_cardboard,0.9,kg,Ecoinvent,GLO
+packaging_plastic,2.5,kg,Ecoinvent,GLO
+waste_general,0.5,kg,EPA,GLO

@@ -36,6 +36,30 @@
       "quantity": 0.0001,
       "unit": "kg",
       "description": "wireless charging coil"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.05,
+      "unit": "kg",
+      "description": "retail box"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.008,
+      "unit": "kg",
+      "description": "blister pack"
+    },
+    {
+      "component_name": "water",
+      "quantity": 2.0,
+      "unit": "L",
+      "description": "molding process"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.01,
+      "unit": "kg",
+      "description": "trim waste"
     }
   ],
   "energy_data": {

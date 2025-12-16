@@ -36,6 +36,30 @@
       "quantity": 0.003,
       "unit": "kg",
       "description": "ear tips"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.1,
+      "unit": "kg",
+      "description": "retail box"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.015,
+      "unit": "kg",
+      "description": "blister pack"
+    },
+    {
+      "component_name": "water",
+      "quantity": 12.0,
+      "unit": "L",
+      "description": "manufacturing process"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "assembly waste"
     }
   ],
   "energy_data": {

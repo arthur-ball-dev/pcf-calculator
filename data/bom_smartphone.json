@@ -36,6 +36,30 @@
       "quantity": 0.005,
       "unit": "kg",
       "description": "buttons and SIM tray"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.12,
+      "unit": "kg",
+      "description": "retail box"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "protective film"
+    },
+    {
+      "component_name": "water",
+      "quantity": 25.0,
+      "unit": "L",
+      "description": "manufacturing process"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.03,
+      "unit": "kg",
+      "description": "manufacturing waste"
     }
   ],
   "energy_data": {

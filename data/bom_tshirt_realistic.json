@@ -33,6 +33,30 @@
       "quantity": 0.001,
       "unit": "kg",
       "description": "label"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.015,
+      "unit": "kg",
+      "description": "poly bag"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "hang tag"
+    },
+    {
+      "component_name": "water",
+      "quantity": 50.0,
+      "unit": "L",
+      "description": "dyeing and washing"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.03,
+      "unit": "kg",
+      "description": "cutting waste"
     }
   ],
   "energy_data": {

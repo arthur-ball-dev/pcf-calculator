@@ -30,6 +30,30 @@
       "quantity": 0.002,
       "unit": "kg",
       "description": "nose pads"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.08,
+      "unit": "kg",
+      "description": "case and box"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.01,
+      "unit": "kg",
+      "description": "cleaning cloth bag"
+    },
+    {
+      "component_name": "water",
+      "quantity": 3.0,
+      "unit": "L",
+      "description": "lens coating"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.01,
+      "unit": "kg",
+      "description": "manufacturing waste"
     }
   ],
   "energy_data": {

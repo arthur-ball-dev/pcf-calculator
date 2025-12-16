@@ -30,6 +30,30 @@
       "quantity": 0.0001,
       "unit": "kg",
       "description": "seal ring"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.08,
+      "unit": "kg",
+      "description": "retail box"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.01,
+      "unit": "kg",
+      "description": "wrap"
+    },
+    {
+      "component_name": "water",
+      "quantity": 5.0,
+      "unit": "L",
+      "description": "cleaning process"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "molding waste"
     }
   ],
   "energy_data": {

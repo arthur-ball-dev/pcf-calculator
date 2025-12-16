@@ -18,6 +18,24 @@
       "quantity": 0.02,
       "unit": "kg",
       "description": "packaging"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.15,
+      "unit": "kg",
+      "description": "gift box"
+    },
+    {
+      "component_name": "water",
+      "quantity": 5.0,
+      "unit": "L",
+      "description": "manufacturing process"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.05,
+      "unit": "kg",
+      "description": "kiln waste"
     }
   ],
   "energy_data": {

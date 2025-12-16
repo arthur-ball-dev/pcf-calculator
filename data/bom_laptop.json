@@ -36,6 +36,30 @@
       "quantity": 0.05,
       "unit": "kg",
       "description": "hinges and screws"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.5,
+      "unit": "kg",
+      "description": "retail box"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.08,
+      "unit": "kg",
+      "description": "protective wrap"
+    },
+    {
+      "component_name": "water",
+      "quantity": 50.0,
+      "unit": "L",
+      "description": "manufacturing process"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.15,
+      "unit": "kg",
+      "description": "manufacturing waste"
     }
   ],
   "energy_data": {

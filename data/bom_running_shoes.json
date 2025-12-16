@@ -36,6 +36,30 @@
       "quantity": 0.02,
       "unit": "kg",
       "description": "heel counter"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.25,
+      "unit": "kg",
+      "description": "shoe box"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.01,
+      "unit": "kg",
+      "description": "wrap and tags"
+    },
+    {
+      "component_name": "water",
+      "quantity": 15.0,
+      "unit": "L",
+      "description": "manufacturing process"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.08,
+      "unit": "kg",
+      "description": "cutting waste"
     }
   ],
   "energy_data": {

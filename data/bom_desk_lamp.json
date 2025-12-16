@@ -36,6 +36,30 @@
       "quantity": 0.08,
       "unit": "kg",
       "description": "weighted base"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.3,
+      "unit": "kg",
+      "description": "retail box"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.04,
+      "unit": "kg",
+      "description": "foam insert"
+    },
+    {
+      "component_name": "water",
+      "quantity": 8.0,
+      "unit": "L",
+      "description": "manufacturing process"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.06,
+      "unit": "kg",
+      "description": "manufacturing waste"
     }
   ],
   "energy_data": {

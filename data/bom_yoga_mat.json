@@ -24,6 +24,30 @@
       "quantity": 0.05,
       "unit": "kg",
       "description": "carrying strap"
+    },
+    {
+      "component_name": "packaging_plastic",
+      "quantity": 0.08,
+      "unit": "kg",
+      "description": "shrink wrap"
+    },
+    {
+      "component_name": "packaging_cardboard",
+      "quantity": 0.05,
+      "unit": "kg",
+      "description": "hang tag"
+    },
+    {
+      "component_name": "water",
+      "quantity": 25.0,
+      "unit": "L",
+      "description": "rubber processing"
+    },
+    {
+      "component_name": "waste_general",
+      "quantity": 0.15,
+      "unit": "kg",
+      "description": "trim waste"
     }
   ],
   "energy_data": {
