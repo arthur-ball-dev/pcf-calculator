@@ -283,7 +283,7 @@ export default function SankeyDiagram({
           linkHoverOpacity={0.9}
           linkBlendMode="multiply"
           enableLinkGradient={true}
-          label={(node) => node.label || node.id}
+          label={(node) => (node as { label?: string; id: string }).label || node.id}
           labelPosition="outside"
           labelOrientation="horizontal"
           labelPadding={16}

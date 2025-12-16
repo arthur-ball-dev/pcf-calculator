@@ -22,8 +22,8 @@
  * ```
  */
 
-import { useMemo, useState, useEffect } from 'react';
-import Joyride, { type TooltipRenderProps } from 'react-joyride';
+import { useState, useEffect } from 'react';
+import Joyride, { type TooltipRenderProps, type Props as JoyrideProps } from 'react-joyride';
 import { useTour } from '@/contexts/TourContext';
 import { TOUR_STEPS, TOUR_STEP_IDS } from '@/config/tourSteps';
 import { Button } from '@/components/ui/button';
@@ -148,48 +148,51 @@ export function GuidedTour() {
     return null;
   }
 
+  // Joyride props with disableBeacon (valid prop but not in older types)
+  const joyrideProps: JoyrideProps & { disableBeacon?: boolean } = {
+    steps: validSteps,
+    run: isTourActive,
+    continuous: true,
+    showProgress: true,
+    showSkipButton: true,
+    scrollToFirstStep: true,
+    disableBeacon: true,
+    disableOverlayClose: false,
+    disableScrollParentFix: true,
+    spotlightClicks: false,
+    callback: handleJoyrideCallback,
+    tooltipComponent: CustomTooltip,
+    locale: {
+      back: 'Previous',
+      close: 'Close',
+      last: 'Finish',
+      next: 'Next',
+      skip: 'Skip tour',
+    },
+    styles: {
+      options: {
+        zIndex: 10000,
+        arrowColor: 'white',
+      },
+      overlay: {
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      },
+      spotlight: {
+        backgroundColor: 'transparent',
+        borderRadius: 8,
+      },
+    },
+    floaterProps: {
+      placement: 'bottom',
+      styles: {
+        floater: {
+          filter: 'none',
+        },
+      },
+    },
+  };
+
   return (
-    <Joyride
-      steps={validSteps}
-      run={isTourActive}
-      continuous
-      showProgress
-      showSkipButton
-      scrollToFirstStep
-      disableBeacon
-      disableOverlayClose={false}
-      disableScrollParentFix
-      spotlightClicks={false}
-      callback={handleJoyrideCallback}
-      tooltipComponent={CustomTooltip}
-      locale={{
-        back: 'Previous',
-        close: 'Close',
-        last: 'Finish',
-        next: 'Next',
-        skip: 'Skip tour',
-      }}
-      styles={{
-        options: {
-          zIndex: 10000,
-          arrowColor: 'white',
-        },
-        overlay: {
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        },
-        spotlight: {
-          backgroundColor: 'transparent',
-          borderRadius: 8,
-        },
-      }}
-      floaterProps={{
-        placement: 'bottom',
-        styles: {
-          floater: {
-            filter: 'none',
-          },
-        },
-      }}
-    />
+    <Joyride {...joyrideProps} />
   );
 }
