@@ -140,7 +140,7 @@ const CalculationWizard: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header with title and progress indicator */}
-      <header className="border-b bg-background sticky top-0 z-10" role="banner">
+      <header className="border-b bg-white dark:bg-gray-950 sticky top-0 z-50 shadow-sm" role="banner">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-semibold">PCF Calculator</h1>
@@ -151,7 +151,7 @@ const CalculationWizard: React.FC = () => {
       </header>
 
       {/* Main content area - renders current step component */}
-      <main className="flex-1" role="main">
+      <main className="flex-1 bg-background" role="main">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           {/* Step heading and description with completion indicator */}
           <div className="mb-6">
