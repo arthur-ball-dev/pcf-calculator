@@ -6,6 +6,7 @@
  * value aggregation, and detailed breakdown grouping.
  *
  * TASK-UI-P5-001: Advanced Visualizations (Treemap + Area)
+ * TASK-FE-P8-003: Updated to use categoryBreakdown for array format
  */
 
 import { useMemo } from 'react';
@@ -161,6 +162,15 @@ function aggregateSmallItems(
   return largeItems;
 }
 
+/**
+ * Type guard to check if calculation has categoryBreakdown
+ */
+function hasDetailedBreakdown(calc: Calculation | CalculationResult): calc is CalculationResult {
+  return 'categoryBreakdown' in calc &&
+    Array.isArray((calc as CalculationResult).categoryBreakdown) &&
+    (calc as CalculationResult).categoryBreakdown.length > 0;
+}
+
 // ============================================================================
 // Hook
 // ============================================================================
@@ -189,13 +199,10 @@ export function useTreemapData(
     const calc = calculation!;
     const totalCo2e = calc.total_co2e_kg || 0;
 
-    // Check for detailed breakdown data
-    const hasBreakdown = 'breakdown' in calc && Array.isArray(calc.breakdown) && calc.breakdown.length > 0;
-
-    if (hasBreakdown) {
+    // Check for detailed breakdown data (categoryBreakdown array format)
+    if (hasDetailedBreakdown(calc)) {
       // Process detailed breakdown
-      const result = calc as CalculationResult;
-      const groups = groupBreakdownByCategory(result.breakdown);
+      const groups = groupBreakdownByCategory(calc.categoryBreakdown);
 
       const children: TreemapNode[] = [];
 
