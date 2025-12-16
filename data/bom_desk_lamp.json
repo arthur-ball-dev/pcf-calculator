@@ -1,0 +1,67 @@
+{
+  "product": {
+    "id": "lamp-001",
+    "code": "LAMP-001",
+    "name": "LED Desk Lamp",
+    "unit": "unit",
+    "is_finished_product": true
+  },
+  "bill_of_materials": [
+    {
+      "component_name": "aluminum",
+      "quantity": 0.25,
+      "unit": "kg",
+      "description": "lamp arm and base"
+    },
+    {
+      "component_name": "plastic_abs",
+      "quantity": 0.12,
+      "unit": "kg",
+      "description": "housing and controls"
+    },
+    {
+      "component_name": "copper",
+      "quantity": 0.03,
+      "unit": "kg",
+      "description": "wiring"
+    },
+    {
+      "component_name": "glass",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "LED diffuser"
+    },
+    {
+      "component_name": "steel",
+      "quantity": 0.08,
+      "unit": "kg",
+      "description": "weighted base"
+    }
+  ],
+  "energy_data": {
+    "electricity_kwh": 4.0,
+    "location": "US"
+  },
+  "transport_data": [
+    {
+      "mode": "truck",
+      "distance_km": 400,
+      "mass_kg": 0.5
+    },
+    {
+      "mode": "ship",
+      "distance_km": 10000,
+      "mass_kg": 0.5
+    }
+  ],
+  "manufacturing_location": "China",
+  "expected_result": {
+    "total_co2e_kg": 4.5,
+    "breakdown": {
+      "materials": 2.85,
+      "energy": 1.6,
+      "transport": 0.05
+    },
+    "notes": "Adjustable LED desk lamp with aluminum arm"
+  }
+}

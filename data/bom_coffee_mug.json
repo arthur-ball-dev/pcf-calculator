@@ -1,0 +1,44 @@
+{
+  "product": {
+    "id": "mug-001",
+    "code": "MUG-001",
+    "name": "Ceramic Coffee Mug",
+    "unit": "unit",
+    "is_finished_product": true
+  },
+  "bill_of_materials": [
+    {
+      "component_name": "ceramic",
+      "quantity": 0.35,
+      "unit": "kg",
+      "description": "mug body"
+    },
+    {
+      "component_name": "paper",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "packaging"
+    }
+  ],
+  "energy_data": {
+    "electricity_kwh": 1.2,
+    "location": "US"
+  },
+  "transport_data": [
+    {
+      "mode": "truck",
+      "distance_km": 500,
+      "mass_kg": 0.37
+    }
+  ],
+  "manufacturing_location": "USA",
+  "expected_result": {
+    "total_co2e_kg": 0.85,
+    "breakdown": {
+      "materials": 0.34,
+      "energy": 0.48,
+      "transport": 0.03
+    },
+    "notes": "Classic ceramic coffee mug"
+  }
+}

@@ -305,9 +305,23 @@ def load_products_and_boms(session: Session) -> int:
 
     # List of BOM JSON files to load
     bom_files = [
+        # Original 3 products
         'bom_tshirt_realistic.json',
         'bom_water_bottle_realistic.json',
-        'bom_phone_case_realistic.json'
+        'bom_phone_case_realistic.json',
+        # Electronics
+        'bom_laptop.json',
+        'bom_smartphone.json',
+        'bom_desk_lamp.json',
+        'bom_wireless_earbuds.json',
+        # Apparel & Accessories
+        'bom_running_shoes.json',
+        'bom_backpack.json',
+        'bom_sunglasses.json',
+        'bom_bicycle_helmet.json',
+        # Home & Fitness
+        'bom_coffee_mug.json',
+        'bom_yoga_mat.json',
     ]
 
     products_loaded = 0

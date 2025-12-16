@@ -1,0 +1,67 @@
+{
+  "product": {
+    "id": "helmet-001",
+    "code": "HELMET-001",
+    "name": "Bicycle Helmet - Sport",
+    "unit": "unit",
+    "is_finished_product": true
+  },
+  "bill_of_materials": [
+    {
+      "component_name": "foam",
+      "quantity": 0.18,
+      "unit": "kg",
+      "description": "EPS foam core"
+    },
+    {
+      "component_name": "plastic_abs",
+      "quantity": 0.08,
+      "unit": "kg",
+      "description": "outer shell"
+    },
+    {
+      "component_name": "nylon",
+      "quantity": 0.04,
+      "unit": "kg",
+      "description": "straps and harness"
+    },
+    {
+      "component_name": "plastic_hdpe",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "buckles"
+    },
+    {
+      "component_name": "foam",
+      "quantity": 0.03,
+      "unit": "kg",
+      "description": "comfort padding"
+    }
+  ],
+  "energy_data": {
+    "electricity_kwh": 1.5,
+    "location": "US"
+  },
+  "transport_data": [
+    {
+      "mode": "truck",
+      "distance_km": 350,
+      "mass_kg": 0.35
+    },
+    {
+      "mode": "ship",
+      "distance_km": 11000,
+      "mass_kg": 0.35
+    }
+  ],
+  "manufacturing_location": "Taiwan",
+  "expected_result": {
+    "total_co2e_kg": 1.8,
+    "breakdown": {
+      "materials": 1.15,
+      "energy": 0.6,
+      "transport": 0.05
+    },
+    "notes": "Lightweight sport bicycle helmet"
+  }
+}

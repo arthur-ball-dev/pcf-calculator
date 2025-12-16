@@ -1,0 +1,55 @@
+{
+  "product": {
+    "id": "yogamat-001",
+    "code": "YOGAMAT-001",
+    "name": "Yoga Mat - Premium",
+    "unit": "unit",
+    "is_finished_product": true
+  },
+  "bill_of_materials": [
+    {
+      "component_name": "rubber",
+      "quantity": 1.2,
+      "unit": "kg",
+      "description": "natural rubber base"
+    },
+    {
+      "component_name": "polyester",
+      "quantity": 0.15,
+      "unit": "kg",
+      "description": "surface layer"
+    },
+    {
+      "component_name": "nylon",
+      "quantity": 0.05,
+      "unit": "kg",
+      "description": "carrying strap"
+    }
+  ],
+  "energy_data": {
+    "electricity_kwh": 2.5,
+    "location": "US"
+  },
+  "transport_data": [
+    {
+      "mode": "truck",
+      "distance_km": 600,
+      "mass_kg": 1.4
+    },
+    {
+      "mode": "ship",
+      "distance_km": 8000,
+      "mass_kg": 1.4
+    }
+  ],
+  "manufacturing_location": "Thailand",
+  "expected_result": {
+    "total_co2e_kg": 5.5,
+    "breakdown": {
+      "materials": 4.3,
+      "energy": 1.0,
+      "transport": 0.2
+    },
+    "notes": "Premium natural rubber yoga mat"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "product": {
+    "id": "earbuds-001",
+    "code": "EARBUDS-001",
+    "name": "Wireless Earbuds Pro",
+    "unit": "unit",
+    "is_finished_product": true
+  },
+  "bill_of_materials": [
+    {
+      "component_name": "plastic_abs",
+      "quantity": 0.015,
+      "unit": "kg",
+      "description": "earbuds housing"
+    },
+    {
+      "component_name": "plastic_abs",
+      "quantity": 0.025,
+      "unit": "kg",
+      "description": "charging case"
+    },
+    {
+      "component_name": "copper",
+      "quantity": 0.008,
+      "unit": "kg",
+      "description": "wiring and coils"
+    },
+    {
+      "component_name": "aluminum",
+      "quantity": 0.005,
+      "unit": "kg",
+      "description": "driver housing"
+    },
+    {
+      "component_name": "rubber",
+      "quantity": 0.003,
+      "unit": "kg",
+      "description": "ear tips"
+    }
+  ],
+  "energy_data": {
+    "electricity_kwh": 5.0,
+    "location": "US"
+  },
+  "transport_data": [
+    {
+      "mode": "truck",
+      "distance_km": 200,
+      "mass_kg": 0.06
+    },
+    {
+      "mode": "ship",
+      "distance_km": 10000,
+      "mass_kg": 0.06
+    }
+  ],
+  "manufacturing_location": "China",
+  "expected_result": {
+    "total_co2e_kg": 2.3,
+    "breakdown": {
+      "materials": 0.25,
+      "energy": 2.0,
+      "transport": 0.05
+    },
+    "notes": "Premium wireless earbuds with charging case"
+  }
+}

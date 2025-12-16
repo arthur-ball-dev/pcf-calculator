@@ -1,0 +1,67 @@
+{
+  "product": {
+    "id": "shoes-001",
+    "code": "SHOES-001",
+    "name": "Running Shoes - Performance",
+    "unit": "unit",
+    "is_finished_product": true
+  },
+  "bill_of_materials": [
+    {
+      "component_name": "rubber",
+      "quantity": 0.15,
+      "unit": "kg",
+      "description": "outsole"
+    },
+    {
+      "component_name": "foam",
+      "quantity": 0.12,
+      "unit": "kg",
+      "description": "midsole cushioning"
+    },
+    {
+      "component_name": "polyester",
+      "quantity": 0.08,
+      "unit": "kg",
+      "description": "upper mesh"
+    },
+    {
+      "component_name": "nylon",
+      "quantity": 0.03,
+      "unit": "kg",
+      "description": "laces and reinforcements"
+    },
+    {
+      "component_name": "plastic_abs",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "heel counter"
+    }
+  ],
+  "energy_data": {
+    "electricity_kwh": 3.5,
+    "location": "US"
+  },
+  "transport_data": [
+    {
+      "mode": "truck",
+      "distance_km": 400,
+      "mass_kg": 0.4
+    },
+    {
+      "mode": "ship",
+      "distance_km": 15000,
+      "mass_kg": 0.4
+    }
+  ],
+  "manufacturing_location": "Vietnam",
+  "expected_result": {
+    "total_co2e_kg": 3.2,
+    "breakdown": {
+      "materials": 1.7,
+      "energy": 1.4,
+      "transport": 0.1
+    },
+    "notes": "Performance running shoes with foam midsole"
+  }
+}

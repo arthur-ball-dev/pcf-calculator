@@ -1,0 +1,61 @@
+{
+  "product": {
+    "id": "sunglasses-001",
+    "code": "SUNGLASSES-001",
+    "name": "Polarized Sunglasses",
+    "unit": "unit",
+    "is_finished_product": true
+  },
+  "bill_of_materials": [
+    {
+      "component_name": "plastic_abs",
+      "quantity": 0.025,
+      "unit": "kg",
+      "description": "frame"
+    },
+    {
+      "component_name": "glass",
+      "quantity": 0.02,
+      "unit": "kg",
+      "description": "polarized lenses"
+    },
+    {
+      "component_name": "steel",
+      "quantity": 0.003,
+      "unit": "kg",
+      "description": "hinges"
+    },
+    {
+      "component_name": "rubber",
+      "quantity": 0.002,
+      "unit": "kg",
+      "description": "nose pads"
+    }
+  ],
+  "energy_data": {
+    "electricity_kwh": 0.8,
+    "location": "US"
+  },
+  "transport_data": [
+    {
+      "mode": "truck",
+      "distance_km": 250,
+      "mass_kg": 0.05
+    },
+    {
+      "mode": "ship",
+      "distance_km": 9000,
+      "mass_kg": 0.05
+    }
+  ],
+  "manufacturing_location": "Italy",
+  "expected_result": {
+    "total_co2e_kg": 0.52,
+    "breakdown": {
+      "materials": 0.15,
+      "energy": 0.32,
+      "transport": 0.05
+    },
+    "notes": "Classic polarized sunglasses"
+  }
+}
