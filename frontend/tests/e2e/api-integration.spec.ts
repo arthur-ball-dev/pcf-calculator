@@ -203,7 +203,7 @@ test('navigates to BOM editor after product selection', async ({ page }) => {
   ]);
 
   // Verify we're on step 2 (BOM editing)
-  await expect(page.getByRole('heading', { name: /Edit BOM/i })).toBeVisible({
+  await expect(page.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible({
     timeout: 5000,
   });
 
@@ -240,7 +240,7 @@ test('submits calculation and receives calculation_id', async ({ page }) => {
     }),
     page.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Edit BOM/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
   // Wait for BOM data to load and form validation to complete
   await page.waitForTimeout(2000);
 
@@ -332,7 +332,7 @@ test('polls for calculation results until complete', async ({ page, context }) =
     }),
     page.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Edit BOM/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
 
   await expect(page.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
   // Wait for BOM data to load and form validation to complete
@@ -399,7 +399,7 @@ test('completes full calculation flow end-to-end', async ({ page }) => {
     }),
     page.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Edit BOM/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
   await expect(page.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
 
   // Wait for BOM data to load and form validation to complete

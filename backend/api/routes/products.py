@@ -18,7 +18,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, exists, select
 from pydantic import BaseModel, Field
 
 from backend.database.connection import get_db
@@ -279,6 +279,10 @@ def search_products(
         None,
         description="Filter for finished products only"
     ),
+    has_bom: Optional[bool] = Query(
+        None,
+        description="Filter products with bill of materials entries"
+    ),
     limit: int = Query(
         50,
         ge=1,
@@ -302,6 +306,7 @@ def search_products(
     - manufacturer: Filter by manufacturer name (partial, case-insensitive)
     - country_of_origin: Filter by ISO alpha-2 country code
     - is_finished_product: Filter by finished product status
+    - has_bom: Filter for products with BOM entries (true=only with BOM)
     - limit: Maximum results (default 50, max 100)
     - offset: Results to skip (default 0)
 
@@ -403,6 +408,15 @@ def search_products(
     # Apply is_finished_product filter
     if is_finished_product is not None:
         base_query = base_query.filter(Product.is_finished_product == is_finished_product)
+
+    # Apply has_bom filter (TASK-FE-P8-001)
+    if has_bom is True:
+        has_bom_subquery = exists(
+            select(BillOfMaterials.id).where(
+                BillOfMaterials.parent_product_id == Product.id
+            )
+        )
+        base_query = base_query.filter(has_bom_subquery)
 
     # Get total count before pagination
     total = base_query.count()
