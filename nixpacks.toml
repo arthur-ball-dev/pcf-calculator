@@ -7,5 +7,10 @@ cmds = ["pip3 install --break-system-packages -r requirements.txt", "cd frontend
 [phases.build]
 cmds = ["cd frontend && npm run build"]
 
+# Explicitly disable release phase - migrations run at container start, not during build
+[phases.release]
+cmds = []
+
 [start]
-cmd = "sh -c 'PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py && PYTHONPATH=/app python3 backend/scripts/init_brightway.py && PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT'"
+# Use /usr/bin/python3 to ensure we use apt Python with pip packages
+cmd = "sh -c 'PYTHONPATH=/app /usr/bin/python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app /usr/bin/python3 backend/scripts/seed_data.py && PYTHONPATH=/app /usr/bin/python3 backend/scripts/init_brightway.py && PYTHONPATH=/app /usr/bin/python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT'"
