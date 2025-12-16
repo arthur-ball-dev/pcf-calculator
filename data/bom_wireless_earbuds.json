@@ -9,15 +9,9 @@
   "bill_of_materials": [
     {
       "component_name": "plastic_abs",
-      "quantity": 0.015,
+      "quantity": 0.04,
       "unit": "kg",
-      "description": "earbuds housing"
-    },
-    {
-      "component_name": "plastic_abs",
-      "quantity": 0.025,
-      "unit": "kg",
-      "description": "charging case"
+      "description": "earbuds housing and charging case"
     },
     {
       "component_name": "copper",

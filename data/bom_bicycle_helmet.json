@@ -9,9 +9,9 @@
   "bill_of_materials": [
     {
       "component_name": "foam",
-      "quantity": 0.18,
+      "quantity": 0.21,
       "unit": "kg",
-      "description": "EPS foam core"
+      "description": "EPS foam core and comfort padding"
     },
     {
       "component_name": "plastic_abs",
@@ -30,12 +30,6 @@
       "quantity": 0.02,
       "unit": "kg",
       "description": "buckles"
-    },
-    {
-      "component_name": "foam",
-      "quantity": 0.03,
-      "unit": "kg",
-      "description": "comfort padding"
     },
     {
       "component_name": "packaging_cardboard",
