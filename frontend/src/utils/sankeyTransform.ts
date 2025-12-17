@@ -47,7 +47,7 @@ export interface SankeyData {
 /**
  * Category mapping for emission breakdown
  */
-type EmissionCategory = 'materials' | 'energy' | 'transport' | 'process' | 'waste' | 'total';
+type EmissionCategory = 'materials' | 'energy' | 'transport' | 'other' | 'process' | 'waste' | 'total';
 
 /**
  * Get color for a specific category
@@ -89,36 +89,58 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
   const nodes: SankeyNode[] = [];
   const links: SankeyLink[] = [];
 
-  // Check if we have breakdown data
-  const hasBreakdown =
+  // Check if we have any data to show
+  const hasData =
     calculation.materials_co2e !== undefined ||
     calculation.energy_co2e !== undefined ||
-    calculation.transport_co2e !== undefined;
+    calculation.transport_co2e !== undefined ||
+    calculation.breakdown;
 
-  if (!hasBreakdown) {
+  if (!hasData) {
     return { nodes: [], links: [] };
   }
 
-  // Define category mappings
+  // Calculate ALL category totals from breakdown items for consistent classification
+  // This ensures percentages add up correctly (avoiding double-counting with backend totals)
+  const categoryTotals = { materials: 0, energy: 0, transport: 0, other: 0 };
+
+  if (calculation.breakdown && Object.keys(calculation.breakdown).length > 0) {
+    Object.entries(calculation.breakdown).forEach(([componentName, co2e]) => {
+      const category = classifyComponent(componentName);
+      categoryTotals[category] += co2e;
+    });
+  } else {
+    // Fallback to backend totals if no breakdown available
+    categoryTotals.materials = calculation.materials_co2e || 0;
+    categoryTotals.energy = calculation.energy_co2e || 0;
+    categoryTotals.transport = calculation.transport_co2e || 0;
+  }
+
+  // Define category mappings with calculated totals
   const categories: Array<{
     id: EmissionCategory;
     label: string;
-    value: number | undefined;
+    value: number;
   }> = [
     {
       id: 'materials',
       label: 'Materials',
-      value: calculation.materials_co2e,
+      value: categoryTotals.materials,
     },
     {
       id: 'energy',
       label: 'Energy',
-      value: calculation.energy_co2e,
+      value: categoryTotals.energy,
     },
     {
       id: 'transport',
       label: 'Transport',
-      value: calculation.transport_co2e,
+      value: categoryTotals.transport,
+    },
+    {
+      id: 'other',
+      label: 'Processing/Other',
+      value: categoryTotals.other,
     },
   ];
 
@@ -167,9 +189,9 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
  * Classify a component name into a category based on naming patterns
  *
  * @param name - Component name
- * @returns Category: 'materials' | 'energy' | 'transport'
+ * @returns Category: 'materials' | 'energy' | 'transport' | 'other'
  */
-function classifyComponent(name: string): 'materials' | 'energy' | 'transport' {
+function classifyComponent(name: string): 'materials' | 'energy' | 'transport' | 'other' {
   const nameLower = name.toLowerCase();
 
   // Energy patterns
@@ -191,6 +213,28 @@ function classifyComponent(name: string): 'materials' | 'energy' | 'transport' {
     nameLower.includes('logistics')
   ) {
     return 'transport';
+  }
+
+  // Processing/Other patterns
+  if (
+    nameLower.includes('process') ||
+    nameLower.includes('coating') ||
+    nameLower.includes('treatment') ||
+    nameLower.includes('welding') ||
+    nameLower.includes('machining') ||
+    nameLower.includes('assembly') ||
+    nameLower.includes('packaging') ||
+    nameLower.includes('testing') ||
+    nameLower.includes('finishing') ||
+    nameLower.includes('curing') ||
+    nameLower.includes('molding') ||
+    nameLower.includes('casting') ||
+    nameLower.includes('painting') ||
+    nameLower.includes('cutting') ||
+    nameLower.includes('stamping') ||
+    nameLower.includes('pressing')
+  ) {
+    return 'other';
   }
 
   // Default to materials
@@ -246,7 +290,7 @@ export function transformToExpandedSankeyData(
 
     nodes.push({
       id: itemId,
-      label: item.name, // Display the actual item name
+      label: formatComponentName(item.name), // Display formatted item name
       nodeColor: adjustColorBrightness(categoryColor, shade),
       metadata: {
         co2e: item.co2e,
@@ -278,6 +322,23 @@ export function transformToExpandedSankeyData(
   }
 
   return { nodes, links };
+}
+
+/**
+ * Format a component name for display
+ * Converts snake_case and kebab-case to Title Case
+ *
+ * @param name - Raw component name (e.g., "transport_ship", "packaging-cardboard")
+ * @returns Formatted display name (e.g., "Transport Ship", "Packaging Cardboard")
+ */
+function formatComponentName(name: string): string {
+  return name
+    .replace(/[_-]/g, ' ')  // Replace underscores and hyphens with spaces
+    .replace(/\s+/g, ' ')   // Normalize multiple spaces
+    .trim()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 /**

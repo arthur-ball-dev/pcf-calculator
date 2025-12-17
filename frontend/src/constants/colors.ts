@@ -22,6 +22,7 @@ export const EMISSION_CATEGORY_COLORS = {
   energy: '#FFC107', // Amber - Energy consumption
   transport: '#4CAF50', // Green - Transportation
   process: '#9C27B0', // Purple - Manufacturing processes
+  other: '#9C27B0', // Purple - Processing/Other (same as process)
   waste: '#757575', // Gray - Waste/end-of-life
   total: '#003f7f', // Navy - Final product
 } as const;

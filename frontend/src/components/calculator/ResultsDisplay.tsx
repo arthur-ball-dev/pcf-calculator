@@ -21,6 +21,7 @@ import ResultsSummary from './ResultsSummary';
 import BreakdownTable from './BreakdownTable';
 import SankeyDiagram from '../visualizations/SankeyDiagram';
 import { ExportButton } from '../ExportButton';
+import { classifyComponent } from '../../utils/classifyComponent';
 
 /**
  * ResultsDisplay Component
@@ -55,32 +56,56 @@ export default function ResultsDisplay() {
   // Map the Calculation type to the expected CalculationStatusResponse format
   const totalCO2e = calculation.total_co2e_kg || 0;
 
-  // Build category breakdown from individual category values (without Scope for cleaner export)
+  // Calculate category totals from breakdown items for consistent classification
+  // This ensures percentages add up correctly (avoiding double-counting with backend totals)
+  const breakdown = calculation.breakdown || {};
+  const categoryTotals = { materials: 0, energy: 0, transport: 0, other: 0 };
+
+  if (Object.keys(breakdown).length > 0) {
+    // Calculate totals from breakdown items using frontend classification
+    Object.entries(breakdown).forEach(([componentName, co2e]) => {
+      const category = classifyComponent(componentName);
+      categoryTotals[category] += co2e;
+    });
+  } else {
+    // Fallback to backend totals if no breakdown available
+    categoryTotals.materials = calculation.materials_co2e || 0;
+    categoryTotals.energy = calculation.energy_co2e || 0;
+    categoryTotals.transport = calculation.transport_co2e || 0;
+  }
+
+  // Build category breakdown with consistent totals
   const categoryBreakdown = [
     {
       scope: 'Scope 3',
       category: 'Materials',
-      emissions: calculation.materials_co2e || 0,
-      percentage: totalCO2e > 0 ? ((calculation.materials_co2e || 0) / totalCO2e) * 100 : 0,
+      emissions: categoryTotals.materials,
+      percentage: totalCO2e > 0 ? (categoryTotals.materials / totalCO2e) * 100 : 0,
     },
     {
       scope: 'Scope 2',
       category: 'Energy',
-      emissions: calculation.energy_co2e || 0,
-      percentage: totalCO2e > 0 ? ((calculation.energy_co2e || 0) / totalCO2e) * 100 : 0,
+      emissions: categoryTotals.energy,
+      percentage: totalCO2e > 0 ? (categoryTotals.energy / totalCO2e) * 100 : 0,
     },
     {
       scope: 'Scope 3',
       category: 'Transport',
-      emissions: calculation.transport_co2e || 0,
-      percentage: totalCO2e > 0 ? ((calculation.transport_co2e || 0) / totalCO2e) * 100 : 0,
+      emissions: categoryTotals.transport,
+      percentage: totalCO2e > 0 ? (categoryTotals.transport / totalCO2e) * 100 : 0,
+    },
+    {
+      scope: 'Scope 3',
+      category: 'Processing/Other',
+      emissions: categoryTotals.other,
+      percentage: totalCO2e > 0 ? (categoryTotals.other / totalCO2e) * 100 : 0,
     },
   ].filter(item => item.emissions > 0);
 
   // Build BOM details with emission values from breakdown
   // Use normalized lookup since breakdown keys may have different casing/formatting
   // e.g., breakdown has "transport_ship" but BOM has "Transport Ship"
-  const breakdown = calculation.breakdown || {};
+  // Note: breakdown is already defined above for calculating otherCO2e
 
   // Normalize string for comparison: lowercase, replace spaces/underscores/hyphens
   const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, '');
@@ -134,17 +159,15 @@ export default function ResultsDisplay() {
       {/* Two-column layout: Sankey left, Breakdown right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sankey Diagram with in-chart drill-down */}
-        <Card data-tour="visualization-tabs" className="bg-card overflow-hidden">
+        <Card data-tour="visualization-tabs" className="bg-card">
           <CardHeader>
             <CardTitle>Carbon Flow: {selectedProduct?.name || 'Product'}</CardTitle>
             <CardDescription>
               Click on a category to see detailed breakdown
             </CardDescription>
           </CardHeader>
-          <CardContent className="overflow-hidden">
-            <div className="h-[400px] w-full">
-              <SankeyDiagram calculation={calculation} />
-            </div>
+          <CardContent>
+            <SankeyDiagram calculation={calculation} />
           </CardContent>
         </Card>
 

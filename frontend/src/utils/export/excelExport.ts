@@ -11,6 +11,7 @@
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { formatCategoryLabel } from '../classifyComponent';
 
 export interface CalculationExportData {
   productName: string;
@@ -162,12 +163,9 @@ export function addBOMSheet(
   // Calculate sum of BOM item emissions
   const bomEmissionsSum = bomEntries.reduce((sum, e) => sum + e.emissions, 0);
 
-  // Capitalize first letter of category
-  const formatCategory = (cat: string) => cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : '';
-
   const dataRows: (string | number)[][] = bomEntries.map((entry) => [
     entry.component,
-    formatCategory(entry.category),
+    formatCategoryLabel(entry.category),
     entry.quantity,
     entry.unit,
     entry.emissionFactor,

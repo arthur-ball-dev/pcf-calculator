@@ -19,11 +19,97 @@
 import { useState, useMemo, useCallback } from 'react';
 import { ResponsiveSankey } from '@nivo/sankey';
 import { ArrowLeft } from 'lucide-react';
-import { transformToSankeyData, transformToExpandedSankeyData } from '../../utils/sankeyTransform';
+import { transformToSankeyData, transformToExpandedSankeyData, type SankeyNode } from '../../utils/sankeyTransform';
 import SankeyTooltip from './SankeyTooltip';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import type { Calculation } from '../../types/store.types';
+
+/**
+ * Split text into lines at word boundaries (including "/" as a break point)
+ * Won't break words
+ */
+function wrapLabel(text: string, maxCharsPerLine: number): string[] {
+  if (text.length <= maxCharsPerLine) {
+    return [text];
+  }
+
+  // Split on spaces and "/" (keeping "/" with the preceding word)
+  const parts = text.split(/(?<=\/)|(?= )/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const part of parts) {
+    const trimmedPart = part.trim();
+    if (!trimmedPart) continue;
+
+    if (currentLine.length === 0) {
+      currentLine = trimmedPart;
+    } else if (currentLine.length + trimmedPart.length <= maxCharsPerLine) {
+      currentLine += (part.startsWith(' ') ? ' ' : '') + trimmedPart;
+    } else {
+      lines.push(currentLine);
+      currentLine = trimmedPart;
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines.length > 0 ? lines : [text];
+}
+
+/**
+ * Create a custom labels layer factory that uses sankeyData for label lookup
+ */
+function createLabelsLayer(labelMap: Map<string, string>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return function LabelsLayer({ nodes }: { nodes: any[] }) {
+    return (
+      <g>
+        {nodes.map((node) => {
+          // Look up the display label from our map
+          const label = labelMap.get(node.id) || node.id;
+          const lines = wrapLabel(label, 12);
+          const lineHeight = 14;
+          const totalHeight = lines.length * lineHeight;
+          const startY = -totalHeight / 2 + lineHeight / 2;
+
+          // Position label to the left or right of node
+          const isLeftSide = node.x < 200;
+          const labelX = isLeftSide ? node.x - 10 : node.x + node.width + 10;
+          const textAnchor = isLeftSide ? 'end' : 'start';
+
+          return (
+            <text
+              key={node.id}
+              x={labelX}
+              y={node.y + node.height / 2}
+              textAnchor={textAnchor}
+              dominantBaseline="central"
+              style={{
+                fontSize: 12,
+                fontFamily: 'Inter, system-ui, sans-serif',
+                fill: '#333333',
+              }}
+            >
+              {lines.map((line, i) => (
+                <tspan
+                  key={i}
+                  x={labelX}
+                  dy={i === 0 ? startY : lineHeight}
+                >
+                  {line}
+                </tspan>
+              ))}
+            </text>
+          );
+        })}
+      </g>
+    );
+  };
+}
 
 /**
  * Node click event data
@@ -48,7 +134,7 @@ interface SankeyDiagramProps {
 }
 
 /** Categories that are drillable (not including 'total') */
-const DRILLABLE_CATEGORIES = ['materials', 'energy', 'transport', 'process', 'waste'];
+const DRILLABLE_CATEGORIES = ['materials', 'energy', 'transport', 'other', 'process', 'waste'];
 
 /**
  * SankeyDiagram Component
@@ -77,14 +163,66 @@ export default function SankeyDiagram({
     return transformToSankeyData(calculation);
   }, [calculation, expandedCategory]);
 
-  // Calculate responsive dimensions
+  // Create label map and custom labels layer for text wrapping
+  const customLabelsLayer = useMemo(() => {
+    const labelMap = new Map<string, string>();
+    sankeyData.nodes.forEach((node) => {
+      labelMap.set(node.id, node.label);
+    });
+    return createLabelsLayer(labelMap);
+  }, [sankeyData]);
+
+  // Calculate responsive dimensions based on content
+  // Uses the same nodeThickness/nodeSpacing formulas as the Sankey component for consistency
   const dimensions = useMemo(() => {
-    const calculatedHeight = height || Math.max(400, Math.min(600, (width || 800) * 0.5));
+    // Default to 100% width for responsive sizing when no explicit width provided
+    const responsiveWidth = width || '100%';
+
+    if (height) {
+      return { width: responsiveWidth, height, chartHeight: height };
+    }
+
+    const nodeCount = sankeyData.nodes.length;
+    if (nodeCount === 0) {
+      return { width: responsiveWidth, height: 200, chartHeight: 200 };
+    }
+
+    // Same formulas used in ResponsiveSankey props below
+    const nodeThickness = Math.max(12, Math.min(18, 200 / nodeCount));
+    const nodeSpacing = Math.max(8, Math.min(24, 150 / nodeCount));
+
+    // Calculate max label lines based on actual label lengths and wrap threshold
+    const wrapThreshold = 12; // Same as wrapLabel function
+    const maxLabelLines = Math.max(
+      ...sankeyData.nodes.map(node => Math.ceil(node.label.length / wrapThreshold))
+    );
+    const lineHeight = 14; // Same as in createLabelsLayer
+    const labelHeight = maxLabelLines * lineHeight;
+
+    // Total content height = space for nodes + spacing between nodes
+    const nodesContentHeight = (nodeThickness * nodeCount) + (nodeSpacing * (nodeCount - 1));
+
+    // Add overflow space for labels that extend beyond node bounds
+    const labelOverflow = Math.max(0, labelHeight - nodeThickness);
+
+    // Vertical margins match ResponsiveSankey margin prop (top: 20, bottom: 20)
+    const verticalMargin = 40;
+
+    // Chart height is the actual Sankey visualization space needed
+    const chartHeight = Math.max(400, nodesContentHeight + labelOverflow + verticalMargin);
+
+    // Header height for back button and hint text when in expanded mode
+    const headerHeight = expandedCategory ? 48 : 24; // back button ~48px, hint text ~24px
+
+    // Total container height = chart + header
+    const totalHeight = chartHeight + headerHeight;
+
     return {
-      width: width || 800,
-      height: calculatedHeight,
+      width: responsiveWidth,
+      height: totalHeight,
+      chartHeight: chartHeight,
     };
-  }, [width, height]);
+  }, [width, height, sankeyData.nodes, expandedCategory]);
 
   // Handle click on node or link - expand category
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,18 +358,25 @@ export default function SankeyDiagram({
 
   // Get title for expanded view
   const expandedTitle = expandedCategory
-    ? `${expandedCategory.charAt(0).toUpperCase() + expandedCategory.slice(1)} Breakdown`
+    ? `${expandedCategory === 'other' ? 'Processing/Other' : expandedCategory.charAt(0).toUpperCase() + expandedCategory.slice(1)} Breakdown`
     : null;
 
   // Render Sankey diagram
   return (
     <div
       data-testid="sankey-container"
-      className="relative"
+      role="img"
+      aria-label={
+        expandedCategory
+          ? `${expandedTitle} showing ${sankeyData.nodes.length - 1} items`
+          : `Carbon flow diagram showing emissions breakdown with ${sankeyData.nodes.length} categories. Click on a category to see detailed breakdown.`
+      }
+      className={cn('relative', !expandedCategory && onNodeClick && 'cursor-pointer')}
+      style={{ width: dimensions.width, height: dimensions.height }}
     >
       {/* Back button when in expanded view */}
       {expandedCategory && (
-        <div className="absolute top-0 left-0 z-10 flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-4">
           <Button
             variant="outline"
             size="sm"
@@ -256,38 +401,33 @@ export default function SankeyDiagram({
       )}
 
       <div
-        role="img"
-        aria-label={
-          expandedCategory
-            ? `${expandedTitle} showing ${sankeyData.nodes.length - 1} items`
-            : `Carbon flow diagram showing emissions breakdown with ${sankeyData.nodes.length} categories. Click on a category to see detailed breakdown.`
-        }
-        className={cn(!expandedCategory && 'cursor-pointer')}
         style={{
           width: '100%',
-          height: dimensions.height,
+          height: dimensions.chartHeight,
         }}
       >
         <ResponsiveSankey
           data={sankeyData}
-          margin={{ top: expandedCategory ? 50 : 20, right: 80, bottom: 20, left: 80 }}
+          margin={{
+            top: 20,
+            right: expandedCategory ? 85 : 65,
+            bottom: 20,
+            left: expandedCategory ? 100 : 85
+          }}
           align="justify"
           colors={(node) => node.nodeColor || '#cccccc'}
           nodeOpacity={1}
           nodeHoverOpacity={1}
-          nodeThickness={18}
-          nodeSpacing={expandedCategory ? 12 : 24}
+          nodeThickness={Math.max(12, Math.min(18, 200 / sankeyData.nodes.length))}
+          nodeSpacing={Math.max(8, Math.min(24, 150 / sankeyData.nodes.length))}
           nodeBorderWidth={0}
           nodeBorderColor={{ from: 'color', modifiers: [['darker', 0.8]] }}
           linkOpacity={0.6}
           linkHoverOpacity={0.9}
           linkBlendMode="multiply"
           enableLinkGradient={true}
-          label={(node) => (node as { label?: string; id: string }).label || node.id}
-          labelPosition="outside"
-          labelOrientation="horizontal"
-          labelPadding={16}
-          labelTextColor={{ from: 'color', modifiers: [['darker', 1]] }}
+          enableLabels={false}
+          layers={['links', 'nodes', customLabelsLayer, 'legends']}
           nodeTooltip={SankeyTooltip}
           onClick={handleNodeClick}
           theme={{

@@ -83,7 +83,7 @@ export function CalculateButton() {
                 disabled={isDisabled}
                 aria-disabled={isDisabled}
                 aria-busy="false"
-                className="min-w-[250px] px-8 py-6 text-lg font-bold cursor-pointer hover:scale-105 transition-transform shadow-lg"
+                className="min-w-[250px] px-8 py-6 text-lg font-bold cursor-pointer hover:scale-105 transition-transform shadow-lg border-2 border-primary-foreground/30"
                 size="lg"
                 data-testid="calculate-button"
               >

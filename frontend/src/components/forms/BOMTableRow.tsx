@@ -53,6 +53,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useEmissionFactors } from '@/hooks/useEmissionFactors';
+import { classifyComponent } from '@/utils/classifyComponent';
 import type { BOMFormData } from '@/schemas/bomSchema';
 
 /**
@@ -67,7 +68,7 @@ const CATEGORIES = [
   { value: 'material', label: 'Material' },
   { value: 'energy', label: 'Energy' },
   { value: 'transport', label: 'Transport' },
-  { value: 'other', label: 'Other' },
+  { value: 'other', label: 'Processing/Other' },
 ] as const;
 
 interface BOMTableRowProps {
@@ -111,6 +112,14 @@ export default function BOMTableRow({
                   aria-label="Component name"
                   onChange={(e) => {
                     field.onChange(e);
+                    // Auto-classify the category based on component name
+                    const newName = e.target.value;
+                    if (newName) {
+                      const classifiedCategory = classifyComponent(newName);
+                      // Map 'materials' to 'material' for form value
+                      const formCategory = classifiedCategory === 'materials' ? 'material' : classifiedCategory;
+                      form.setValue(`items.${index}.category`, formCategory);
+                    }
                     // Trigger validation for this field AND array-level validation
                     // Array-level validation includes duplicate name checking
                     // Use queueMicrotask to ensure field value is set before validation
@@ -159,7 +168,7 @@ export default function BOMTableRow({
                     });
                   }}
                   onBlur={field.onBlur}
-                  className="w-24"
+                  className="w-20"
                   aria-label="Quantity"
                 />
               </FormControl>
@@ -178,7 +187,7 @@ export default function BOMTableRow({
             <FormItem>
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
-                  <SelectTrigger className="w-24" aria-label="Unit">
+                  <SelectTrigger className="w-[70px]" aria-label="Unit">
                     <SelectValue />
                   </SelectTrigger>
                 </FormControl>
@@ -212,7 +221,7 @@ export default function BOMTableRow({
                 value={field.value}
               >
                 <FormControl>
-                  <SelectTrigger className="w-32" aria-label="Category">
+                  <SelectTrigger className="w-40" aria-label="Category">
                     <SelectValue />
                   </SelectTrigger>
                 </FormControl>

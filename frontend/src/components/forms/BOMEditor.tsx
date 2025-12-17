@@ -35,6 +35,7 @@ import { useCalculatorStore } from '@/store/calculatorStore';
 import { bomFormSchema, type BOMFormData } from '@/schemas/bomSchema';
 import BOMTableRow from './BOMTableRow';
 import { generateId } from '@/lib/utils';
+import { classifyComponent } from '@/utils/classifyComponent';
 import type { BOMItem } from '@/types/store.types';
 
 /**
@@ -47,6 +48,22 @@ const DEFAULT_BOM_ITEM: Omit<BOMItem, 'id'> = {
   category: 'material',
   emissionFactorId: null,
 };
+
+/**
+ * Auto-classify BOM items based on component name
+ * Maps classification results to form category values
+ */
+function classifyBOMItems(items: BOMItem[]): BOMItem[] {
+  return items.map((item) => {
+    const classified = classifyComponent(item.name);
+    // Map 'materials' to 'material' for form value
+    const formCategory = classified === 'materials' ? 'material' : classified;
+    return {
+      ...item,
+      category: formCategory,
+    };
+  });
+}
 
 /**
  * Loading skeleton component for BOM Editor
@@ -75,11 +92,12 @@ export default function BOMEditor() {
 
   // Initialize form with existing BOM items or one default item
   // Deep copy bomItems to avoid mutating frozen Zustand state
+  // Auto-classify categories based on component names
   const form = useForm<BOMFormData>({
     resolver: zodResolver(bomFormSchema),
     defaultValues: {
       items: bomItems.length > 0
-        ? JSON.parse(JSON.stringify(bomItems))
+        ? classifyBOMItems(JSON.parse(JSON.stringify(bomItems)))
         : [
             {
               id: generateId(),
@@ -101,6 +119,7 @@ export default function BOMEditor() {
 
   // Reset form when BOM items change EXTERNALLY (e.g., after product selection loads BOM)
   // Skip reset if the change came from our own form (prevents circular updates)
+  // Auto-classify categories based on component names
   useEffect(() => {
     const currentBomJson = JSON.stringify(bomItems);
 
@@ -111,9 +130,10 @@ export default function BOMEditor() {
 
     // Only reset if we have items and it's an external change
     if (bomItems.length > 0) {
-      lastBomItemsRef.current = currentBomJson;
+      const classifiedItems = classifyBOMItems(JSON.parse(currentBomJson));
+      lastBomItemsRef.current = JSON.stringify(classifiedItems);
       form.reset({
-        items: JSON.parse(currentBomJson), // Deep copy
+        items: classifiedItems,
       });
     }
   }, [bomItems, form]);

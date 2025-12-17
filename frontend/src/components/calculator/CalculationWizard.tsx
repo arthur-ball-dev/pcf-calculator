@@ -53,6 +53,22 @@ const CalculationWizard: React.FC = () => {
   const CurrentStepComponent = currentStepConfig?.component;
 
   /**
+   * Scroll to top of page on initial load
+   * Prevents browser from restoring scroll position on refresh
+   */
+  useEffect(() => {
+    // Disable browser's automatic scroll restoration
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+    // Scroll to top immediately and after a short delay (for browser compatibility)
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+    });
+  }, []);
+
+  /**
    * Focus heading and announce step change for screen readers
    * WCAG 2.1 AA requirement - focus management and announcements on dynamic content
    */

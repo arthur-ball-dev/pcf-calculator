@@ -13,6 +13,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { exportToCSV, type CSVOptions } from '@/utils/export/csvExport';
 import { exportToExcel, type CalculationExportData } from '@/utils/export/excelExport';
+import { classifyComponent, formatCategoryLabel } from '@/utils/classifyComponent';
 import type { CalculationStatusResponse } from '@/types/api.types';
 
 // Extended results type with optional breakdown fields
@@ -106,9 +107,10 @@ export function useExport(
         const bomEmissionsSum = bomDetails.reduce((sum, item) => sum + (item.emissions || 0), 0);
 
         // Transform to CSV data format - include all BOM items with emissions
+        // Reclassify category based on component name for consistent display
         const csvData: Record<string, string | number>[] = bomDetails.map((item) => ({
           Component: item.component_name,
-          Category: item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : '',
+          Category: formatCategoryLabel(classifyComponent(item.component_name)),
           Quantity: item.quantity,
           Unit: item.unit,
           'Emission Factor': item.emission_factor.toFixed(4),
@@ -205,7 +207,8 @@ export function useExport(
         bomEntries:
           results?.bom_details?.map((entry) => ({
             component: entry.component_name,
-            category: entry.category || '',
+            // Reclassify category based on component name for consistent display
+            category: classifyComponent(entry.component_name),
             quantity: entry.quantity,
             unit: entry.unit,
             emissionFactor: entry.emission_factor,
