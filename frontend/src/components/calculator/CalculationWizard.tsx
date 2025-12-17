@@ -28,8 +28,9 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Package } from 'lucide-react';
 import { useWizardStore } from '@/store/wizardStore';
+import { useCalculatorStore } from '@/store/calculatorStore';
 import { useAnnouncer } from '@/hooks/useAnnouncer';
 import { WIZARD_STEPS } from '@/config/wizardSteps';
 import { TourControls } from '@/components/Tour/TourControls';
@@ -42,6 +43,7 @@ import WizardNavigation from './WizardNavigation';
 const CalculationWizard: React.FC = () => {
   const { currentStep, completedSteps, markStepComplete, markStepIncomplete } =
     useWizardStore();
+  const { selectedProduct } = useCalculatorStore();
   const { announce } = useAnnouncer();
   const hasValidatedRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -152,7 +154,19 @@ const CalculationWizard: React.FC = () => {
 
       {/* Main content area - renders current step component */}
       <main className="flex-1 bg-background" role="main">
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="container mx-auto px-4 py-8 max-w-[1800px]">
+          {/* Selected product indicator - shown when product is selected */}
+          {selectedProduct && currentStep !== 'select' && (
+            <div className="mb-4 p-3 bg-muted/50 rounded-lg flex items-center gap-3">
+              <Package className="w-5 h-5 text-primary" />
+              <div>
+                <span className="text-sm text-muted-foreground">Selected Product:</span>
+                <span className="ml-2 font-medium">{selectedProduct.name}</span>
+                <span className="ml-2 text-sm text-muted-foreground">({selectedProduct.code})</span>
+              </div>
+            </div>
+          )}
+
           {/* Step heading and description with completion indicator */}
           <div className="mb-6">
             <div className="flex items-center justify-between">

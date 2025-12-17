@@ -40,6 +40,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useEmissionFactors } from '@/hooks/useEmissionFactors';
 import type { BOMFormData } from '@/schemas/bomSchema';
@@ -261,30 +272,65 @@ export default function BOMTableRow({
 
       {/* Actions */}
       <TableCell className="text-right">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={onRemove}
-                  disabled={!canRemove}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  aria-label="Delete component"
+        {canRemove ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                aria-label="Delete component"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Component</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete "{form.watch(`items.${index}.name`) || 'this component'}"?
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // Delay removal to allow dialog to close first
+                    setTimeout(() => onRemove(), 0);
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            {!canRemove && (
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled
+                    className="text-muted-foreground"
+                    aria-label="Delete component"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>Cannot remove the last component</p>
               </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </TableCell>
     </TableRow>
   );

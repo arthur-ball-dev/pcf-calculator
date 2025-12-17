@@ -264,13 +264,13 @@ export default function SankeyDiagram({
         }
         className={cn(!expandedCategory && 'cursor-pointer')}
         style={{
-          width: dimensions.width,
+          width: '100%',
           height: dimensions.height,
         }}
       >
         <ResponsiveSankey
           data={sankeyData}
-          margin={{ top: expandedCategory ? 50 : 20, right: 160, bottom: 20, left: 160 }}
+          margin={{ top: expandedCategory ? 50 : 20, right: 80, bottom: 20, left: 80 }}
           align="justify"
           colors={(node) => node.nodeColor || '#cccccc'}
           nodeOpacity={1}
