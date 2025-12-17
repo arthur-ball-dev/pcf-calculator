@@ -65,14 +65,31 @@ function capitalize(str: string): string {
 }
 
 /**
+ * Format a component name for display
+ * Converts snake_case and kebab-case to Title Case
+ * e.g., "transport_ship" -> "Transport Ship"
+ */
+function formatComponentName(name: string): string {
+  return name
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
  * Classify a component name into a category based on naming patterns
  *
  * Categories:
  * - Energy: contains "electricity", "power", "energy", "kwh"
  * - Transport: contains "transport", "truck", "ship", "freight", "logistics"
+ * - Other/Processing: contains "process", "coating", "treatment", "welding", "machining",
+ *   "assembly", "packaging", "testing", "finishing", "curing", "molding", "casting"
  * - Materials: everything else (default)
  */
-function classifyComponent(name: string): 'materials' | 'energy' | 'transport' {
+function classifyComponent(name: string): 'materials' | 'energy' | 'transport' | 'other' {
   const nameLower = name.toLowerCase();
 
   // Energy patterns
@@ -94,6 +111,28 @@ function classifyComponent(name: string): 'materials' | 'energy' | 'transport' {
     nameLower.includes('logistics')
   ) {
     return 'transport';
+  }
+
+  // Processing/Other patterns
+  if (
+    nameLower.includes('process') ||
+    nameLower.includes('coating') ||
+    nameLower.includes('treatment') ||
+    nameLower.includes('welding') ||
+    nameLower.includes('machining') ||
+    nameLower.includes('assembly') ||
+    nameLower.includes('packaging') ||
+    nameLower.includes('testing') ||
+    nameLower.includes('finishing') ||
+    nameLower.includes('curing') ||
+    nameLower.includes('molding') ||
+    nameLower.includes('casting') ||
+    nameLower.includes('painting') ||
+    nameLower.includes('cutting') ||
+    nameLower.includes('stamping') ||
+    nameLower.includes('pressing')
+  ) {
+    return 'other';
   }
 
   // Default to materials
@@ -124,25 +163,33 @@ export default function BreakdownTable({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   // Build breakdown data with items categorized from component breakdown
+  // IMPORTANT: Calculate ALL category totals from breakdown items to ensure consistency
+  // Backend's category totals may classify items differently than our frontend classification
   const breakdownData: CategoryBreakdown[] = useMemo(() => {
-    // Initialize categories with their totals
+    // Initialize categories - totals will be calculated from items
     const categoriesMap: Record<string, CategoryBreakdown> = {
       materials: {
         category: 'materials',
-        total: materialsCO2e,
-        percentage: totalCO2e > 0 ? (materialsCO2e / totalCO2e) * 100 : 0,
+        total: 0,
+        percentage: 0,
         items: [],
       },
       energy: {
         category: 'energy',
-        total: energyCO2e,
-        percentage: totalCO2e > 0 ? (energyCO2e / totalCO2e) * 100 : 0,
+        total: 0,
+        percentage: 0,
         items: [],
       },
       transport: {
         category: 'transport',
-        total: transportCO2e,
-        percentage: totalCO2e > 0 ? (transportCO2e / totalCO2e) * 100 : 0,
+        total: 0,
+        percentage: 0,
+        items: [],
+      },
+      other: {
+        category: 'other',
+        total: 0,
+        percentage: 0,
         items: [],
       },
     };
@@ -157,10 +204,21 @@ export default function BreakdownTable({
         });
       });
 
-      // Sort items within each category by CO2e (descending)
+      // Calculate ALL category totals from their items for consistency
       Object.values(categoriesMap).forEach((cat) => {
+        cat.total = cat.items.reduce((sum, item) => sum + item.co2e, 0);
+        cat.percentage = totalCO2e > 0 ? (cat.total / totalCO2e) * 100 : 0;
+        // Sort items by CO2e (descending)
         cat.items.sort((a, b) => b.co2e - a.co2e);
       });
+    } else {
+      // Fallback to backend totals if no breakdown available
+      categoriesMap.materials.total = materialsCO2e;
+      categoriesMap.materials.percentage = totalCO2e > 0 ? (materialsCO2e / totalCO2e) * 100 : 0;
+      categoriesMap.energy.total = energyCO2e;
+      categoriesMap.energy.percentage = totalCO2e > 0 ? (energyCO2e / totalCO2e) * 100 : 0;
+      categoriesMap.transport.total = transportCO2e;
+      categoriesMap.transport.percentage = totalCO2e > 0 ? (transportCO2e / totalCO2e) * 100 : 0;
     }
 
     // Return only categories with non-zero totals
@@ -343,7 +401,7 @@ export default function BreakdownTable({
                   >
                     <TableCell className="pl-10">
                       <span className="text-sm text-muted-foreground">
-                        {subItem.name}
+                        {formatComponentName(subItem.name)}
                         {subItem.quantity !== undefined && subItem.unit && (
                           <span className="ml-2 text-xs">
                             ({subItem.quantity} {subItem.unit})
