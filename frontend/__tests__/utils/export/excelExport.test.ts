@@ -218,10 +218,11 @@ describe('Excel Export Utility', () => {
       const aoaCall = (XLSX.utils.aoa_to_sheet as ReturnType<typeof vi.fn>).mock.calls[0][0];
       const headers = aoaCall[0];
 
-      expect(headers).toContain('Scope');
+      // Note: Scope column was removed for cleaner export
       expect(headers).toContain('Category');
       expect(headers).toContain('Emissions (kg CO2e)');
       expect(headers).toContain('Percentage');
+      expect(headers).not.toContain('Scope');
     });
 
     it('should include all category breakdown entries', () => {
@@ -242,9 +243,10 @@ describe('Excel Export Utility', () => {
 
       const aoaCall = (XLSX.utils.aoa_to_sheet as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
-      // Second row (first data row), fourth column (percentage)
+      // Second row (first data row), third column (percentage)
+      // Columns: Category, Emissions, Percentage (Scope was removed)
       // 60% should be 0.6 for Excel percentage format
-      expect(aoaCall[1][3]).toBe(0.6);
+      expect(aoaCall[1][2]).toBe(0.6);
     });
 
     it('should handle empty breakdown gracefully', () => {
@@ -313,14 +315,15 @@ describe('Excel Export Utility', () => {
     it('should calculate correct total emissions', () => {
       const workbook = createWorkbook();
 
-      addBOMSheet(workbook, sampleExportData.bomEntries);
+      addBOMSheet(workbook, sampleExportData.bomEntries, 410);
 
       const aoaCall = (XLSX.utils.aoa_to_sheet as ReturnType<typeof vi.fn>).mock.calls[0][0];
       const lastRow = aoaCall[aoaCall.length - 1];
 
-      // Total should be 250 + 160 = 410
-      const totalIndex = lastRow.findIndex((v: unknown) => v === 'TOTAL');
-      expect(lastRow[totalIndex + 1]).toBe(410);
+      // TOTAL row structure: ['TOTAL', '', '', '', '', totalEmissions, 1]
+      // Columns: Component, Category, Quantity, Unit, Emission Factor, Emissions, Percentage
+      expect(lastRow[0]).toBe('TOTAL');
+      expect(lastRow[5]).toBe(410); // Emissions column is index 5
     });
 
     it('should handle empty BOM entries', () => {
