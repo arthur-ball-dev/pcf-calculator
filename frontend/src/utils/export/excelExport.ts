@@ -26,6 +26,7 @@ export interface CalculationExportData {
   }>;
   bomEntries: Array<{
     component: string;
+    category: string;
     quantity: number;
     unit: string;
     emissionFactor: number;
@@ -104,9 +105,9 @@ export function addBreakdownSheet(
 ): void {
   const sheetName = config.sheetName || 'Breakdown';
 
-  const headers = ['Scope', 'Category', 'Emissions (kg CO2e)', 'Percentage'];
+  // Remove Scope column - just show Category, Emissions, Percentage
+  const headers = ['Category', 'Emissions (kg CO2e)', 'Percentage'];
   const dataRows = categoryBreakdown.map((item) => [
-    item.scope,
     item.category,
     item.emissions,
     item.percentage / 100, // Excel percentage format expects decimal
@@ -116,19 +117,19 @@ export function addBreakdownSheet(
   const sheet = XLSX.utils.aoa_to_sheet(sheetData);
 
   // Set column widths
-  sheet['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 12 }];
+  sheet['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 12 }];
 
   // Apply number formats
   const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
   for (let row = 1; row <= range.e.r; row++) {
-    // Emissions column (C)
-    const emissionsCell = XLSX.utils.encode_cell({ r: row, c: 2 });
+    // Emissions column (B)
+    const emissionsCell = XLSX.utils.encode_cell({ r: row, c: 1 });
     if (sheet[emissionsCell]) {
       sheet[emissionsCell].z = '#,##0.00';
     }
 
-    // Percentage column (D)
-    const percentCell = XLSX.utils.encode_cell({ r: row, c: 3 });
+    // Percentage column (C)
+    const percentCell = XLSX.utils.encode_cell({ r: row, c: 2 });
     if (sheet[percentCell]) {
       sheet[percentCell].z = '0.0%';
     }
@@ -143,43 +144,76 @@ export function addBreakdownSheet(
 export function addBOMSheet(
   workbook: WorkBook,
   bomEntries: CalculationExportData['bomEntries'],
+  totalProductEmissions: number,
   config: SheetConfig = {}
 ): void {
   const sheetName = config.sheetName || 'Bill of Materials';
 
   const headers = [
     'Component',
+    'Category',
     'Quantity',
     'Unit',
     'Emission Factor',
     'Emissions (kg CO2e)',
+    'Percentage',
   ];
 
-  const dataRows = bomEntries.map((entry) => [
+  // Calculate sum of BOM item emissions
+  const bomEmissionsSum = bomEntries.reduce((sum, e) => sum + e.emissions, 0);
+
+  // Capitalize first letter of category
+  const formatCategory = (cat: string) => cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : '';
+
+  const dataRows: (string | number)[][] = bomEntries.map((entry) => [
     entry.component,
+    formatCategory(entry.category),
     entry.quantity,
     entry.unit,
     entry.emissionFactor,
     entry.emissions,
+    totalProductEmissions > 0 ? (entry.emissions / totalProductEmissions) : 0,
   ]);
 
-  // Calculate total emissions
-  const totalEmissions = bomEntries.reduce((sum, e) => sum + e.emissions, 0);
+  // Add "Other (not itemized)" row if there's unallocated emissions
+  const unallocatedEmissions = totalProductEmissions - bomEmissionsSum;
+  if (unallocatedEmissions > 0.001) {
+    dataRows.push([
+      'Other (not itemized)',
+      '',
+      '',
+      '',
+      '',
+      unallocatedEmissions,
+      totalProductEmissions > 0 ? (unallocatedEmissions / totalProductEmissions) : 0,
+    ]);
+  }
 
   // Add totals row
-  dataRows.push(['', '', '', 'TOTAL', totalEmissions]);
+  dataRows.push(['TOTAL', '', '', '', '', totalProductEmissions, 1]);
 
   const sheetData = [headers, ...dataRows];
   const sheet = XLSX.utils.aoa_to_sheet(sheetData);
 
   // Set column widths
   sheet['!cols'] = [
-    { wch: 30 },
-    { wch: 12 },
-    { wch: 10 },
-    { wch: 18 },
-    { wch: 20 },
+    { wch: 30 },  // Component
+    { wch: 12 },  // Category
+    { wch: 12 },  // Quantity
+    { wch: 10 },  // Unit
+    { wch: 18 },  // Emission Factor
+    { wch: 20 },  // Emissions
+    { wch: 12 },  // Percentage
   ];
+
+  // Apply percentage format to last column (index 6)
+  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+  for (let row = 1; row <= range.e.r; row++) {
+    const percentCell = XLSX.utils.encode_cell({ r: row, c: 6 });
+    if (sheet[percentCell]) {
+      sheet[percentCell].z = '0.0%';
+    }
+  }
 
   XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
 }
@@ -196,7 +230,7 @@ export function exportToExcel(
   // Add all sheets
   addSummarySheet(workbook, data);
   addBreakdownSheet(workbook, data.categoryBreakdown);
-  addBOMSheet(workbook, data.bomEntries);
+  addBOMSheet(workbook, data.bomEntries, data.totalEmissions);
 
   // Write workbook to array buffer
   const excelBuffer = XLSX.write(workbook, {

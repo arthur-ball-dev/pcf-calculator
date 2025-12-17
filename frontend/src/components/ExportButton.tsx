@@ -1,24 +1,17 @@
 /**
  * ExportButton Component
- * TASK-FE-P5-005: Export button with dropdown and direct buttons
+ * TASK-FE-P5-005: Export buttons for CSV and Excel download
  *
  * Features:
- * - Dropdown menu with CSV and Excel options
- * - Direct buttons for quick access on desktop
+ * - Direct CSV and Excel download buttons
  * - Loading state with spinner
  * - Disabled state handling
  * - Error display
  * - Accessibility support
  */
 
-import { FileDown, FileSpreadsheet, Loader2, X } from 'lucide-react';
+import { Download, FileSpreadsheet, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useExport } from '@/hooks/useExport';
 import type { CalculationStatusResponse } from '@/types/api.types';
 
@@ -87,66 +80,35 @@ export function ExportButton({
       data-testid="export-buttons"
     >
       <div className="flex items-center gap-2">
-        {/* Dropdown Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              disabled={isDisabled}
-              data-testid="export-dropdown"
-              aria-busy={isExporting}
-              aria-label="Export options"
-            >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <FileDown className="h-4 w-4 mr-2" />
-              )}
-              {isExporting ? 'Exporting...' : 'Export'}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem
-              onClick={handleCSVExport}
-              data-testid="export-csv-option"
-            >
-              <FileDown className="h-4 w-4 mr-2" />
-              Export as CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleExcelExport}
-              data-testid="export-excel-option"
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Export as Excel
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Direct buttons for desktop */}
+        {/* CSV Download Button */}
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
           onClick={handleCSVExport}
           disabled={isDisabled}
           data-testid="export-csv-button"
-          className="hidden md:flex"
-          aria-label="Export as CSV"
+          aria-label="Download as CSV"
         >
-          <FileDown className="h-4 w-4 mr-1" />
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
           CSV
         </Button>
 
+        {/* Excel Download Button */}
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
           onClick={handleExcelExport}
           disabled={isDisabled}
           data-testid="export-excel-button"
-          className="hidden md:flex"
-          aria-label="Export as Excel"
+          aria-label="Download as Excel"
         >
-          <FileSpreadsheet className="h-4 w-4 mr-1" />
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
           Excel
         </Button>
       </div>

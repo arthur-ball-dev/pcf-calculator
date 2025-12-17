@@ -379,6 +379,29 @@ export default function BreakdownTable({
             </React.Fragment>
           );
         })}
+
+        {/* Total row */}
+        <TableRow className="border-t-2 bg-muted/20 font-semibold">
+          <TableCell>
+            {/* Use same flex structure as category rows for perfect alignment */}
+            <div className="flex items-center gap-2">
+              {/* Invisible chevron placeholder */}
+              <div className="h-4 w-4" aria-hidden="true" />
+              {/* Invisible color box placeholder */}
+              <div className="w-3 h-3" aria-hidden="true" />
+              <span className="font-semibold">Total</span>
+            </div>
+          </TableCell>
+          <TableCell>
+            <span className="tabular-nums font-semibold">{totalCO2e.toFixed(2)}</span>
+          </TableCell>
+          <TableCell>
+            {/* Match the flex layout and w-12 of category percentage cells */}
+            <div className="flex items-center gap-2">
+              <span className="tabular-nums w-12 font-semibold">100.0%</span>
+            </div>
+          </TableCell>
+        </TableRow>
       </TableBody>
     </Table>
   );

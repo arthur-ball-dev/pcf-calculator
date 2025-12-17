@@ -25,7 +25,8 @@ import type { StepConfig } from '@/types/store.types';
 export const WIZARD_STEPS: StepConfig[] = [
   {
     id: 'select',
-    label: 'Select Product',
+    label: 'Step 1: Select Product',
+    progressLabel: 'Select Product',
     description: 'Choose a product to calculate its carbon footprint',
     component: ProductSelector,
     validate: async () => {
@@ -36,7 +37,8 @@ export const WIZARD_STEPS: StepConfig[] = [
   },
   {
     id: 'edit',
-    label: 'Edit Bill of Materials (BOM)',
+    label: 'Step 2: Edit Bill of Materials (BOM)',
+    progressLabel: 'Edit BOM',
     description: 'Review and modify the Bill of Materials',
     component: BOMEditor,
     validate: async () => {
@@ -50,7 +52,8 @@ export const WIZARD_STEPS: StepConfig[] = [
   },
   {
     id: 'calculate',
-    label: 'Calculate',
+    label: 'Step 3: Calculate',
+    progressLabel: 'Calculate',
     description: 'Run the PCF calculation',
     component: CalculateButton,
     validate: async () => {
@@ -61,7 +64,8 @@ export const WIZARD_STEPS: StepConfig[] = [
   },
   {
     id: 'results',
-    label: 'Results',
+    label: 'Step 4: Results',
+    progressLabel: 'Results',
     description: 'View carbon footprint results',
     component: ResultsDisplay,
     // No validation needed for final step

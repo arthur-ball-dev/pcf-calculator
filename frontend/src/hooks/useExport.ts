@@ -25,6 +25,7 @@ interface ExtendedResults extends CalculationStatusResponse {
   }>;
   bom_details?: Array<{
     component_name: string;
+    category: string;
     quantity: number;
     unit: string;
     emission_factor: number;
@@ -97,16 +98,48 @@ export function useExport(
       setError(null);
 
       try {
-        // If no results, still allow empty export behavior from utility
-        const categoryBreakdown = results?.category_breakdown || [];
+        // Export BOM details with emissions for each component
+        const bomDetails = results?.bom_details || [];
+        const totalEmissions = results?.total_co2e_kg || 0;
 
-        // Transform to CSV data format
-        const csvData = categoryBreakdown.map((item) => ({
-          Scope: item.scope,
-          Category: item.category,
+        // Calculate sum of all BOM item emissions
+        const bomEmissionsSum = bomDetails.reduce((sum, item) => sum + (item.emissions || 0), 0);
+
+        // Transform to CSV data format - include all BOM items with emissions
+        const csvData: Record<string, string | number>[] = bomDetails.map((item) => ({
+          Component: item.component_name,
+          Category: item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : '',
+          Quantity: item.quantity,
+          Unit: item.unit,
+          'Emission Factor': item.emission_factor.toFixed(4),
           'Emissions (kg CO2e)': item.emissions,
-          Percentage: `${item.percentage.toFixed(1)}%`,
+          Percentage: totalEmissions > 0 ? `${((item.emissions / totalEmissions) * 100).toFixed(1)}%` : '0%',
         }));
+
+        // Add "Other/Unallocated" row if breakdown doesn't account for all emissions
+        const unallocatedEmissions = totalEmissions - bomEmissionsSum;
+        if (unallocatedEmissions > 0.001) { // Only add if there's meaningful unallocated amount
+          csvData.push({
+            Component: 'Other (not itemized)',
+            Category: '',
+            Quantity: '',
+            Unit: '',
+            'Emission Factor': '',
+            'Emissions (kg CO2e)': Number(unallocatedEmissions.toFixed(4)),
+            Percentage: `${((unallocatedEmissions / totalEmissions) * 100).toFixed(1)}%`,
+          });
+        }
+
+        // Add total row
+        csvData.push({
+          Component: 'TOTAL',
+          Category: '',
+          Quantity: '',
+          Unit: '',
+          'Emission Factor': '',
+          'Emissions (kg CO2e)': Number(totalEmissions.toFixed(4)),
+          Percentage: '100.0%',
+        });
 
         // Use custom filename if provided, otherwise generate
         const filename =
@@ -172,6 +205,7 @@ export function useExport(
         bomEntries:
           results?.bom_details?.map((entry) => ({
             component: entry.component_name,
+            category: entry.category || '',
             quantity: entry.quantity,
             unit: entry.unit,
             emissionFactor: entry.emission_factor,

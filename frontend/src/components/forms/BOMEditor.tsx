@@ -17,7 +17,7 @@
  * - shadcn/ui components (Table, Input, Select, Button, Tooltip)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
@@ -69,16 +69,23 @@ export default function BOMEditor() {
   const { bomItems, setBomItems, isLoadingBOM } = useCalculatorStore();
   const { markStepComplete, markStepIncomplete } = useWizardStore();
 
+  // Track the last bomItems JSON to detect external vs local changes
+  // This prevents circular updates: form → store → form.reset
+  const lastBomItemsRef = useRef<string>('');
+
   // Initialize form with existing BOM items or one default item
+  // Deep copy bomItems to avoid mutating frozen Zustand state
   const form = useForm<BOMFormData>({
     resolver: zodResolver(bomFormSchema),
     defaultValues: {
-      items: bomItems.length > 0 ? bomItems : [
-        {
-          id: generateId(),
-          ...DEFAULT_BOM_ITEM,
-        },
-      ],
+      items: bomItems.length > 0
+        ? JSON.parse(JSON.stringify(bomItems))
+        : [
+            {
+              id: generateId(),
+              ...DEFAULT_BOM_ITEM,
+            },
+          ],
     },
     mode: 'onChange', // Validate on every change
   });
@@ -92,11 +99,21 @@ export default function BOMEditor() {
 
   const { formState: { isValid, errors } } = form;
 
-  // Reset form when BOM items change (e.g., after product selection loads BOM)
+  // Reset form when BOM items change EXTERNALLY (e.g., after product selection loads BOM)
+  // Skip reset if the change came from our own form (prevents circular updates)
   useEffect(() => {
+    const currentBomJson = JSON.stringify(bomItems);
+
+    // Skip if this change came from our form's sync to store
+    if (currentBomJson === lastBomItemsRef.current) {
+      return;
+    }
+
+    // Only reset if we have items and it's an external change
     if (bomItems.length > 0) {
+      lastBomItemsRef.current = currentBomJson;
       form.reset({
-        items: bomItems,
+        items: JSON.parse(currentBomJson), // Deep copy
       });
     }
   }, [bomItems, form]);
@@ -110,10 +127,12 @@ export default function BOMEditor() {
     }
   }, [isValid, markStepComplete, markStepIncomplete]);
 
-  // Sync form data to store on change (debounced for performance)
+  // Sync form data to store on change
   useEffect(() => {
     const subscription = form.watch((data) => {
       if (data.items && isValid) {
+        // Store the JSON so we can detect this update in the reset effect
+        lastBomItemsRef.current = JSON.stringify(data.items);
         setBomItems(data.items as BOMItem[]);
       }
     });
@@ -186,12 +205,12 @@ export default function BOMEditor() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[250px]">Component Name</TableHead>
-                  <TableHead className="w-[120px]">Quantity</TableHead>
-                  <TableHead className="w-[100px]">Unit</TableHead>
-                  <TableHead className="w-[140px]">Category</TableHead>
-                  <TableHead className="w-[250px]">Emission Factor</TableHead>
-                  <TableHead className="w-[80px] text-right">Actions</TableHead>
+                  <TableHead className="min-w-[200px]">Component Name</TableHead>
+                  <TableHead className="min-w-[100px]">Quantity</TableHead>
+                  <TableHead className="min-w-[80px]">Unit</TableHead>
+                  <TableHead className="min-w-[120px]">Category</TableHead>
+                  <TableHead className="min-w-[250px]">Emission Factor</TableHead>
+                  <TableHead className="min-w-[60px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
