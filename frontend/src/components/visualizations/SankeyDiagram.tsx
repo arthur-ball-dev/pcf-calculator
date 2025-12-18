@@ -19,7 +19,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { ResponsiveSankey } from '@nivo/sankey';
 import { ArrowLeft } from 'lucide-react';
-import { transformToSankeyData, transformToExpandedSankeyData, type SankeyNode } from '../../utils/sankeyTransform';
+import { transformToSankeyData, transformToExpandedSankeyData } from '../../utils/sankeyTransform';
 import SankeyTooltip from './SankeyTooltip';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -65,7 +65,7 @@ function wrapLabel(text: string, maxCharsPerLine: number): string[] {
  */
 function createLabelsLayer(labelMap: Map<string, string>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function LabelsLayer({ nodes }: { nodes: any[] }) {
+  return function LabelsLayer({ nodes }: { nodes: readonly any[] }) {
     return (
       <g>
         {nodes.map((node) => {

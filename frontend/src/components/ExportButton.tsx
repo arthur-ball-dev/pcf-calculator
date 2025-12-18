@@ -10,7 +10,7 @@
  * - Accessibility support
  */
 
-import { Download, FileSpreadsheet, Loader2, X } from 'lucide-react';
+import { Download, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useExport } from '@/hooks/useExport';
 import type { CalculationStatusResponse } from '@/types/api.types';
@@ -25,6 +25,7 @@ interface ExtendedResults extends CalculationStatusResponse {
   }>;
   bom_details?: Array<{
     component_name: string;
+    category: string;
     quantity: number;
     unit: string;
     emission_factor: number;
