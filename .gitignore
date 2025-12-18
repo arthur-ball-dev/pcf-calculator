@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 **/__pycache__/
+*.egg-info/
+.pytest_cache/
 
 # Virtual environments (root level)
 .venv/
