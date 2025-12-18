@@ -2,6 +2,7 @@
 DEFRA UK Government Conversion Factors connector.
 
 TASK-DATA-P5-003: DEFRA Data Connector
+TASK-DATA-P7-008: Fix DEFRA Connector URL (BUG-DATA-002)
 
 This module implements the DEFRAEmissionFactorsIngestion class that:
 - Downloads DEFRA Excel workbook from gov.uk
@@ -55,9 +56,12 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
     """
 
     # DEFRA file URL (update annually when new edition released)
+    # TASK-DATA-P7-008: Fixed URL - UK Government migrated to new CDN structure
+    # BUG-DATA-002: Old URL returned 404 due to path change from
+    # /government/uploads/system/uploads/attachment_data/ to /media/{content-id}/
     DEFRA_URL = (
-        "https://www.gov.uk/government/uploads/system/uploads/"
-        "attachment_data/file/ghg-conversion-factors-2024.xlsx"
+        "https://assets.publishing.service.gov.uk/media/6722567487df31a87d8c497e/"
+        "ghg-conversion-factors-2024-full_set__for_advanced_users__v1_1.xlsx"
     )
 
     # Sheets to process and their mappings
