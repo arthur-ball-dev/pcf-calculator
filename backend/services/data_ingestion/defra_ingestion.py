@@ -3,6 +3,7 @@ DEFRA UK Government Conversion Factors connector.
 
 TASK-DATA-P5-003: DEFRA Data Connector
 TASK-DATA-P7-008: Fix DEFRA Connector URL (BUG-DATA-002)
+TASK-DATA-P8-BUG-003: Fix DEFRA header detection and column mapping
 
 This module implements the DEFRAEmissionFactorsIngestion class that:
 - Downloads DEFRA Excel workbook from gov.uk
@@ -65,50 +66,69 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
     )
 
     # Sheets to process and their mappings
+    # TASK-DATA-P8-BUG-003: Updated column names to match actual DEFRA file
+    # The actual DEFRA columns use "kg CO2e" not "kg CO2e per unit"
     SHEET_CONFIGS: Dict[str, Dict[str, Any]] = {
         "Fuels": {
             "scope": "Scope 1",
             "category": "combustion",
             "activity_col": "Fuel",
-            "co2e_col": "kg CO2e per unit",
+            # TASK-DATA-P8-BUG-003: Primary and fallback CO2e column names
+            "co2e_col": "kg CO2e",  # Actual DEFRA column name
+            "co2e_col_fallback": ["kg CO2e per unit", "Total kg CO2e"],
             "unit_col": "Unit",
+            # Required columns to identify header row (not just activity col)
+            "required_cols": ["Fuel", "kg CO2e"],
         },
         "Electricity": {
             "scope": "Scope 2",
             "category": "electricity",
             "activity_col": "Activity",
-            "co2e_col": "kg CO2e per kWh",
+            "co2e_col": "kg CO2e",
+            "co2e_col_fallback": ["kg CO2e per kWh"],
             "unit_col": None,  # Fixed unit extracted from column name
+            "required_cols": ["Activity", "kg CO2e"],
         },
         "Material use": {
             "scope": "Scope 3",
             "category": "materials",
             "activity_col": "Material",
-            "co2e_col": "kg CO2e per kg",
+            "co2e_col": "kg CO2e",
+            "co2e_col_fallback": ["kg CO2e per kg", "Total kg CO2e"],
             "unit_col": None,
+            "required_cols": ["Material", "kg CO2e"],
         },
         "Waste disposal": {
             "scope": "Scope 3",
             "category": "waste",
             "activity_col": "Waste type",
-            "co2e_col": "kg CO2e per tonne",
+            "co2e_col": "kg CO2e",
+            "co2e_col_fallback": ["kg CO2e per tonne", "Total kg CO2e"],
             "unit_col": None,
+            "required_cols": ["Waste", "kg CO2e"],
         },
         "Business travel- air": {
             "scope": "Scope 3",
             "category": "transport",
             "activity_col": "Type of flight",
-            "co2e_col": "kg CO2e per passenger km",
+            "co2e_col": "kg CO2e",
+            "co2e_col_fallback": ["kg CO2e per passenger km"],
             "unit_col": None,
+            "required_cols": ["Type of flight", "kg CO2e"],
         },
         "Freighting goods": {
             "scope": "Scope 3",
             "category": "transport",
             "activity_col": "Vehicle type",
-            "co2e_col": "kg CO2e per tonne.km",
+            "co2e_col": "kg CO2e",
+            "co2e_col_fallback": ["kg CO2e per tonne.km"],
             "unit_col": None,
+            "required_cols": ["Vehicle", "kg CO2e"],
         },
     }
+
+    # Minimum number of required columns that must be present to identify header row
+    MIN_REQUIRED_COLS = 2
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
@@ -208,8 +228,11 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
         """
         Parse a single DEFRA sheet.
 
-        Finds the header row by looking for the activity column name,
+        Finds the header row by looking for multiple expected column names,
         then extracts all data rows below it.
+
+        TASK-DATA-P8-BUG-003: Improved header detection to require multiple
+        columns, not just the activity column (which matches sheet titles).
 
         Args:
             sheet: openpyxl worksheet object
@@ -247,18 +270,48 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
         """
         Check if row is the header row.
 
-        Looks for the activity column name (case-insensitive) in the row.
+        TASK-DATA-P8-BUG-003: Improved header detection that requires
+        multiple expected columns to be present, not just the activity column.
+        This prevents matching sheet titles (e.g., "Fuels" at row 1) instead
+        of the actual data header row (e.g., row 21).
+
+        The function checks for:
+        1. Required columns from config (at least MIN_REQUIRED_COLS must match)
+        2. "kg CO2e" column must be present (distinguishes data header from titles)
 
         Args:
             row: Tuple of cell values
-            config: Sheet configuration with activity_col
+            config: Sheet configuration with required_cols
 
         Returns:
             True if this appears to be the header row
         """
-        row_str = " ".join(str(cell) for cell in row if cell).lower()
-        activity_col = config["activity_col"].lower()
-        return activity_col in row_str
+        if not row or not any(row):
+            return False
+
+        # Convert row to lowercase strings for matching
+        row_cells = [str(cell).strip().lower() if cell else "" for cell in row]
+        row_str = " ".join(row_cells)
+
+        # Get required columns from config, fall back to activity_col
+        required_cols = config.get("required_cols", [config["activity_col"]])
+
+        # Count how many required columns are present
+        matches = 0
+        for col in required_cols:
+            col_lower = col.lower()
+            # Check if any cell contains this column name
+            for cell in row_cells:
+                if col_lower in cell:
+                    matches += 1
+                    break
+
+        # TASK-DATA-P8-BUG-003: Require at least MIN_REQUIRED_COLS matches
+        # AND ensure "kg co2e" is present (this is the key differentiator
+        # from sheet titles which don't have CO2e columns)
+        has_co2e_col = "kg co2e" in row_str
+
+        return matches >= self.MIN_REQUIRED_COLS and has_co2e_col
 
     async def transform_data(
         self,
@@ -288,15 +341,28 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
             if not activity_name:
                 continue
 
-            # Extract CO2e factor
+            # Extract CO2e factor - try primary column then fallbacks
             co2e_col = config.get("co2e_col", "")
             co2e_value = self._find_column_value(record, co2e_col)
+
+            # TASK-DATA-P8-BUG-003: Try fallback column names if primary fails
+            if not co2e_value:
+                fallbacks = config.get("co2e_col_fallback", [])
+                for fallback_col in fallbacks:
+                    co2e_value = self._find_column_value(record, fallback_col)
+                    if co2e_value:
+                        break
+
             if not co2e_value:
                 continue
 
             try:
                 co2e_float = float(co2e_value)
             except (ValueError, TypeError):
+                continue
+
+            # Skip invalid/zero factors
+            if co2e_float <= 0:
                 continue
 
             # Determine unit

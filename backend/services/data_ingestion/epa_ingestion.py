@@ -3,6 +3,7 @@ EPA GHG Emission Factors Hub Data Connector.
 
 TASK-DATA-P5-002: EPA Data Connector
 TASK-DATA-P7-007: Fix EPA Connector URLs and Sheet Names
+TASK-DATA-P8-BUG: Fix EPA Fuels sheet name and eGRID column headers
 
 This module implements the EPA GHG Emission Factors Hub connector that:
 - Downloads Excel files from the EPA website
@@ -52,6 +53,7 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
     # TASK-DATA-P7-007: Updated URLs and sheet names
     # BUG-DATA-001: Fixed fuels URL (was 404)
     # BUG-DATA-003: Fixed eGRID sheet names (SUBRGN22 -> SRL22)
+    # TASK-DATA-P8-BUG-001: Fixed fuels sheet name (2024 file uses single sheet)
     FILES = {
         "egrid": {
             "url": "https://www.epa.gov/system/files/documents/2024-01/egrid2022_data.xlsx",
@@ -60,7 +62,8 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         },
         "fuels": {
             "url": "https://www.epa.gov/system/files/documents/2024-02/ghg-emission-factors-hub-2024.xlsx",
-            "sheets": ["Table 1 - Fuel", "Table 2 - Mobile"],
+            # TASK-DATA-P8-BUG-001: 2024 file has single combined sheet
+            "sheets": ["Emission Factors Hub"],
             "type": "combustion",
         },
     }
@@ -173,8 +176,13 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         """
         Transform fuel/combustion emission factor record.
 
-        Handles both "Table 1 - Fuel" format (Fuel Type column) and
-        "Table 2 - Mobile" format (Vehicle Type column).
+        Handles the 2024 "Emission Factors Hub" unified sheet format which
+        uses different column names than the old Table 1/Table 2 format.
+
+        Column mappings (2024 format):
+        - Activity name: "Fuel Type" or "Source" or "Activity"
+        - CO2e factor: "kg CO2e per unit" or "kg CO2" or column containing "CO2"
+        - Unit: "Unit" or "Units"
 
         Args:
             record: Single parsed record from EPA fuel Excel file
@@ -184,13 +192,31 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         """
         results = []
 
-        # Map EPA columns to internal schema
-        activity_name = record.get("Fuel Type") or record.get("Vehicle Type")
+        # TASK-DATA-P8-BUG-001: Handle 2024 unified sheet column names
+        # Try multiple possible column names for activity
+        activity_name = (
+            record.get("Fuel Type") or
+            record.get("Vehicle Type") or
+            record.get("Source") or
+            record.get("Activity") or
+            record.get("Fuel/Activity") or
+            self._find_column_value(record, "fuel") or
+            self._find_column_value(record, "activity") or
+            self._find_column_value(record, "source")
+        )
         if not activity_name:
             return results
 
-        # Extract CO2e factor (EPA uses kg CO2e per unit)
-        co2e = record.get("kg CO2e per unit") or record.get("CO2e Factor")
+        # Extract CO2e factor - try multiple column name patterns
+        co2e = (
+            record.get("kg CO2e per unit") or
+            record.get("CO2e Factor") or
+            record.get("kg CO2e") or
+            record.get("CO2 Factor (kg CO2e/unit)") or
+            self._find_column_value(record, "kg CO2e") or
+            self._find_column_value(record, "CO2e per") or
+            self._find_column_value(record, "emission factor")
+        )
         if not co2e:
             return results
 
@@ -199,10 +225,23 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         except (ValueError, TypeError):
             return results
 
+        # Skip invalid/zero factors
+        if co2e_value <= 0:
+            return results
+
+        # Get unit from record
+        unit = (
+            record.get("Unit") or
+            record.get("Units") or
+            record.get("unit") or
+            self._find_column_value(record, "unit") or
+            "unit"
+        )
+
         results.append({
             "activity_name": str(activity_name).strip(),
             "co2e_factor": co2e_value,
-            "unit": record.get("Unit", "unit"),
+            "unit": str(unit).strip() if unit else "unit",
             "scope": self._determine_scope(record),
             "category": self.file_config["type"],
             "geography": "US",
@@ -217,6 +256,28 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
 
         return results
 
+    def _find_column_value(self, record: Dict[str, Any], hint: str) -> Any:
+        """
+        Find value by partial column name match.
+
+        Searches record keys for a case-insensitive partial match,
+        ignoring internal metadata keys (starting with _).
+
+        Args:
+            record: Record dictionary with column values
+            hint: Partial column name to search for
+
+        Returns:
+            Value from matching column, or None if not found
+        """
+        hint_lower = hint.lower()
+        for key, value in record.items():
+            if key.startswith("_"):
+                continue
+            if hint_lower in key.lower() and value is not None:
+                return value
+        return None
+
     def _transform_egrid_record(self, record: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Transform eGRID electricity emission factor record.
@@ -226,6 +287,12 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         - 1 MWh = 1000 kWh
         - lb/MWh * 0.453592 / 1000 = kg/kWh
 
+        TASK-DATA-P8-BUG-002: Handle both short codes and long column names
+        from eGRID files which have two header rows.
+
+        Short code column names (row 1): SUBRGN, SRCO2RTA
+        Long column names (row 0): "eGRID subregion acronym", "eGRID subregion..."
+
         Args:
             record: Single parsed record from EPA eGRID Excel file
 
@@ -234,12 +301,36 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         """
         results = []
 
+        # TASK-DATA-P8-BUG-002: Handle both short and long column names
+        # Short codes (if parser uses row 1 headers)
         subregion = record.get("SUBRGN") or record.get("Subregion")
+
+        # Long names (if parser uses row 0 headers)
+        if not subregion:
+            subregion = (
+                record.get("eGRID subregion acronym") or
+                self._find_column_value(record, "subregion acronym") or
+                self._find_column_value(record, "SUBRGN")
+            )
+
         if not subregion:
             return results
 
         # eGRID uses lb CO2e per MWh, convert to kg CO2e per kWh
+        # Short code column name
         co2_rate = record.get("SRCO2RTA") or record.get("CO2 Rate")
+
+        # Long column name patterns (2024 format)
+        if not co2_rate:
+            co2_rate = (
+                self._find_column_value(
+                    record, "CO2 equivalent total output emission rate"
+                ) or
+                self._find_column_value(record, "CO2e output emission rate") or
+                self._find_column_value(record, "lb/MWh") or
+                self._find_column_value(record, "SRCO2RTA")
+            )
+
         if not co2_rate:
             return results
 
@@ -247,6 +338,10 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
             # Convert lb/MWh to kg/kWh
             co2e_value = float(co2_rate) * 0.453592 / 1000
         except (ValueError, TypeError):
+            return results
+
+        # Skip invalid/zero factors
+        if co2e_value <= 0:
             return results
 
         results.append({
