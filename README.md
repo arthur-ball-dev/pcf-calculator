@@ -1,154 +1,121 @@
-# Product Carbon Footprint Calculator
+# Product Carbon Footprint (PCF) Calculator
 
-Calculate cradle-to-gate carbon emissions for products using Bill of Materials (BOM) data and emission factors from EPA, DEFRA, and Ecoinvent.
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://pcf.glideslopeintelligence.ai/)
+[![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
+[![React](https://img.shields.io/badge/react-19-blue)](https://reactjs.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Tech Stack:** Python 3.13, FastAPI, SQLAlchemy, SQLite, React (planned)
+> **Live Demo:** [pcf.glideslopeintelligence.ai](https://pcf.glideslopeintelligence.ai/)
+>
+> *Last synced: 2025-12-16 | Version: v1.2.0 (Phase 7)*
 
-**Project Status:** ✅ Phase 2 Complete - Backend API Ready | ⏸️ Phase 3 Paused (Awaiting Authorization)
+Professional carbon footprint calculator implementing ISO 14067 and GHG Protocol for cradle-to-gate emissions analysis.
 
-## Project Milestones
+---
 
-- ✅ **Phase 0 (Complete):** Project setup and architecture review
-- ✅ **Phase 1 (Complete):** Database foundation and data pipeline (312/312 tests passing, 100% TDD)
-- ✅ **Phase 2 (Complete):** Calculation engine and RESTful API (524/546 tests passing, 95.97% pass rate)
-  - Brightway2 calculation engine with exceptional accuracy (0.17%-1.94% error)
-  - 7 RESTful endpoints with full OpenAPI documentation
-  - Async background task processing
-  - 15 Pydantic validation models
-- ⏸️ **Phase 3 (Pending):** Frontend development (React + TypeScript) - Awaiting user authorization
-- ⏳ **Phase 4 (Pending):** Integration testing and MVP finalization
+## Features
+
+**Core Workflow:**
+- 4-step wizard: Product Selection → Edit Bill of Materials → Calculate → Results
+- 13 demo products with complete BOMs (materials, energy, transport)
+- Searchable product selector with BOM filter toggle
+- Real-time BOM editor with validation
+
+**Visualizations:**
+- Interactive Sankey diagram with **click-to-drill-down** (expand categories to see individual items)
+- Expandable breakdown table with item-level emissions
+- Export to CSV/Excel
+
+**Tech Stack:**
+- **Backend**: Python 3.13, FastAPI, SQLAlchemy 2.0, Brightway2
+- **Frontend**: React 19, TypeScript, Vite, shadcn/ui, Zustand, Nivo
+- **Database**: SQLite (MVP)
+
+> **Note:** This demo uses sample test data (products, BOMs, and simplified emission factors) to demonstrate the calculation workflow. Production deployments would integrate real emission factor databases (EPA USEEIO, DEFRA, Ecoinvent).
+
+---
 
 ## Quick Start
 
-### 1. Initial Setup
-
 ```bash
-# Run setup script (installs dependencies + configures development automation)
-./setup.sh
-```
-
-This will:
-- Create virtual environment at project root (`.venv/`)
-- Install Python dependencies from `backend/requirements.txt`
-- Run database migrations
-- Load seed data (products, BOMs, emission factors)
-- Generate `settings.local.json` with absolute paths for your machine
-
-### 2. Activate Virtual Environment
-
-```bash
-# From project root
+# Backend
+cd backend
 source .venv/bin/activate
+uvicorn main:app --reload  # http://localhost:8000
+
+# Frontend
+cd frontend
+npm install && npm run dev  # http://localhost:5173
 ```
 
-### 3. Run Tests (recommended)
+---
 
-```bash
-# From backend directory
-cd backend
-pytest
+## Architecture
 
-# Expected: 550+ tests collected
+```
+┌─────────────┐     REST API      ┌──────────────┐
+│   React     │ ←──────────────→  │   FastAPI    │
+│  Frontend   │                   │   Backend    │
+└─────────────┘                   └──────────────┘
+       ↓                                  ↓
+   Zustand                          SQLAlchemy
+   Nivo Sankey                      Brightway2
 ```
 
-### 4. Start API Server
+**API Endpoints:**
+- `GET /api/v1/products?has_bom=true` - List products (filterable)
+- `POST /api/v1/calculate` - Submit calculation
+- `GET /api/v1/calculations/{id}` - Get results with breakdown
 
-```bash
-# From backend directory
-cd backend
+---
 
-# Development mode (with auto-reload)
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+## Calculation Method
 
-# Or production mode
-python main.py
+```
+Total CO₂e = Σ (Component Quantity × Emission Factor)
 ```
 
-**API Documentation:** http://localhost:8000/docs (Swagger UI)
+**Categories:** Materials, Energy, Transport
+**Sources:** EPA, DEFRA, Ecoinvent
+**Accuracy:** Validated to <2% error
 
-## API Endpoints (Phase 2 Complete)
+---
 
-### Products
-- `GET /api/v1/products` - List products with pagination
-- `GET /api/v1/products/{id}` - Get product detail with BOM
+## Recent Updates (v1.2.0)
 
-### Calculations
-- `POST /api/v1/calculate` - Submit async calculation (returns 202 + calculation_id)
-- `GET /api/v1/calculations/{id}` - Get calculation status and results
+- Expanded demo products from 3 to 13 with complete BOMs (electronics, apparel, accessories, home goods)
+- Fixed NumPy 2.0 compatibility for Brightway2 LCA engine
+- Added async database support with lazy initialization
+- Streamlined Nixpacks deployment configuration
 
-### Emission Factors
-- `GET /api/v1/emission-factors` - List emission factors with filtering
-- `POST /api/v1/emission-factors` - Create custom emission factor
+**Previous (v1.1.0):**
+- Added BOM filter toggle in product selector
+- Implemented in-chart Sankey drill-down
+- Added expandable items in breakdown table
+- Searchable product selector with Command palette
 
-### Documentation
-- `GET /docs` - Interactive Swagger UI
-- `GET /openapi.json` - OpenAPI 3.0 specification
+---
 
-## Calculation Accuracy
+## Roadmap
 
-Phase 2 validation confirmed exceptional calculation accuracy:
+**Phase 8 (Next):**
+- PostgreSQL Docker infrastructure
+- Data migration tooling
 
-| Product | Expected | Actual | Error |
-|---------|----------|--------|-------|
-| T-shirt | 2.05 kg CO2e | 2.0465 kg CO2e | **0.17%** ✅ |
-| Water Bottle | 0.157 kg CO2e | 0.1566 kg CO2e | **0.25%** ✅ |
-| Phone Case | 0.343 kg CO2e | 0.3497 kg CO2e | **1.94%** ✅ |
+**Future:**
+- User authentication
+- CSV/Excel import
+- Scenario comparison
+- API integrations
 
-All within ±5% tolerance (target met with exceptional results).
-
-## Claude Code Hooks
-
-This project uses development automation for development workflow automation. The setup script automatically configures hooks with absolute paths.
-
-**Why absolute paths?** Hooks with relative paths fail when you `cd backend` or work in subdirectories. Absolute paths ensure hooks work regardless of current working directory.
-
-- **Template:** `settings.example.json` (tracked in git, uses `$PWD` placeholder)
-- **Generated:** `settings.local.json` (gitignored, has your actual paths)
-
-To regenerate settings after moving the project:
-```bash
-python3 scripts/init-claude.py
-```
-
-## Project Documentation
-
-See `CLAUDE.md` for comprehensive development documentation including:
-- Architecture and database schema
-- API specifications
-- Development commands
-- Testing guidelines
-- Project management workflow
-
-## Testing Philosophy
-
-This project follows **Test-Driven Development (TDD)**:
-- 100% TDD compliance across all phases (22/22 tasks)
-- Tests written before implementation
-- No test modifications after implementation
-- 550+ tests, >95% pass rate
-- Zero critical or major bugs
-
-## Quality Metrics (Phase 0-2)
-
-- **Test Pass Rate:** >95% (550+ tests)
-- **TDD Compliance:** 100% (22/22 tasks)
-- **First-Pass Code Review Approval:** 91% (20/22 tasks)
-- **Calculation Accuracy:** 0.17%-1.94% error (exceptional)
-- **Technical Debt:** Zero (critical/high priority)
-- **Open Bugs:** 0 (P0/P1/P2)
-
-## Development Standards
-
-- **TDD:** Tests written before implementation (enforced via git hooks)
-- **Code Review:** Peer review required for all tasks
-- **Code Coverage:** >80% target (currently: 95.97% backend)
-- **Python Style:** PEP 8, type hints, docstrings
-- **Commit Convention:** Conventional Commits format
+---
 
 ## License
 
-[Add license information here]
+MIT License
 
-## Contributing
+---
 
-[Add contributing guidelines here]
+**Contact:** [linkedin.com/in/arthur-ball](https://www.linkedin.com/in/arthur-ball/)
+
+*Built with FastAPI, React, and Brightway2*
