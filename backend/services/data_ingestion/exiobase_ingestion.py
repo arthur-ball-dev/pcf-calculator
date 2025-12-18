@@ -1,7 +1,8 @@
 """
-Exiobase 3.8.2 Multi-Regional Input-Output Data Connector.
+Exiobase 3.9.4 Multi-Regional Input-Output Data Connector.
 
 TASK-DATA-P5-004: Exiobase Data Connector
+TASK-DATA-URL-FIX: Updated URL for Exiobase 3.9.4
 
 This module implements the Exiobase connector that:
 - Downloads the MRIO dataset ZIP from Zenodo
@@ -11,7 +12,7 @@ This module implements the Exiobase connector that:
 - Transforms records to internal schema
 
 Data Source:
-- Exiobase 3.8.2: https://zenodo.org/record/5589597
+- Exiobase 3.9.4: https://zenodo.org/records/14614930
 - License: CC BY-SA 4.0
 
 The F matrix contains emission intensities per product per region with:
@@ -42,22 +43,24 @@ from backend.services.data_ingestion.base import BaseDataIngestion
 
 class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
     """
-    Exiobase 3.8.2 Multi-Regional Input-Output connector.
+    Exiobase 3.9.4 Multi-Regional Input-Output connector.
 
     Downloads and parses the Exiobase MRIO database, extracting emission
     factors from the F matrix (satellite accounts) for key product categories
     across 49 regions.
 
     Attributes:
-        ZENODO_URL: URL to download Exiobase 3.8.2 ZIP archive
+        ZENODO_URL: URL to download Exiobase 3.9.4 IOT 2022 ZIP archive
         REGIONS: List of 49 Exiobase region codes (44 countries + 5 RoW)
         PRODUCT_CATEGORIES: Key product categories to extract
         GHG_STRESSORS: GHG emission stressors to process
         reference_year: Reference year for emission factors (default 2022)
     """
 
-    # Zenodo URL for Exiobase 3.8.2
-    ZENODO_URL = "https://zenodo.org/record/5589597/files/exiobase3.8.2.zip"
+    # Zenodo URL for Exiobase 3.9.4 IOT 2022 (Industry x Industry format)
+    # Updated from deprecated 3.8.2 URL which returns 404
+    # See: https://zenodo.org/records/14614930
+    ZENODO_URL = "https://zenodo.org/api/records/14614930/files/IOT_2022_ixi.zip/content"
 
     # All 49 Exiobase regions (44 countries + 5 rest-of-world regions)
     REGIONS = [
@@ -97,6 +100,17 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
         "CO2 - non combustion - Chemicals",
     ]
 
+    # Possible F matrix file locations within the ZIP archive
+    # Exiobase 3.9.4 may use different paths than 3.8.2
+    F_MATRIX_PATHS = [
+        "satellite/F.txt",
+        "satellite/F_",
+        "IOT/F.txt",
+        "IOT/F_",
+        "F.txt",
+        "F_",
+    ]
+
     def __init__(self, *args, **kwargs) -> None:
         """
         Initialize the Exiobase ingestion connector.
@@ -122,7 +136,7 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
             httpx.HTTPStatusError: On HTTP errors (4xx, 5xx)
             httpx.TimeoutException: On request timeout
         """
-        async with httpx.AsyncClient(timeout=600.0) as client:  # 10 min timeout
+        async with httpx.AsyncClient(timeout=600.0, follow_redirects=True) as client:
             # Stream download for large file
             async with client.stream("GET", self.ZENODO_URL) as response:
                 response.raise_for_status()
@@ -135,8 +149,11 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
         """
         Parse Exiobase ZIP and extract emission factors from F matrix.
 
-        The F matrix is located in satellite/F.txt within the ZIP archive
-        and contains emission intensities per product per region.
+        The F matrix location may vary between Exiobase versions:
+        - 3.8.2: satellite/F.txt
+        - 3.9.4: May use IOT/F.txt or other paths
+
+        This method searches multiple possible locations for the F matrix.
 
         Args:
             raw_data: Raw bytes of the ZIP archive from fetch_raw_data()
@@ -155,17 +172,8 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
         records = []
 
         with zipfile.ZipFile(io.BytesIO(raw_data)) as zf:
-            # Find emission satellite accounts
-            satellite_files = [
-                f for f in zf.namelist()
-                if "satellite" in f.lower() and f.endswith(".txt")
-            ]
-
-            # Process emission intensity file (F matrix)
-            f_matrix_file = next(
-                (f for f in satellite_files if "/F.txt" in f or "/F_" in f),
-                None
-            )
+            # Find emission satellite accounts - check multiple possible locations
+            f_matrix_file = self._find_f_matrix_file(zf)
 
             if not f_matrix_file:
                 raise ValueError("Could not find F matrix in Exiobase ZIP")
@@ -183,6 +191,56 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
                 records = self._extract_emission_factors(df)
 
         return records
+
+    def _find_f_matrix_file(self, zf: zipfile.ZipFile) -> Optional[str]:
+        """
+        Find the F matrix file within the ZIP archive.
+
+        Searches through multiple possible paths to find the F matrix,
+        supporting both Exiobase 3.8.2 and 3.9.4 file structures.
+
+        Args:
+            zf: Open ZipFile object
+
+        Returns:
+            Path to F matrix file within ZIP, or None if not found
+        """
+        all_files = zf.namelist()
+
+        # Strategy 1: Check exact paths and patterns from F_MATRIX_PATHS
+        for path_pattern in self.F_MATRIX_PATHS:
+            for file_path in all_files:
+                # Check for exact match or pattern match
+                if path_pattern in file_path:
+                    # Verify it's a .txt file
+                    if file_path.endswith(".txt"):
+                        return file_path
+
+        # Strategy 2: Look for satellite files with F in the name
+        satellite_files = [
+            f for f in all_files
+            if "satellite" in f.lower() and f.endswith(".txt")
+        ]
+        for f_file in satellite_files:
+            if "/F.txt" in f_file or "/F_" in f_file:
+                return f_file
+
+        # Strategy 3: Look for IOT directory files
+        iot_files = [
+            f for f in all_files
+            if "iot" in f.lower() and f.endswith(".txt")
+        ]
+        for f_file in iot_files:
+            # Look for emission intensity files (F or S matrix)
+            if "/F.txt" in f_file or "/F_" in f_file or "F.txt" in f_file:
+                return f_file
+
+        # Strategy 4: Any file named F.txt or starting with F_
+        for f_file in all_files:
+            if f_file.endswith("/F.txt") or "/F_" in f_file:
+                return f_file
+
+        return None
 
     def _extract_emission_factors(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
         """
@@ -304,7 +362,7 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
                 "external_id": external_id,
                 "metadata": {
                     "stressors_included": list(set(data["stressors"])),
-                    "source": "Exiobase 3.8.2",
+                    "source": "Exiobase 3.9.4",
                 }
             })
 
