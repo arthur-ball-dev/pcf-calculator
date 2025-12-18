@@ -339,7 +339,9 @@ class BaseDataIngestion(ABC):
 
             await self.db.flush()
 
-    async def execute_sync(self) -> SyncResult:
+    async def execute_sync(
+        self, max_records: Optional[int] = None
+    ) -> SyncResult:
         """
         Execute full sync workflow.
 
@@ -348,9 +350,15 @@ class BaseDataIngestion(ABC):
         2. Fetch raw data from source
         3. Parse raw data into records
         4. Transform records to internal schema
-        5. Validate and upsert each record
-        6. Commit transaction
-        7. Update sync log with final status
+        5. Apply max_records limit if specified
+        6. Validate and upsert each record
+        7. Commit transaction
+        8. Update sync log with final status
+
+        Args:
+            max_records: Optional limit on number of records to process.
+                If None (default), 0, or negative, all records are processed.
+                Useful for smoke testing with small sample sizes.
 
         Returns:
             SyncResult with statistics and status
@@ -373,6 +381,10 @@ class BaseDataIngestion(ABC):
 
             # Transform data
             transformed_data = await self.transform_data(parsed_data)
+
+            # TASK-DATA-P7-005: Apply max_records limit if specified
+            if max_records is not None and max_records > 0:
+                transformed_data = transformed_data[:max_records]
 
             # Process each record
             for record in transformed_data:
