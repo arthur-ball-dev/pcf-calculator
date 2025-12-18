@@ -1,149 +1,163 @@
 # Product Carbon Footprint Calculator
 
-Calculate cradle-to-gate carbon emissions for products using Bill of Materials (BOM) data and emission factors from EPA, DEFRA, and Ecoinvent.
+Calculate cradle-to-gate carbon emissions for products using Bill of Materials (BOM) data and emission factors from EPA, DEFRA, and Ecoinvent. Implements ISO 14067 and GHG Protocol standards.
 
-**Tech Stack:** Python 3.13, FastAPI, SQLAlchemy, SQLite, React (planned)
+## Tech Stack
 
-**Project Status:** ✅ Phase 2 Complete - Backend API Ready | ⏸️ Phase 3 Paused (Awaiting Authorization)
+**Backend:** Python 3.13, FastAPI, SQLAlchemy 2.0, Brightway2 LCA, SQLite/PostgreSQL
+
+**Frontend:** React 19, TypeScript, Vite, Zustand, TanStack Query, shadcn/ui, Nivo charts, Playwright
+
+**Project Status:** Phase 7 - Production Hardening & Data Quality
 
 ## Project Milestones
 
-- ✅ **Phase 0 (Complete):** Project setup and architecture review
-- ✅ **Phase 1 (Complete):** Database foundation and data pipeline (312/312 tests passing, 100% TDD)
-- ✅ **Phase 2 (Complete):** Calculation engine and RESTful API (524/546 tests passing, 95.97% pass rate)
-  - Brightway2 calculation engine with exceptional accuracy (0.17%-1.94% error)
-  - 7 RESTful endpoints with full OpenAPI documentation
-  - Async background task processing
-  - 15 Pydantic validation models
-- ⏸️ **Phase 3 (Pending):** Frontend development (React + TypeScript) - Awaiting user authorization
-- ⏳ **Phase 4 (Pending):** Integration testing and MVP finalization
+- **Phase 0 (Complete):** Project setup and architecture review
+- **Phase 1 (Complete):** Database foundation and data pipeline
+- **Phase 2 (Complete):** Calculation engine and RESTful API
+- **Phase 3 (Complete):** Frontend development (React + TypeScript)
+- **Phase 4 (Complete):** Integration testing and MVP core
+- **Phase 5 (Complete):** MVP feature completion and polish
+- **Phase 6 (Complete):** Deployment and CI/CD pipeline
+- **Phase 7 (In Progress):** Production hardening, data quality, and documentation
 
 ## Quick Start
 
-### 1. Initial Setup
+### Backend
 
 ```bash
-# Run setup script (installs dependencies + configures development automation)
-./setup.sh
-```
-
-This will:
-- Create virtual environment at project root (`.venv/`)
-- Install Python dependencies from `backend/requirements.txt`
-- Run database migrations
-- Load seed data (products, BOMs, emission factors)
-- Generate `settings.local.json` with absolute paths for your machine
-
-### 2. Activate Virtual Environment
-
-```bash
-# From project root
+# Create and activate virtual environment
+python -m venv .venv
 source .venv/bin/activate
+
+# Install dependencies
+pip install -r backend/requirements.txt
+
+# Run database migrations
+cd backend && alembic upgrade head
+
+# Seed data
+python scripts/seed_data.py
+
+# Start API server (from project root)
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 3. Run Tests (recommended)
+**API Documentation:** http://localhost:8000/docs
+
+### Frontend
 
 ```bash
-# From backend directory
-cd backend
-pytest
+cd frontend
 
-# Expected: 550+ tests collected
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Run unit tests
+npm test
+
+# Run E2E tests (requires backend running)
+npm run test:e2e
 ```
 
-### 4. Start API Server
+**Application:** http://localhost:5173
 
-```bash
-# From backend directory
-cd backend
+## Features
 
-# Development mode (with auto-reload)
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+### Calculator Wizard
+- **Product Selection:** Search and select products from the catalog
+- **BOM Editor:** View and modify Bill of Materials with quantity adjustments
+- **Results Display:** Interactive visualization of carbon footprint breakdown
 
-# Or production mode
-python main.py
-```
+### Visualizations
+- **Sankey Diagram:** Material flow visualization showing emission sources
+- **Category Breakdown:** Detailed emissions by material, energy, and transport
+- **Export Options:** PDF reports and Excel data export
 
-**API Documentation:** http://localhost:8000/docs (Swagger UI)
+### Data Management
+- **Emission Factors:** EPA, DEFRA, and Ecoinvent databases
+- **Product Catalog:** Pre-loaded products with complete BOMs
+- **Calculation History:** Track and compare previous calculations
 
-## API Endpoints (Phase 2 Complete)
+## API Endpoints
 
 ### Products
-- `GET /api/v1/products` - List products with pagination
+- `GET /api/v1/products` - List products with pagination and filtering
 - `GET /api/v1/products/{id}` - Get product detail with BOM
 
 ### Calculations
-- `POST /api/v1/calculate` - Submit async calculation (returns 202 + calculation_id)
+- `POST /api/v1/calculate` - Submit async calculation (returns 202)
 - `GET /api/v1/calculations/{id}` - Get calculation status and results
 
 ### Emission Factors
 - `GET /api/v1/emission-factors` - List emission factors with filtering
 - `POST /api/v1/emission-factors` - Create custom emission factor
 
-### Documentation
-- `GET /docs` - Interactive Swagger UI
-- `GET /openapi.json` - OpenAPI 3.0 specification
+### Data Sources
+- `GET /api/v1/data-sources` - List available data sources with license info
 
 ## Calculation Accuracy
 
-Phase 2 validation confirmed exceptional calculation accuracy:
+Validated against reference data with exceptional accuracy:
 
-| Product | Expected | Actual | Error |
-|---------|----------|--------|-------|
-| T-shirt | 2.05 kg CO2e | 2.0465 kg CO2e | **0.17%** ✅ |
-| Water Bottle | 0.157 kg CO2e | 0.1566 kg CO2e | **0.25%** ✅ |
-| Phone Case | 0.343 kg CO2e | 0.3497 kg CO2e | **1.94%** ✅ |
+| Product      | Expected       | Actual          | Error      |
+|--------------|----------------|-----------------|------------|
+| T-shirt      | 2.05 kg CO2e   | 2.0465 kg CO2e  | **0.17%**  |
+| Water Bottle | 0.157 kg CO2e  | 0.1566 kg CO2e  | **0.25%**  |
+| Phone Case   | 0.343 kg CO2e  | 0.3497 kg CO2e  | **1.94%**  |
 
-All within ±5% tolerance (target met with exceptional results).
+All within ±5% tolerance target.
 
-## Claude Code Hooks
+## Testing
 
-This project uses development automation for development workflow automation. The setup script automatically configures hooks with absolute paths.
-
-**Why absolute paths?** Hooks with relative paths fail when you `cd backend` or work in subdirectories. Absolute paths ensure hooks work regardless of current working directory.
-
-- **Template:** `settings.example.json` (tracked in git, uses `$PWD` placeholder)
-- **Generated:** `settings.local.json` (gitignored, has your actual paths)
-
-To regenerate settings after moving the project:
 ```bash
-python3 scripts/init-claude.py
+# Backend tests (from project root)
+cd backend && pytest
+
+# Frontend unit tests
+cd frontend && npm test
+
+# Frontend E2E tests
+cd frontend && npm run test:e2e
+
+# With coverage
+cd backend && pytest --cov=backend --cov-report=html
+cd frontend && npm test -- --coverage
 ```
 
-## Project Documentation
+**Test Coverage:**
+- Backend: 1,587 tests
+- Frontend: 54 unit test files + 5 E2E test suites
+- Coverage target: >80%
+
+## Development
 
 See `CLAUDE.md` for comprehensive development documentation including:
 - Architecture and database schema
 - API specifications
 - Development commands
 - Testing guidelines
-- Project management workflow
+- TDD methodology
 
-## Testing Philosophy
-
-This project follows **Test-Driven Development (TDD)**:
-- 100% TDD compliance across all phases (22/22 tasks)
-- Tests written before implementation
-- No test modifications after implementation
-- 550+ tests, >95% pass rate
-- Zero critical or major bugs
-
-## Quality Metrics (Phase 0-2)
-
-- **Test Pass Rate:** >95% (550+ tests)
-- **TDD Compliance:** 100% (22/22 tasks)
-- **First-Pass Code Review Approval:** 91% (20/22 tasks)
-- **Calculation Accuracy:** 0.17%-1.94% error (exceptional)
-- **Technical Debt:** Zero (critical/high priority)
-- **Open Bugs:** 0 (P0/P1/P2)
-
-## Development Standards
+### Development Standards
 
 - **TDD:** Tests written before implementation (enforced via git hooks)
 - **Code Review:** Peer review required for all tasks
-- **Code Coverage:** >80% target (currently: 95.97% backend)
 - **Python Style:** PEP 8, type hints, docstrings
+- **TypeScript:** Strict mode, no `any` types
 - **Commit Convention:** Conventional Commits format
+
+## Environment Variables
+
+Copy `.env.sample` to `.env` and configure:
+
+```bash
+DATABASE_URL=sqlite:///./pcf_calculator.db
+CORS_ORIGINS=http://localhost:5173
+```
 
 ## License
 
