@@ -152,6 +152,27 @@ export interface EmissionFactorCreateResponse {
 }
 
 // ============================================================================
+// Attribution API Types
+// ============================================================================
+
+export interface DataSourceAttribution {
+  id: string;
+  name: string;
+  license_type: string | null;
+  license_url: string | null;
+  attribution_text: string | null;
+  attribution_url: string | null;
+  allows_commercial_use: boolean;
+  requires_attribution: boolean;
+  requires_share_alike: boolean;
+}
+
+export interface AttributionResponse {
+  attributions: DataSourceAttribution[];
+  notice: string;
+}
+
+// ============================================================================
 // Common Types
 // ============================================================================
 

@@ -114,6 +114,17 @@ class LastSyncInfo(BaseModel):
     error_message: Optional[str] = None
 
 
+class DataSourceLicense(BaseModel):
+    """License and attribution information for a data source."""
+    license_type: Optional[str] = None
+    license_url: Optional[str] = None
+    attribution_text: Optional[str] = None
+    attribution_url: Optional[str] = None
+    allows_commercial_use: bool = True
+    requires_attribution: bool = False
+    requires_share_alike: bool = False
+
+
 class DataSourceStatistics(BaseModel):
     """Aggregated statistics for a data source."""
     total_factors: int
@@ -137,6 +148,7 @@ class DataSourceListItem(BaseModel):
     last_sync: Optional[LastSyncInfo] = None
     next_scheduled_sync: Optional[datetime] = None
     statistics: DataSourceStatistics
+    license: Optional[DataSourceLicense] = None
     created_at: datetime
 
 
@@ -169,6 +181,7 @@ class DataSourceDetailResponse(BaseModel):
     last_sync: Optional[LastSyncInfo] = None
     next_scheduled_sync: Optional[datetime] = None
     statistics: DataSourceStatistics
+    license: Optional[DataSourceLicense] = None
     created_at: datetime
 
 

@@ -73,6 +73,15 @@ class DataSource(Base):
     # Whether this source is active
     is_active = Column(Boolean, default=True)
 
+    # License and attribution information
+    license_type = Column(String(100), nullable=True)  # e.g., "Public Domain", "OGL-3.0", "CC-BY-SA-4.0"
+    license_url = Column(Text, nullable=True)  # URL to license text
+    attribution_text = Column(Text, nullable=True)  # Required attribution statement
+    attribution_url = Column(Text, nullable=True)  # URL to original source
+    allows_commercial_use = Column(Boolean, default=True)
+    requires_attribution = Column(Boolean, default=False)
+    requires_share_alike = Column(Boolean, default=False)
+
     # Audit timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

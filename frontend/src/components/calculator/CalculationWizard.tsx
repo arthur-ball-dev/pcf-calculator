@@ -36,6 +36,7 @@ import { WIZARD_STEPS } from '@/config/wizardSteps';
 import { TourControls } from '@/components/Tour/TourControls';
 import WizardProgress from './WizardProgress';
 import WizardNavigation from './WizardNavigation';
+import { DataSourceAttributions } from '@/components/DataSourceAttributions';
 
 /**
  * Main CalculationWizard component
@@ -218,6 +219,11 @@ const CalculationWizard: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Data source attributions footer */}
+      <footer role="contentinfo" id="attributions">
+        <DataSourceAttributions variant="footer" />
+      </footer>
     </div>
   );
 };

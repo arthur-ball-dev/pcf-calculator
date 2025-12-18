@@ -21,7 +21,7 @@ from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 
 
-# Initial data sources for emission factors
+# Initial data sources for emission factors with license/attribution info
 SEED_DATA_SOURCES: List[Dict[str, Any]] = [
     {
         "name": "EPA GHG Emission Factors Hub",
@@ -30,6 +30,14 @@ SEED_DATA_SOURCES: List[Dict[str, Any]] = [
         "api_key_env_var": None,
         "sync_frequency": "biweekly",
         "is_active": True,
+        # License: Public Domain (US Federal Government)
+        "license_type": "Public Domain",
+        "license_url": "https://www.epa.gov/web-policies-and-procedures/epa-disclaimers",
+        "attribution_text": "Data source: U.S. Environmental Protection Agency (EPA) GHG Emission Factors Hub",
+        "attribution_url": "https://www.epa.gov/climateleadership/ghg-emission-factors-hub",
+        "allows_commercial_use": True,
+        "requires_attribution": False,
+        "requires_share_alike": False,
     },
     {
         "name": "DEFRA Conversion Factors",
@@ -38,6 +46,14 @@ SEED_DATA_SOURCES: List[Dict[str, Any]] = [
         "api_key_env_var": None,
         "sync_frequency": "biweekly",
         "is_active": True,
+        # License: Open Government Licence v3.0 (Crown Copyright)
+        "license_type": "Open Government Licence v3.0",
+        "license_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+        "attribution_text": "Contains public sector information licensed under the Open Government Licence v3.0. Source: UK Department for Energy Security and Net Zero (DESNZ) / DEFRA Greenhouse Gas Conversion Factors.",
+        "attribution_url": "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2024",
+        "allows_commercial_use": True,
+        "requires_attribution": True,
+        "requires_share_alike": False,
     },
     {
         "name": "Exiobase",
@@ -46,6 +62,14 @@ SEED_DATA_SOURCES: List[Dict[str, Any]] = [
         "api_key_env_var": None,
         "sync_frequency": "monthly",
         "is_active": True,
+        # License: CC-BY-SA-4.0 (Zenodo version)
+        "license_type": "CC-BY-SA-4.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "attribution_text": "EXIOBASE 3 data is licensed under Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). Credit: EXIOBASE Consortium.",
+        "attribution_url": "https://zenodo.org/records/5589597",
+        "allows_commercial_use": True,
+        "requires_attribution": True,
+        "requires_share_alike": True,
     },
 ]
 
@@ -97,6 +121,14 @@ def seed_data_sources(session: Session, skip_existing: bool = True) -> int:
             api_key_env_var=source_data.get("api_key_env_var"),
             sync_frequency=source_data.get("sync_frequency", "biweekly"),
             is_active=source_data.get("is_active", True),
+            # License and attribution fields
+            license_type=source_data.get("license_type"),
+            license_url=source_data.get("license_url"),
+            attribution_text=source_data.get("attribution_text"),
+            attribution_url=source_data.get("attribution_url"),
+            allows_commercial_use=source_data.get("allows_commercial_use", True),
+            requires_attribution=source_data.get("requires_attribution", False),
+            requires_share_alike=source_data.get("requires_share_alike", False),
         )
         session.add(data_source)
         created_count += 1
@@ -123,6 +155,45 @@ def get_data_source_by_name(session: Session, name: str):
     return session.query(DataSource).filter(
         DataSource.name == name
     ).first()
+
+
+def update_data_source_attributions(session: Session) -> int:
+    """
+    Update existing data sources with license and attribution information.
+
+    Call this after running the migration to populate attribution fields
+    for data sources that were created before the migration.
+
+    Args:
+        session: SQLAlchemy database session
+
+    Returns:
+        Number of data sources updated
+    """
+    from backend.models import DataSource
+
+    updated_count = 0
+
+    for source_data in SEED_DATA_SOURCES:
+        existing = session.query(DataSource).filter(
+            DataSource.name == source_data["name"]
+        ).first()
+
+        if existing:
+            # Update license and attribution fields
+            existing.license_type = source_data.get("license_type")
+            existing.license_url = source_data.get("license_url")
+            existing.attribution_text = source_data.get("attribution_text")
+            existing.attribution_url = source_data.get("attribution_url")
+            existing.allows_commercial_use = source_data.get("allows_commercial_use", True)
+            existing.requires_attribution = source_data.get("requires_attribution", False)
+            existing.requires_share_alike = source_data.get("requires_share_alike", False)
+            updated_count += 1
+
+    if updated_count > 0:
+        session.commit()
+
+    return updated_count
 
 
 def verify_data_sources(session: Session) -> bool:

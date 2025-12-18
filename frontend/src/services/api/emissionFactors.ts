@@ -14,6 +14,7 @@ import type {
   EmissionFactorListResponse,
   EmissionFactorListItem,
   PaginationParams,
+  AttributionResponse,
 } from '@/types/api.types';
 
 /**
@@ -45,5 +46,21 @@ export const emissionFactorsAPI = {
     );
 
     return response.data.items;
+  },
+
+  /**
+   * Fetch data source attributions
+   *
+   * Returns license and attribution information for all active data sources.
+   * Use this to display required attributions in the UI.
+   *
+   * @returns Promise resolving to attribution response
+   * @throws APIError if request fails
+   */
+  getAttributions: async (): Promise<AttributionResponse> => {
+    const response = await client.get<AttributionResponse>(
+      '/api/v1/attributions'
+    );
+    return response.data;
   },
 };

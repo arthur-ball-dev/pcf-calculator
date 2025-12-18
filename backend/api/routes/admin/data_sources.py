@@ -36,6 +36,7 @@ from backend.schemas.admin import (
     DataSourceDetailResponse,
     DataSourceSummary,
     DataSourceStatistics,
+    DataSourceLicense,
     LastSyncInfo,
     SyncTriggerRequest,
     SyncTriggerResponse,
@@ -290,6 +291,22 @@ def get_last_sync_info(db: Session, data_source_id: str) -> Optional[LastSyncInf
     )
 
 
+def get_license_info(data_source: DataSource) -> Optional[DataSourceLicense]:
+    """Get license and attribution information for a data source."""
+    if not data_source.license_type and not data_source.attribution_text:
+        return None
+
+    return DataSourceLicense(
+        license_type=data_source.license_type,
+        license_url=data_source.license_url,
+        attribution_text=data_source.attribution_text,
+        attribution_url=data_source.attribution_url,
+        allows_commercial_use=data_source.allows_commercial_use if data_source.allows_commercial_use is not None else True,
+        requires_attribution=data_source.requires_attribution if data_source.requires_attribution is not None else False,
+        requires_share_alike=data_source.requires_share_alike if data_source.requires_share_alike is not None else False,
+    )
+
+
 def get_data_source_statistics(db: Session, data_source_id: str) -> DataSourceStatistics:
     """Calculate statistics for a data source."""
     # Total factors
@@ -516,6 +533,7 @@ def list_data_sources(
                 last_sync=last_sync,
                 next_scheduled_sync=next_sync,
                 statistics=stats,
+                license=get_license_info(ds),
                 created_at=ds.created_at or datetime.now(timezone.utc),
             )
         )
@@ -598,6 +616,7 @@ def get_data_source(
         last_sync=last_sync,
         next_scheduled_sync=next_sync,
         statistics=stats,
+        license=get_license_info(data_source),
         created_at=data_source.created_at or datetime.now(timezone.utc),
     )
 

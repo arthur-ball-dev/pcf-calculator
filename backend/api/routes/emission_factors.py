@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 from decimal import Decimal
 
 from backend.database.connection import get_db
-from backend.models import EmissionFactor
+from backend.models import EmissionFactor, DataSource
 
 
 # ============================================================================
@@ -321,3 +321,82 @@ def create_emission_factor(
         data_quality_rating=float(new_emission_factor.data_quality_rating) if new_emission_factor.data_quality_rating else None,
         created_at=new_emission_factor.created_at.isoformat() if new_emission_factor.created_at else ""
     )
+
+
+# ============================================================================
+# Attribution Response Models
+# ============================================================================
+
+class DataSourceAttribution(BaseModel):
+    """Attribution information for a single data source."""
+    id: str
+    name: str
+    license_type: Optional[str] = None
+    license_url: Optional[str] = None
+    attribution_text: Optional[str] = None
+    attribution_url: Optional[str] = None
+    allows_commercial_use: bool = True
+    requires_attribution: bool = False
+    requires_share_alike: bool = False
+
+
+class AttributionResponse(BaseModel):
+    """Response containing all data source attributions."""
+    attributions: List[DataSourceAttribution]
+    notice: str = (
+        "This application uses emission factor data from multiple sources. "
+        "Please review individual source attributions for compliance requirements."
+    )
+
+
+# ============================================================================
+# Attribution Endpoint
+# ============================================================================
+
+@router.get(
+    "/attributions",
+    response_model=AttributionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get data source attributions",
+    description="Get license and attribution information for all active data sources"
+)
+def get_attributions(
+    db: Session = Depends(get_db)
+) -> AttributionResponse:
+    """
+    Get attribution and license information for all active data sources.
+
+    This endpoint provides information needed to comply with data source
+    license requirements, including:
+    - EPA GHG Emission Factors Hub (Public Domain)
+    - DEFRA UK Conversion Factors (Open Government Licence v3.0)
+    - Exiobase 3.8 (CC-BY-SA-4.0)
+
+    Returns:
+    - attributions: List of data source attributions with license info
+    - notice: General notice about data usage
+    """
+    # Query active data sources with license info
+    data_sources = (
+        db.query(DataSource)
+        .filter(DataSource.is_active == True)
+        .all()
+    )
+
+    attributions = []
+    for ds in data_sources:
+        attributions.append(
+            DataSourceAttribution(
+                id=ds.id,
+                name=ds.name,
+                license_type=ds.license_type,
+                license_url=ds.license_url,
+                attribution_text=ds.attribution_text,
+                attribution_url=ds.attribution_url,
+                allows_commercial_use=ds.allows_commercial_use if ds.allows_commercial_use is not None else True,
+                requires_attribution=ds.requires_attribution if ds.requires_attribution is not None else False,
+                requires_share_alike=ds.requires_share_alike if ds.requires_share_alike is not None else False,
+            )
+        )
+
+    return AttributionResponse(attributions=attributions)

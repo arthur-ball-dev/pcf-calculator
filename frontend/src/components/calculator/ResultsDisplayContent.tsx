@@ -17,6 +17,7 @@ import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { EMISSION_CATEGORY_COLORS } from '@/constants/colors';
 import { getUserFriendlyError } from '@/utils/errorMessages';
+import { AttributionNotice } from '@/components/DataSourceAttributions';
 
 /**
  * Format number with 2 decimal places and thousands separator
@@ -254,6 +255,9 @@ export function ResultsDisplayContent() {
           </dl>
         </CardContent>
       </Card>
+
+      {/* Data source attribution notice */}
+      <AttributionNotice className="mt-4" />
     </div>
   );
 }
