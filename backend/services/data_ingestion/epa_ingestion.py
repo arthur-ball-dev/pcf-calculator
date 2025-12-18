@@ -2,6 +2,7 @@
 EPA GHG Emission Factors Hub Data Connector.
 
 TASK-DATA-P5-002: EPA Data Connector
+TASK-DATA-P7-007: Fix EPA Connector URLs and Sheet Names
 
 This module implements the EPA GHG Emission Factors Hub connector that:
 - Downloads Excel files from the EPA website
@@ -48,14 +49,17 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
     """
 
     # EPA file URLs (may need annual updates)
+    # TASK-DATA-P7-007: Updated URLs and sheet names
+    # BUG-DATA-001: Fixed fuels URL (was 404)
+    # BUG-DATA-003: Fixed eGRID sheet names (SUBRGN22 -> SRL22)
     FILES = {
         "egrid": {
             "url": "https://www.epa.gov/system/files/documents/2024-01/egrid2022_data.xlsx",
-            "sheets": ["SUBRGN22", "US22"],
+            "sheets": ["SRL22", "US22"],  # SRL22 = Subregion Level (was SUBRGN22)
             "type": "electricity",
         },
         "fuels": {
-            "url": "https://www.epa.gov/system/files/documents/2024-01/emission-factors_apr2024.xlsx",
+            "url": "https://www.epa.gov/system/files/documents/2024-02/ghg-emission-factors-hub-2024.xlsx",
             "sheets": ["Table 1 - Fuel", "Table 2 - Mobile"],
             "type": "combustion",
         },
