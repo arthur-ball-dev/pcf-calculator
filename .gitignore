@@ -58,6 +58,7 @@ frontend/dist-ssr/
 # Test artifacts and reports
 test-results/
 playwright-report/
+reports/
 frontend/test-results/
 frontend/playwright-report/
 frontend/screenshots/
