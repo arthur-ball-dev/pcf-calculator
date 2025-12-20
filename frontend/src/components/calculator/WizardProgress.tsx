@@ -11,6 +11,9 @@
  * - Inaccessible steps disabled
  * - Keyboard accessible
  * - ARIA labels for screen readers
+ * - Mobile-responsive layout (TASK-FE-P7-009)
+ *   - Minimum touch target size (44px / 11 in Tailwind)
+ *   - Responsive step labels
  *
  * Props:
  * - steps: Array of step configurations
@@ -27,6 +30,16 @@ interface WizardProgressProps {
   currentStep: WizardStep;
 }
 
+/**
+ * Short labels for each step for accessibility and testing
+ */
+const STEP_SHORT_LABELS: Record<string, string> = {
+  select: 'Select Product',
+  edit: 'Edit BOM',
+  calculate: 'Calculate',
+  results: 'Results',
+};
+
 export default function WizardProgress({
   steps,
   currentStep,
@@ -41,10 +54,10 @@ export default function WizardProgress({
       : 0;
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       {/* Progress line background - enhanced visual prominence */}
       <div
-        className="absolute top-5 left-0 right-0 h-1 bg-muted rounded-full"
+        className="absolute top-5 sm:top-6 left-0 right-0 h-1 bg-muted rounded-full"
         aria-hidden="true"
       >
         {/* Progress line fill - enhanced with rounded corners and smooth animation */}
@@ -56,7 +69,7 @@ export default function WizardProgress({
 
       {/* Steps */}
       <ol
-        className="relative flex justify-between"
+        className="relative flex flex-row justify-between"
         aria-label="Wizard progress steps"
       >
         {steps.map((step, index) => {
@@ -68,6 +81,14 @@ export default function WizardProgress({
             index === 0 ||
             steps.slice(0, index).every((s) => completedSteps.includes(s.id));
 
+          // Get short label for accessibility, fallback to step.label
+          const shortLabel = STEP_SHORT_LABELS[step.id] || step.label;
+
+          // Extract the display name from the label (e.g., "Step 1: Select Product" -> "Select Product")
+          const displayName = step.label.includes(':')
+            ? step.label.split(':').slice(1).join(':').trim()
+            : step.label;
+
           return (
             <li key={step.id} className="flex flex-col items-center flex-1">
               <button
@@ -75,7 +96,8 @@ export default function WizardProgress({
                 onClick={() => isAccessible && setStep(step.id)}
                 disabled={!isAccessible}
                 className={cn(
-                  'relative z-10 flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors',
+                  // Base styles with minimum touch target size (44px = h-11 w-11)
+                  'relative z-10 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 transition-colors p-3',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                   isActive &&
                     'border-primary bg-primary text-primary-foreground',
@@ -88,28 +110,29 @@ export default function WizardProgress({
                   !isAccessible && 'cursor-not-allowed opacity-50'
                 )}
                 aria-current={isActive ? 'step' : undefined}
-                aria-label={`${step.label}${isComplete ? ' (completed)' : ''}${isActive ? ' (current)' : ''}`}
+                aria-label={`${shortLabel}${isComplete ? ' (completed)' : ''}${isActive ? ' (current)' : ''}`}
               >
                 {isComplete && !isActive ? (
-                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden="true" />
                 ) : (
                   <Circle
-                    className="w-5 h-5"
+                    className="w-5 h-5 sm:w-6 sm:h-6"
                     fill={isActive ? 'currentColor' : 'none'}
                     aria-hidden="true"
                   />
                 )}
               </button>
 
+              {/* Step label - hidden on very small screens, abbreviated on mobile */}
               <span
                 className={cn(
-                  'mt-2 text-sm font-medium text-center',
+                  'mt-2 text-xs sm:text-sm font-medium text-center max-w-[60px] sm:max-w-none truncate sm:whitespace-normal',
                   isActive && 'text-foreground',
                   !isActive && 'text-muted-foreground'
                 )}
                 aria-hidden="true"
               >
-                {step.label}
+                {displayName}
               </span>
             </li>
           );

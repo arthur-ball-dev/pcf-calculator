@@ -13,6 +13,10 @@
  * - Keyboard accessible
  * - ARIA labels for screen readers
  * - Visual feedback for disabled states (tooltips)
+ * - Mobile-responsive layout (TASK-FE-P7-009)
+ *   - Full-width buttons on mobile
+ *   - Auto-width buttons on tablet/desktop
+ *   - Minimum touch target size (44px)
  */
 
 import React from 'react';
@@ -55,13 +59,13 @@ const WizardNavigation: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-between">
-      {/* Previous button */}
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4">
+      {/* Previous button - full width on mobile, auto on larger screens */}
       <Button
         variant="outline"
         onClick={goBack}
         disabled={!canGoBack}
-        className="gap-2"
+        className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6"
         aria-label="Previous step"
         data-testid="previous-button"
       >
@@ -73,12 +77,17 @@ const WizardNavigation: React.FC = () => {
       {currentStep !== 'select' && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" className="gap-2" data-testid="start-over-button">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full sm:w-auto gap-2 min-h-11 py-3"
+              data-testid="start-over-button"
+            >
               <RotateCcw className="w-4 h-4" />
               Start Over
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent>
+          <AlertDialogContent className="mx-4 sm:mx-0">
             <AlertDialogHeader>
               <AlertDialogTitle>Reset Calculator?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -86,9 +95,9 @@ const WizardNavigation: React.FC = () => {
                 action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleReset}>Reset</AlertDialogAction>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+              <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleReset} className="min-h-11">Reset</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -99,11 +108,11 @@ const WizardNavigation: React.FC = () => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-block">
+              <span className="inline-block w-full sm:w-auto">
                 <Button
                   onClick={goNext}
                   disabled={!canProceed}
-                  className="gap-2"
+                  className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6"
                   aria-label="Next step"
                   data-testid="next-button"
                 >
@@ -123,7 +132,7 @@ const WizardNavigation: React.FC = () => {
         <Button
           variant="outline"
           onClick={handleReset}
-          className="gap-2"
+          className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6"
           aria-label="Start new calculation"
           data-testid="new-calculation-button"
         >

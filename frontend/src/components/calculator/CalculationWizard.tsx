@@ -17,6 +17,7 @@
  * - State persistence across browser refreshes
  * - Focus management for accessibility
  * - Screen reader announcements for step changes
+ * - Mobile-responsive layout (TASK-FE-P7-009)
  *
  * Integration:
  * - wizardStore: Navigation state and step completion
@@ -25,13 +26,16 @@
  * - useAnnouncer: Screen reader announcements
  *
  * TASK-FE-P5-012: Added TourControls button to header for guided tour
+ * TASK-FE-P7-009: Added mobile responsive layouts
  */
 
 import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, Package } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { useAnnouncer } from '@/hooks/useAnnouncer';
+import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { WIZARD_STEPS } from '@/config/wizardSteps';
 import { TourControls } from '@/components/Tour/TourControls';
 import WizardProgress from './WizardProgress';
@@ -46,6 +50,7 @@ const CalculationWizard: React.FC = () => {
     useWizardStore();
   const { selectedProduct } = useCalculatorStore();
   const { announce } = useAnnouncer();
+  const { isMobile, isTablet, isDesktop } = useBreakpoints();
   const hasValidatedRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -156,46 +161,75 @@ const CalculationWizard: React.FC = () => {
     );
   }
 
+  // Determine padding class based on viewport
+  // Mobile: p-4 (16px), Tablet: p-6 (24px), Desktop: p-8 (32px)
+  // Using both breakpoint-aware and CSS responsive classes for robustness
+  const mainPaddingClass = cn(
+    'flex-1 bg-background w-full max-w-full overflow-x-hidden',
+    // Dynamic classes based on useBreakpoints hook
+    isMobile && 'p-4',
+    isTablet && 'p-6',
+    isDesktop && 'p-8 lg:p-8',
+    // CSS-only responsive fallback classes
+    'sm:p-6 md:p-8'
+  );
+
+  // Step indicator layout class based on viewport
+  const stepIndicatorClass = cn(
+    'flex',
+    isMobile && 'flex-col',
+    !isMobile && 'flex-row',
+    // CSS responsive fallback
+    'sm:flex-row'
+  );
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header with title and progress indicator */}
       <header className="border-b bg-white dark:bg-gray-950 sticky top-0 z-50 shadow-sm" role="banner">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-semibold">PCF Calculator</h1>
+        <div className="container mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-4">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h1 className="text-xl sm:text-2xl font-semibold">PCF Calculator</h1>
             <TourControls />
           </div>
-          <WizardProgress steps={WIZARD_STEPS} currentStep={currentStep} />
+          {/* Step indicator with responsive layout */}
+          <div data-testid="step-indicator" className={stepIndicatorClass}>
+            <WizardProgress steps={WIZARD_STEPS} currentStep={currentStep} />
+          </div>
         </div>
       </header>
 
       {/* Main content area - renders current step component */}
-      <main className="flex-1 bg-background" role="main">
-        <div className="container mx-auto px-4 py-8 max-w-[1800px]">
+      <main
+        className={mainPaddingClass}
+        role="main"
+      >
+        <div className="container mx-auto max-w-[1800px]">
           {/* Selected product indicator - shown when product is selected */}
           {selectedProduct && currentStep !== 'select' && (
-            <div className="mb-4 p-3 bg-muted/50 rounded-lg flex items-center gap-3">
-              <Package className="w-5 h-5 text-primary" />
-              <div>
-                <span className="text-sm text-muted-foreground">Selected Product:</span>
-                <span className="ml-2 font-medium">{selectedProduct.name}</span>
-                <span className="ml-2 text-sm text-muted-foreground">({selectedProduct.code})</span>
+            <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-muted/50 rounded-lg flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+              <Package className="w-5 h-5 text-primary flex-shrink-0" />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                <span className="text-xs sm:text-sm text-muted-foreground">Selected Product:</span>
+                <span className="font-medium text-sm sm:text-base">{selectedProduct.name}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">({selectedProduct.code})</span>
               </div>
             </div>
           )}
 
           {/* Step heading and description with completion indicator */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
+          <div className="mb-4 sm:mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
               <div>
+                {/* Heading with mobile-first responsive text sizes: text-xl sm:text-2xl md:text-3xl */}
                 <h2
                   ref={headingRef}
-                  className="text-xl font-semibold"
+                  className="text-xl sm:text-2xl md:text-3xl font-semibold"
                   tabIndex={-1}
                 >
                   {currentStepConfig.label}
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground mt-1">
                   {currentStepConfig.description}
                 </p>
               </div>
@@ -208,20 +242,24 @@ const CalculationWizard: React.FC = () => {
             </div>
           </div>
 
-          {/* Current step component */}
-          <div className="mb-8">
-            <CurrentStepComponent />
+          {/* Current step component with responsive grid */}
+          <div className="mb-6 sm:mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="md:col-span-2 lg:col-span-3">
+                <CurrentStepComponent />
+              </div>
+            </div>
           </div>
 
           {/* Navigation controls - follows content instead of fixed footer */}
-          <div className="border-t pt-6 mt-8">
+          <div className="border-t pt-4 sm:pt-6 mt-6 sm:mt-8">
             <WizardNavigation />
           </div>
         </div>
       </main>
 
       {/* Data source attributions footer */}
-      <footer role="contentinfo" id="attributions">
+      <footer role="contentinfo" id="attributions" className="flex flex-col sm:flex-row gap-2 sm:gap-4">
         <DataSourceAttributions variant="footer" />
       </footer>
     </div>
