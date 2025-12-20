@@ -9,6 +9,10 @@ export { useMediaQuery } from './useMediaQuery';
 export { useBreakpoints, BREAKPOINTS } from './useBreakpoints';
 export type { BreakpointState } from './useBreakpoints';
 
+// Touch & Gesture Hooks
+export { useSwipeNavigation } from './useSwipeNavigation';
+export type { SwipeNavigationOptions, SwipeNavigationResult } from './useSwipeNavigation';
+
 // Accessibility Hooks
 export { useAnnouncer } from './useAnnouncer';
 
