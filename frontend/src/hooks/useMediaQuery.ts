@@ -17,8 +17,8 @@ export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState<boolean>(false);
 
   useEffect(() => {
-    // SSR safety check
-    if (typeof window === 'undefined') {
+    // SSR safety check and test environment safety (jsdom may not have matchMedia)
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
       return;
     }
 

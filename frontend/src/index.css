@@ -70,4 +70,68 @@
     white-space: nowrap;
     border-width: 0;
   }
+
+  /**
+   * Touch Target Utilities - WCAG 2.5.5 Compliance
+   * TASK-FE-P7-011: Touch-Friendly Interactions
+   *
+   * These utilities ensure interactive elements meet the 44x44px minimum
+   * touch target size required by WCAG 2.5.5 (Target Size Enhanced).
+   */
+
+  /* Touch-friendly minimum sizes - always 44x44px */
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Responsive touch target - 44px on mobile, resets on larger screens */
+  .touch-target-sm {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  @media (min-width: 640px) {
+    .touch-target-sm {
+      min-width: unset;
+      min-height: unset;
+    }
+  }
+
+  /**
+   * Expanded touch area for small icons
+   * Creates an invisible 44x44px clickable area around smaller visual elements
+   */
+  .touch-area-expanded {
+    position: relative;
+  }
+
+  .touch-area-expanded::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /**
+   * Horizontal bounce animation for scroll indicator
+   * TASK-FE-P7-013: Visualization Responsiveness
+   *
+   * Used in ResponsiveChartContainer to indicate horizontal scrolling is available.
+   */
+  @keyframes bounce-x {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(4px);
+    }
+  }
+
+  .animate-bounce-x {
+    animation: bounce-x 1s ease-in-out infinite;
+  }
 }

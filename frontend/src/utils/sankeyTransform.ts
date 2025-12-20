@@ -7,6 +7,7 @@
  *
  * TASK-FE-008: Nivo Sankey Implementation
  * TASK-FE-P8-002: In-chart drill-down expansion
+ * TASK-FE-P7-013: Visualization Responsiveness
  */
 
 import { EMISSION_CATEGORY_COLORS } from '../constants/colors';
@@ -72,6 +73,15 @@ export function getCategoryFromValue(valueName: string): string | null {
 }
 
 /**
+ * Check if a value is a valid numeric CO2e value
+ * @param value - Value to check
+ * @returns true if it's a finite positive number
+ */
+function isValidCo2eValue(value: unknown): value is number {
+  return typeof value === 'number' && isFinite(value) && value > 0;
+}
+
+/**
  * Transform calculation results to Sankey diagram format
  *
  * Creates nodes for each emission category and links to total.
@@ -102,18 +112,36 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
 
   // Calculate ALL category totals from breakdown items for consistent classification
   // This ensures percentages add up correctly (avoiding double-counting with backend totals)
-  const categoryTotals = { materials: 0, energy: 0, transport: 0, other: 0 };
+  let categoryTotals = { materials: 0, energy: 0, transport: 0, other: 0 };
+  let breakdownProcessed = false;
 
   if (calculation.breakdown && Object.keys(calculation.breakdown).length > 0) {
     Object.entries(calculation.breakdown).forEach(([componentName, co2e]) => {
-      const category = classifyComponent(componentName);
-      categoryTotals[category] += co2e;
+      // Only process if co2e is a valid number (not an array or object)
+      if (isValidCo2eValue(co2e)) {
+        const category = classifyComponent(componentName);
+        categoryTotals[category] += co2e;
+        breakdownProcessed = true;
+      }
     });
-  } else {
-    // Fallback to backend totals if no breakdown available
-    categoryTotals.materials = calculation.materials_co2e || 0;
-    categoryTotals.energy = calculation.energy_co2e || 0;
-    categoryTotals.transport = calculation.transport_co2e || 0;
+  }
+
+  // If breakdown wasn't processed successfully (empty, invalid format, or no valid numbers),
+  // fallback to backend totals
+  const hasValidCategoryTotals =
+    categoryTotals.materials > 0 ||
+    categoryTotals.energy > 0 ||
+    categoryTotals.transport > 0 ||
+    categoryTotals.other > 0;
+
+  if (!breakdownProcessed || !hasValidCategoryTotals) {
+    // Fallback to backend totals
+    categoryTotals = {
+      materials: calculation.materials_co2e || 0,
+      energy: calculation.energy_co2e || 0,
+      transport: calculation.transport_co2e || 0,
+      other: 0,
+    };
   }
 
   // Define category mappings with calculated totals
@@ -269,9 +297,12 @@ export function transformToExpandedSankeyData(
   const categoryItems: Array<{ name: string; co2e: number }> = [];
 
   Object.entries(breakdown).forEach(([componentName, co2e]) => {
-    const componentCategory = classifyComponent(componentName);
-    if (componentCategory === expandedCategory && co2e > 0) {
-      categoryItems.push({ name: componentName, co2e });
+    // Only process if co2e is a valid number
+    if (isValidCo2eValue(co2e)) {
+      const componentCategory = classifyComponent(componentName);
+      if (componentCategory === expandedCategory) {
+        categoryItems.push({ name: componentName, co2e });
+      }
     }
   });
 

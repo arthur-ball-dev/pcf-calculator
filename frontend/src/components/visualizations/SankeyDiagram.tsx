@@ -8,12 +8,14 @@
  * - Color coding by emission category
  * - Interactive tooltips with CO2e values
  * - Clickable category nodes for drill-down
- * - Responsive sizing
+ * - Responsive sizing with mobile optimization
+ * - Horizontal scrolling for complex charts on mobile
  * - Empty/loading/error states
  * - WCAG 2.1 AA accessible
  *
  * TASK-FE-008: Nivo Sankey Implementation
  * TASK-FE-P8-002: Category Drill-Down click handler
+ * TASK-FE-P7-013: Visualization Responsiveness
  */
 
 import { useState, useMemo, useCallback } from 'react';
@@ -21,9 +23,24 @@ import { ResponsiveSankey } from '@nivo/sankey';
 import { ArrowLeft } from 'lucide-react';
 import { transformToSankeyData, transformToExpandedSankeyData } from '../../utils/sankeyTransform';
 import SankeyTooltip from './SankeyTooltip';
+import { ResponsiveChartContainer } from './ResponsiveChartContainer';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
+import { useBreakpoints, BREAKPOINTS } from '../../hooks/useBreakpoints';
 import type { Calculation } from '../../types/store.types';
+
+/**
+ * Truncate label text for mobile display
+ * @param text - Original label text
+ * @param maxLength - Maximum characters before truncation
+ * @returns Truncated text with ellipsis if needed
+ */
+function truncateLabel(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return text.slice(0, maxLength) + '...';
+}
 
 /**
  * Split text into lines at word boundaries (including "/" as a break point)
@@ -62,15 +79,23 @@ function wrapLabel(text: string, maxCharsPerLine: number): string[] {
 
 /**
  * Create a custom labels layer factory that uses sankeyData for label lookup
+ * @param labelMap - Map of node IDs to display labels
+ * @param isMobile - Whether the viewport is mobile-sized
  */
-function createLabelsLayer(labelMap: Map<string, string>) {
+function createLabelsLayer(labelMap: Map<string, string>, isMobile: boolean) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function LabelsLayer({ nodes }: { nodes: readonly any[] }) {
     return (
       <g>
         {nodes.map((node) => {
           // Look up the display label from our map
-          const label = labelMap.get(node.id) || node.id;
+          let label = labelMap.get(node.id) || node.id;
+
+          // Truncate labels on mobile to prevent overlap
+          if (isMobile) {
+            label = truncateLabel(label, 10);
+          }
+
           const lines = wrapLabel(label, 12);
           const lineHeight = 14;
           const totalHeight = lines.length * lineHeight;
@@ -89,7 +114,7 @@ function createLabelsLayer(labelMap: Map<string, string>) {
               textAnchor={textAnchor}
               dominantBaseline="central"
               style={{
-                fontSize: 12,
+                fontSize: isMobile ? 11 : 12,
                 fontFamily: 'Inter, system-ui, sans-serif',
                 fill: '#333333',
               }}
@@ -137,6 +162,38 @@ interface SankeyDiagramProps {
 const DRILLABLE_CATEGORIES = ['materials', 'energy', 'transport', 'other', 'process', 'waste'];
 
 /**
+ * Responsive height values per spec (TASK-FE-P7-013):
+ * - Mobile (<=640px): 350px
+ * - Tablet (641px-1023px): 400px
+ * - Desktop (>=1024px): 500px
+ */
+const RESPONSIVE_HEIGHTS = {
+  mobile: 350,
+  tablet: 400,
+  desktop: 500,
+} as const;
+
+/**
+ * Get the current viewport's responsive height using matchMedia
+ * This provides consistent height values for both the container and inner elements
+ */
+function getResponsiveHeight(heightProp?: number): number {
+  if (heightProp) return heightProp;
+
+  // Check if window and matchMedia are available (SSR safety and test environment safety)
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return RESPONSIVE_HEIGHTS.desktop;
+  }
+
+  const isMobile = window.matchMedia(`(max-width: ${BREAKPOINTS.sm}px)`).matches;
+  const isTabletOrSmaller = window.matchMedia(`(max-width: ${BREAKPOINTS.lg - 1}px)`).matches;
+
+  if (isMobile) return RESPONSIVE_HEIGHTS.mobile;
+  if (isTabletOrSmaller) return RESPONSIVE_HEIGHTS.tablet;
+  return RESPONSIVE_HEIGHTS.desktop;
+}
+
+/**
  * SankeyDiagram Component
  *
  * Visualizes carbon emissions flow using Sankey diagram.
@@ -155,6 +212,12 @@ export default function SankeyDiagram({
   // State for expanded category (null = overview, string = expanded category)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
+  // Get responsive breakpoint info
+  const { isMobile } = useBreakpoints();
+
+  // Calculate the actual container height for passing to inner elements
+  const containerHeight = getResponsiveHeight(height);
+
   // Transform calculation data to Sankey format (overview or expanded)
   const sankeyData = useMemo(() => {
     if (expandedCategory) {
@@ -169,60 +232,42 @@ export default function SankeyDiagram({
     sankeyData.nodes.forEach((node) => {
       labelMap.set(node.id, node.label);
     });
-    return createLabelsLayer(labelMap);
-  }, [sankeyData]);
+    return createLabelsLayer(labelMap, isMobile);
+  }, [sankeyData, isMobile]);
 
-  // Calculate responsive dimensions based on content
-  // Uses the same nodeThickness/nodeSpacing formulas as the Sankey component for consistency
-  const dimensions = useMemo(() => {
-    // Default to 100% width for responsive sizing when no explicit width provided
-    const responsiveWidth = width || '100%';
-
-    if (height) {
-      return { width: responsiveWidth, height, chartHeight: height };
-    }
-
+  // Calculate minimum width based on node count for horizontal scroll
+  const minWidth = useMemo(() => {
     const nodeCount = sankeyData.nodes.length;
-    if (nodeCount === 0) {
-      return { width: responsiveWidth, height: 200, chartHeight: 200 };
-    }
+    // Ensure minimum width for readability on complex charts
+    return Math.max(400, nodeCount * 50);
+  }, [sankeyData.nodes.length]);
 
-    // Same formulas used in ResponsiveSankey props below
-    const nodeThickness = Math.max(12, Math.min(18, 200 / nodeCount));
-    const nodeSpacing = Math.max(8, Math.min(24, 150 / nodeCount));
-
-    // Calculate max label lines based on actual label lengths and wrap threshold
-    const wrapThreshold = 12; // Same as wrapLabel function
-    const maxLabelLines = Math.max(
-      ...sankeyData.nodes.map(node => Math.ceil(node.label.length / wrapThreshold))
-    );
-    const lineHeight = 14; // Same as in createLabelsLayer
-    const labelHeight = maxLabelLines * lineHeight;
-
-    // Total content height = space for nodes + spacing between nodes
-    const nodesContentHeight = (nodeThickness * nodeCount) + (nodeSpacing * (nodeCount - 1));
-
-    // Add overflow space for labels that extend beyond node bounds
-    const labelOverflow = Math.max(0, labelHeight - nodeThickness);
-
-    // Vertical margins match ResponsiveSankey margin prop (top: 20, bottom: 20)
-    const verticalMargin = 40;
-
-    // Chart height is the actual Sankey visualization space needed
-    const chartHeight = Math.max(400, nodesContentHeight + labelOverflow + verticalMargin);
-
-    // Header height for back button and hint text when in expanded mode
-    const headerHeight = expandedCategory ? 48 : 24; // back button ~48px, hint text ~24px
-
-    // Total container height = chart + header
-    const totalHeight = chartHeight + headerHeight;
-
+  // Calculate node dimensions
+  const nodeDimensions = useMemo(() => {
+    const nodeCount = sankeyData.nodes.length;
     return {
-      width: responsiveWidth,
-      height: totalHeight,
-      chartHeight: chartHeight,
+      nodeThickness: Math.max(12, Math.min(18, 200 / nodeCount)),
+      nodeSpacing: Math.max(8, Math.min(24, 150 / nodeCount)),
     };
-  }, [width, height, sankeyData.nodes, expandedCategory]);
+  }, [sankeyData.nodes.length]);
+
+  // Calculate responsive margins
+  const margins = useMemo(() => {
+    if (isMobile) {
+      return {
+        top: 10,
+        right: 10,
+        bottom: 10,
+        left: 10,
+      };
+    }
+    return {
+      top: 20,
+      right: expandedCategory ? 85 : 65,
+      bottom: 20,
+      left: expandedCategory ? 100 : 85,
+    };
+  }, [isMobile, expandedCategory]);
 
   // Handle click on node or link - expand category
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -249,12 +294,20 @@ export default function SankeyDiagram({
         return;
       }
 
-      // If in overview mode and clicked a drillable category, expand it
+      // If in overview mode and clicked a drillable category, try to expand it
       if (!expandedCategory && DRILLABLE_CATEGORIES.includes(nodeId)) {
-        console.log('Expanding category:', nodeId);
-        setExpandedCategory(nodeId);
+        // Check if expanding would produce valid data before drilling down
+        const expandedData = transformToExpandedSankeyData(calculation, nodeId);
 
-        // Also trigger external callback if provided
+        // Only drill down if the expanded view would have valid nodes
+        if (expandedData.nodes.length > 0) {
+          console.log('Expanding category:', nodeId);
+          setExpandedCategory(nodeId);
+        } else {
+          console.log('No breakdown data for category:', nodeId, '- skipping drill-down');
+        }
+
+        // Always trigger external callback if provided (for analytics, etc.)
         if (onNodeClick) {
           const fullNode = sankeyData.nodes.find((n) => n.id === nodeId);
           if (fullNode) {
@@ -268,7 +321,7 @@ export default function SankeyDiagram({
         }
       }
     },
-    [expandedCategory, onNodeClick, sankeyData.nodes]
+    [expandedCategory, onNodeClick, sankeyData.nodes, calculation]
   );
 
   // Handle back button click
@@ -276,150 +329,106 @@ export default function SankeyDiagram({
     setExpandedCategory(null);
   }, []);
 
-  // Handle empty calculation
-  if (!calculation) {
-    return (
-      <div
-        data-testid="sankey-container"
-        style={{
-          width: dimensions.width,
-          height: dimensions.height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#666',
-          fontSize: '14px',
-        }}
-      >
-        No calculation data available
-      </div>
-    );
-  }
-
-  // Handle pending/in-progress status
-  if (calculation.status === 'pending' || calculation.status === 'in_progress') {
-    return (
-      <div
-        data-testid="sankey-container"
-        style={{
-          width: dimensions.width,
-          height: dimensions.height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#666',
-          fontSize: '14px',
-        }}
-      >
-        Calculating...
-      </div>
-    );
-  }
-
-  // Handle failed status
-  if (calculation.status === 'failed') {
-    return (
-      <div
-        data-testid="sankey-container"
-        style={{
-          width: dimensions.width,
-          height: dimensions.height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#d32f2f',
-          fontSize: '14px',
-        }}
-      >
-        Calculation failed: {calculation.error_message || 'Unknown error'}
-      </div>
-    );
-  }
-
-  // Handle missing breakdown data
-  if (sankeyData.nodes.length === 0) {
-    return (
-      <div
-        data-testid="sankey-container"
-        style={{
-          width: dimensions.width,
-          height: dimensions.height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#666',
-          fontSize: '14px',
-        }}
-      >
-        No breakdown data available
-      </div>
-    );
-  }
-
   // Get title for expanded view
   const expandedTitle = expandedCategory
     ? `${expandedCategory === 'other' ? 'Processing/Other' : expandedCategory.charAt(0).toUpperCase() + expandedCategory.slice(1)} Breakdown`
     : null;
 
-  // Render Sankey diagram
-  return (
-    <div
-      data-testid="sankey-container"
-      role="img"
-      aria-label={
-        expandedCategory
-          ? `${expandedTitle} showing ${sankeyData.nodes.length - 1} items`
-          : `Carbon flow diagram showing emissions breakdown with ${sankeyData.nodes.length} categories. Click on a category to see detailed breakdown.`
-      }
-      className={cn('relative', !expandedCategory && onNodeClick && 'cursor-pointer')}
-      style={{ width: dimensions.width, height: dimensions.height }}
-    >
-      {/* Back button when in expanded view */}
-      {expandedCategory && (
-        <div className="flex items-center gap-2 mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleBackClick}
-            className="flex items-center gap-1"
-            data-testid="sankey-back-button"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Overview
-          </Button>
-          <span className="text-sm font-medium text-muted-foreground">
-            {expandedTitle}
-          </span>
+  // Accessibility label for the chart
+  const ariaLabel = expandedCategory
+    ? `${expandedTitle} showing ${sankeyData.nodes.length - 1} items`
+    : `Carbon flow diagram showing emissions breakdown with ${sankeyData.nodes.length} categories. Click on a category to see detailed breakdown.`;
+
+  // Render the inner content (shared between normal and empty states)
+  const renderInnerContent = () => {
+    // Handle empty calculation
+    if (!calculation) {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#666',
+            fontSize: '14px',
+          }}
+        >
+          No calculation data available
         </div>
-      )}
+      );
+    }
 
-      {/* Hint text when in overview */}
-      {!expandedCategory && (
-        <p className="text-xs text-muted-foreground text-center mb-2">
-          Click on a category to drill down
-        </p>
-      )}
+    // Handle pending/in-progress status
+    if (calculation.status === 'pending' || calculation.status === 'in_progress') {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#666',
+            fontSize: '14px',
+          }}
+        >
+          Calculating...
+        </div>
+      );
+    }
 
-      <div
-        style={{
-          width: '100%',
-          height: dimensions.chartHeight,
-        }}
-      >
+    // Handle failed status
+    if (calculation.status === 'failed') {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#d32f2f',
+            fontSize: '14px',
+          }}
+        >
+          Calculation failed: {calculation.error_message || 'Unknown error'}
+        </div>
+      );
+    }
+
+    // Handle missing breakdown data
+    if (sankeyData.nodes.length === 0) {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#666',
+            fontSize: '14px',
+          }}
+        >
+          No breakdown data available
+        </div>
+      );
+    }
+
+    // Render Sankey chart
+    return (
+      <div style={{ width: '100%', height: '100%' }}>
         <ResponsiveSankey
           data={sankeyData}
-          margin={{
-            top: 20,
-            right: expandedCategory ? 85 : 65,
-            bottom: 20,
-            left: expandedCategory ? 100 : 85
-          }}
+          margin={margins}
           align="justify"
           colors={(node) => node.nodeColor || '#cccccc'}
           nodeOpacity={1}
           nodeHoverOpacity={1}
-          nodeThickness={Math.max(12, Math.min(18, 200 / sankeyData.nodes.length))}
-          nodeSpacing={Math.max(8, Math.min(24, 150 / sankeyData.nodes.length))}
+          nodeThickness={nodeDimensions.nodeThickness}
+          nodeSpacing={nodeDimensions.nodeSpacing}
           nodeBorderWidth={0}
           nodeBorderColor={{ from: 'color', modifiers: [['darker', 0.8]] }}
           linkOpacity={0.6}
@@ -433,7 +442,7 @@ export default function SankeyDiagram({
           theme={{
             background: 'transparent',
             text: {
-              fontSize: 12,
+              fontSize: isMobile ? 11 : 12,
               fontFamily: 'Inter, system-ui, sans-serif',
               fill: '#333333',
             },
@@ -448,6 +457,57 @@ export default function SankeyDiagram({
           }}
         />
       </div>
-    </div>
+    );
+  };
+
+  // Main render - ResponsiveChartContainer wraps everything including sankey-container
+  return (
+    <ResponsiveChartContainer
+      minHeight={height ?? RESPONSIVE_HEIGHTS.desktop}
+      mobileHeight={RESPONSIVE_HEIGHTS.mobile}
+      tabletHeight={RESPONSIVE_HEIGHTS.tablet}
+      enableScroll={isMobile}
+      minWidth={isMobile ? minWidth : undefined}
+      aria-label={ariaLabel}
+    >
+      <div
+        data-testid="sankey-container"
+        role="img"
+        aria-label={ariaLabel}
+        className={cn('relative', !expandedCategory && onNodeClick && 'cursor-pointer')}
+        style={{ width: width ? `${width}px` : '100%', height: containerHeight }}
+      >
+        {/* Back button when in expanded view */}
+        {expandedCategory && (
+          <div className="flex items-center gap-2 mb-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackClick}
+              className="flex items-center gap-1"
+              data-testid="sankey-back-button"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Overview
+            </Button>
+            <span className="text-sm font-medium text-muted-foreground">
+              {expandedTitle}
+            </span>
+          </div>
+        )}
+
+        {/* Hint text when in overview */}
+        {!expandedCategory && sankeyData.nodes.length > 0 && (
+          <p className="text-xs text-muted-foreground text-center mb-1">
+            Click on a category to drill down
+          </p>
+        )}
+
+        {/* Inner content */}
+        <div style={{ width: '100%', height: expandedCategory ? 'calc(100% - 40px)' : sankeyData.nodes.length > 0 ? 'calc(100% - 20px)' : '100%' }}>
+          {renderInnerContent()}
+        </div>
+      </div>
+    </ResponsiveChartContainer>
   );
 }
