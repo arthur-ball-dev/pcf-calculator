@@ -18,15 +18,18 @@
  * - Focus management for accessibility
  * - Screen reader announcements for step changes
  * - Mobile-responsive layout (TASK-FE-P7-009)
+ * - Swipe gesture navigation on mobile/tablet (TASK-FE-P7-011)
  *
  * Integration:
  * - wizardStore: Navigation state and step completion
  * - calculatorStore: Product selection, BOM data, calculation results
  * - WIZARD_STEPS: Step configuration with components and validation
  * - useAnnouncer: Screen reader announcements
+ * - useSwipeNavigation: Touch gesture navigation
  *
  * TASK-FE-P5-012: Added TourControls button to header for guided tour
  * TASK-FE-P7-009: Added mobile responsive layouts
+ * TASK-FE-P7-011: Added swipe gesture navigation for mobile/tablet
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -36,6 +39,7 @@ import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { useAnnouncer } from '@/hooks/useAnnouncer';
 import { useBreakpoints } from '@/hooks/useBreakpoints';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { WIZARD_STEPS } from '@/config/wizardSteps';
 import { TourControls } from '@/components/Tour/TourControls';
 import WizardProgress from './WizardProgress';
@@ -46,7 +50,7 @@ import { DataSourceAttributions } from '@/components/DataSourceAttributions';
  * Main CalculationWizard component
  */
 const CalculationWizard: React.FC = () => {
-  const { currentStep, completedSteps, markStepComplete, markStepIncomplete } =
+  const { currentStep, completedSteps, markStepComplete, markStepIncomplete, goNext, goBack } =
     useWizardStore();
   const { selectedProduct } = useCalculatorStore();
   const { announce } = useAnnouncer();
@@ -57,6 +61,32 @@ const CalculationWizard: React.FC = () => {
   // Find current step configuration
   const currentStepConfig = WIZARD_STEPS.find((s) => s.id === currentStep);
   const CurrentStepComponent = currentStepConfig?.component;
+
+  // Determine if we can proceed to next step (for swipe navigation)
+  const canProceed = completedSteps.includes(currentStep);
+  const currentStepIndex = WIZARD_STEPS.findIndex((s) => s.id === currentStep);
+  const canGoBack = currentStepIndex > 0;
+  const canGoForward = currentStepIndex < WIZARD_STEPS.length - 1 && canProceed;
+
+  /**
+   * Swipe navigation for mobile/tablet
+   * TASK-FE-P7-011: Touch-Friendly Interactions
+   */
+  const { handlers: swipeHandlers, isSwipeActive } = useSwipeNavigation({
+    onSwipeLeft: () => {
+      if (canGoForward) {
+        goNext();
+      }
+    },
+    onSwipeRight: () => {
+      if (canGoBack) {
+        goBack();
+      }
+    },
+    threshold: 50,
+    enabled: true,
+    preventOnFormElements: true,
+  });
 
   /**
    * Scroll to top of page on initial load
@@ -200,7 +230,11 @@ const CalculationWizard: React.FC = () => {
       </header>
 
       {/* Main content area - renders current step component */}
+      {/* Swipe handlers are applied for mobile/tablet navigation */}
       <main
+        {...swipeHandlers}
+        data-testid="wizard-container"
+        data-swipe-active={isSwipeActive}
         className={mainPaddingClass}
         role="main"
       >

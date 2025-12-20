@@ -4,8 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Button component variants with WCAG 2.5.5 compliant touch targets.
+ * All interactive elements meet 44x44px minimum for touch accessibility.
+ *
+ * TASK-FE-P7-011: Updated all sizes to ensure min-h-11 (44px) minimum height.
+ * - default: h-11 (44px) for WCAG 2.5.5 compliance
+ * - sm: h-11 (44px) - same as default for touch accessibility
+ * - lg: h-12 (48px) - larger than minimum
+ * - icon: size-11 (44x44px) - square touch target
+ * - icon-sm: min-h-11 min-w-11 (44x44px) - meets minimum despite "sm" name
+ * - icon-lg: size-12 (48x48px) - larger square
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive min-h-11 min-w-11",
   {
     variants: {
       variant: {
@@ -21,12 +33,13 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        // All sizes ensure minimum 44px height for WCAG 2.5.5 touch target compliance
+        default: "h-11 px-4 py-2 has-[>svg]:px-3",
+        sm: "h-11 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+        lg: "h-12 rounded-md px-6 has-[>svg]:px-4",
+        icon: "h-11 w-11",
+        "icon-sm": "min-h-11 min-w-11",
+        "icon-lg": "size-12",
       },
     },
     defaultVariants: {
