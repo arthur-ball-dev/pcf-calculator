@@ -15,7 +15,8 @@
  */
 
 import { useCallback, useRef } from 'react';
-import { useSwipeable, SwipeEventData } from 'react-swipeable';
+import { useSwipeable } from 'react-swipeable';
+import type { SwipeEventData } from 'react-swipeable';
 import { useBreakpoints } from './useBreakpoints';
 
 export interface SwipeNavigationOptions {
