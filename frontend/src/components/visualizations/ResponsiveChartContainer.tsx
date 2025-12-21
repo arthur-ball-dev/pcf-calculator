@@ -22,7 +22,7 @@
  */
 
 import { useRef, useEffect, useState, type ReactNode } from 'react';
-import { useBreakpoints, BREAKPOINTS } from '@/hooks/useBreakpoints';
+import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -61,25 +61,6 @@ interface ResponsiveChartContainerProps {
 }
 
 /**
- * Get current viewport breakpoint state
- * Uses window.matchMedia for accurate detection with fallback to desktop defaults
- */
-function getViewportState() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return { isMobile: false, isTablet: false };
-  }
-
-  // Use matchMedia if available for accurate detection
-  const isMobile = window.matchMedia(`(max-width: ${BREAKPOINTS.sm}px)`).matches;
-  const isTabletOrSmaller = window.matchMedia(`(max-width: ${BREAKPOINTS.lg - 1}px)`).matches;
-
-  return {
-    isMobile,
-    isTablet: !isMobile && isTabletOrSmaller,
-  };
-}
-
-/**
  * Responsive container for Nivo charts
  *
  * Provides responsive height adjustments, horizontal scrolling for complex
@@ -100,14 +81,8 @@ export function ResponsiveChartContainer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  // Use the breakpoints hook for reactive updates (triggers re-render on viewport change)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _breakpoints = useBreakpoints();
-
-  // Get current viewport state directly from matchMedia for immediate accuracy
-  // This ensures correct behavior on rerender even if the hook hasn't updated yet
-  // The hook is kept for reactive updates, but we use getViewportState() for calculations
-  const currentViewport = getViewportState();
+  // Use the breakpoints hook for reactive viewport detection
+  const { isMobile, isTablet } = useBreakpoints();
 
   // Track container width for aspect ratio calculations
   useEffect(() => {
@@ -130,14 +105,14 @@ export function ResponsiveChartContainer({
       return containerWidth / aspectRatio;
     }
 
-    // Viewport-based heights - use direct viewport check for reliability
-    if (currentViewport.isMobile) return mobileHeight;
-    if (currentViewport.isTablet) return tabletHeight ?? DEFAULT_HEIGHTS.tablet;
+    // Viewport-based heights
+    if (isMobile) return mobileHeight;
+    if (isTablet) return tabletHeight ?? DEFAULT_HEIGHTS.tablet;
     return minHeight;
   };
 
   const height = calculateHeight();
-  const needsScroll = enableScroll && minWidth > 0 && currentViewport.isMobile;
+  const needsScroll = enableScroll && minWidth > 0 && isMobile;
 
   // Loading state with skeleton
   if (isLoading) {
