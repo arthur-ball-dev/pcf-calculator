@@ -168,7 +168,7 @@ export function DataSourceAttributions({
             <Info className="h-3 w-3" />
             Data sources: EPA, DEFRA, Exiobase
             {requiredAttributions.length > 0 && (
-              <span className="text-amber-600">
+              <span className="text-amber-700">
                 ({requiredAttributions.length} require attribution)
               </span>
             )}
