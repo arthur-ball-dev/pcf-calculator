@@ -10,15 +10,17 @@
  * - Wizard step validation integration
  * - Keyboard navigation and accessibility
  * - Loading state display while BOM is being fetched (TASK-FE-019)
+ * - Responsive view switching: card view on mobile, table on desktop (TASK-FE-P7-010)
  *
  * Uses:
  * - React Hook Form with useFieldArray
  * - Zod validation schema
  * - shadcn/ui components (Table, Input, Select, Button, Tooltip)
+ * - useBreakpoints hook for responsive behavior
  */
 
-import React, { useEffect, useRef } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import React, { useEffect, useRef, useCallback } from 'react';
+import { useForm, useFieldArray, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,6 +36,8 @@ import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { bomFormSchema, type BOMFormData } from '@/schemas/bomSchema';
 import BOMTableRow from './BOMTableRow';
+import { BOMCardList } from '@/components/calculator/BOMCardList';
+import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { generateId } from '@/lib/utils';
 import { classifyComponent } from '@/utils/classifyComponent';
 import type { BOMItem } from '@/types/store.types';
@@ -85,9 +89,10 @@ const BOMEditorSkeleton: React.FC = () => {
 export default function BOMEditor() {
   const { bomItems, setBomItems, isLoadingBOM } = useCalculatorStore();
   const { markStepComplete, markStepIncomplete } = useWizardStore();
+  const { isMobile } = useBreakpoints();
 
   // Track the last bomItems JSON to detect external vs local changes
-  // This prevents circular updates: form → store → form.reset
+  // This prevents circular updates: form -> store -> form.reset
   const lastBomItemsRef = useRef<string>('');
 
   // Initialize form with existing BOM items or one default item
@@ -192,6 +197,35 @@ export default function BOMEditor() {
   };
 
   /**
+   * Handle update from card view
+   * Updates a BOM item's properties via the form
+   */
+  const handleCardUpdate = useCallback((id: string, updates: Partial<BOMItem>) => {
+    const itemIndex = fields.findIndex((field) => field.id === id);
+    if (itemIndex !== -1) {
+      // Update quantity field specifically (the main use case for card view)
+      if (updates.quantity !== undefined) {
+        const fieldPath = `items.${itemIndex}.quantity` as FieldPath<BOMFormData>;
+        form.setValue(fieldPath, updates.quantity, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+    }
+  }, [fields, form]);
+
+  /**
+   * Handle remove from card view
+   * Removes a BOM item by its ID
+   */
+  const handleCardRemove = useCallback((id: string) => {
+    const itemIndex = fields.findIndex((field) => field.id === id);
+    if (itemIndex !== -1 && fields.length > 1) {
+      remove(itemIndex);
+    }
+  }, [fields, remove]);
+
+  /**
    * Calculate totals for display
    */
   const totals = form.watch('items').reduce(
@@ -216,38 +250,63 @@ export default function BOMEditor() {
     ? (errors.items as { message?: string }).message
     : null;
 
+  // Convert form fields to BOMItem array for card view
+  const cardItems: BOMItem[] = fields.map((field, index) => {
+    const values = form.getValues(`items.${index}`);
+    return {
+      id: field.id,
+      name: values.name || '',
+      quantity: values.quantity || 0,
+      unit: values.unit || 'kg',
+      category: (values.category || 'material') as BOMItem['category'],
+      emissionFactorId: values.emissionFactorId || null,
+    };
+  });
+
   return (
     <Form {...form}>
       <form className="space-y-6">
-        {/* BOM Table */}
-        <div className="border rounded-lg overflow-hidden" data-tour="bom-table">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[200px]">Component Name</TableHead>
-                  <TableHead className="min-w-[100px]">Quantity</TableHead>
-                  <TableHead className="min-w-[80px]">Unit</TableHead>
-                  <TableHead className="min-w-[120px]">Category</TableHead>
-                  <TableHead className="min-w-[250px]">Emission Factor</TableHead>
-                  <TableHead className="min-w-[60px] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fields.map((field, index) => (
-                  <BOMTableRow
-                    key={field.fieldId}
-                    field={field}
-                    index={index}
-                    form={form}
-                    onRemove={() => handleRemoveComponent(index)}
-                    canRemove={fields.length > 1}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+        {/* Responsive BOM View: Card on mobile, Table on desktop */}
+        {isMobile ? (
+          /* Mobile Card View (TASK-FE-P7-010) */
+          <BOMCardList
+            items={cardItems}
+            onUpdate={handleCardUpdate}
+            onRemove={handleCardRemove}
+            isReadOnly={false}
+            className="mt-4"
+          />
+        ) : (
+          /* Desktop Table View */
+          <div className="border rounded-lg overflow-hidden" data-tour="bom-table">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[200px]">Component Name</TableHead>
+                    <TableHead className="min-w-[100px]">Quantity</TableHead>
+                    <TableHead className="min-w-[80px]">Unit</TableHead>
+                    <TableHead className="min-w-[120px]">Category</TableHead>
+                    <TableHead className="min-w-[250px]">Emission Factor</TableHead>
+                    <TableHead className="min-w-[60px] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fields.map((field, index) => (
+                    <BOMTableRow
+                      key={field.fieldId}
+                      field={field}
+                      index={index}
+                      form={form}
+                      onRemove={() => handleRemoveComponent(index)}
+                      canRemove={fields.length > 1}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Array-level validation errors (e.g., duplicate names) */}
         {arrayLevelError && (
