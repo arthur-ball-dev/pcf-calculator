@@ -252,13 +252,14 @@ export default function SankeyDiagram({
   }, [sankeyData.nodes.length]);
 
   // Calculate responsive margins
+  // Mobile needs adequate margins for labels that extend outside nodes
   const margins = useMemo(() => {
     if (isMobile) {
       return {
         top: 10,
-        right: 10,
+        right: expandedCategory ? 70 : 50,
         bottom: 10,
-        left: 10,
+        left: expandedCategory ? 80 : 60,
       };
     }
     return {
