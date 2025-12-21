@@ -23,86 +23,101 @@ import { test, expect } from '@playwright/test';
 
 /**
  * Helper function to select a product from dropdown
- * Handles the Radix UI Select component interaction
+ * Handles the Command combobox interaction
  */
 async function selectFirstProduct(page: any) {
-  // Click to open dropdown
-  // Wait for product selector to be ready (Issue B fix)
+  // Wait for product selector to be ready
   await page.waitForSelector('[data-testid="product-select-trigger"]', {
     state: 'visible',
     timeout: 10000
   });
 
-  // Optional: Additional buffer for React rendering
-  await page.waitForTimeout(500);
+  // Setup listener for product search API call BEFORE opening dropdown
+  const searchPromise = page.waitForResponse(
+    (response: any) =>
+      response.url().includes('/api/v1/products/search') &&
+      response.request().method() === 'GET',
+    { timeout: 10000 }
+  );
 
   const trigger = page.getByTestId('product-select-trigger');
   await trigger.click();
 
-  // Wait for animation/render
-  await page.waitForTimeout(500);
+  // Wait for product search to complete
+  await searchPromise;
+
+  // Wait for products to appear
+  await page.waitForSelector('[role="option"]', { state: 'visible', timeout: 5000 });
 
   // Setup listener for product detail API call BEFORE selecting
   const productDetailPromise = page.waitForResponse(
-    (response) =>
+    (response: any) =>
       response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) &&
       response.request().method() === 'GET' &&
       response.status() === 200,
     { timeout: 10000 }
   );
 
-  // Select first option directly (matches Scenario 3 approach)
+  // Select first option
   const firstOption = page.locator('[role="option"]').first();
-  await firstOption.waitFor({ state: 'visible', timeout: 5000 });
   await firstOption.click();
 
   // Wait for product detail API to complete (includes BOM data)
   await productDetailPromise;
   // Give BOM transform time to process and update UI
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
 }
 
 /**
  * Test Suite Setup
  * Clear localStorage before each test to ensure clean state
+ * Mark tour as completed to prevent it from blocking interactions
  */
 test.beforeEach(async ({ page }) => {
-  // Clear localStorage to reset Zustand state
+  // Clear localStorage to reset Zustand state, but mark tour as completed
   await page.goto('http://localhost:5173');
   await page.evaluate(() => {
     localStorage.clear();
+    // Prevent tour from starting - it blocks click interactions
+    localStorage.setItem('pcf-calculator-tour-completed', 'true');
   });
 
-  // Reload page after clearing storage
+  // Reload page after setting storage
   await page.reload();
 
-  // Wait for products API to complete
-  await page.waitForResponse(response =>
-    response.url().includes('/api/v1/products') &&
-    response.request().method() === 'GET'
-  );
+  // Wait for page to be ready
+  await page.waitForSelector('[data-testid="product-select-trigger"]', {
+    state: 'visible',
+    timeout: 10000
+  });
 });
 
 /**
  * Test 1: Product Fetching from API
  *
  * Validates:
- * - GET /api/v1/products called on page load
+ * - GET /api/v1/products/search called when dropdown opens
  * - Response status 200
  * - Products populate dropdown
  * - No CORS errors
  */
-test('fetches products from API on load', async ({ page }) => {
-  // Navigate to application
-  await page.goto('http://localhost:5173');
+test('fetches products from API when dropdown opens', async ({ page }) => {
+  // Verify product selector is ready
+  await expect(page.getByTestId('product-selector')).toBeVisible();
+  await expect(page.getByTestId('product-select-trigger')).toBeVisible();
 
-  // Wait for API call to complete
+  // Setup response listener BEFORE opening dropdown
   const responsePromise = page.waitForResponse(
     (response) =>
-      response.url().includes('/api/v1/products') &&
+      response.url().includes('/api/v1/products/search') &&
       response.request().method() === 'GET'
   );
 
+  // Click to open dropdown - this triggers the API call
+  const trigger = page.getByTestId('product-select-trigger');
+  await trigger.click();
+
+  // Wait for API call to complete
   const response = await responsePromise;
 
   // Verify API response
@@ -113,9 +128,8 @@ test('fetches products from API on load', async ({ page }) => {
   expect(Array.isArray(responseData.items)).toBe(true);
   expect(responseData.items.length).toBeGreaterThan(0);
 
-  // Verify products loaded in UI
-  await expect(page.getByTestId('product-selector')).toBeVisible();
-  await expect(page.getByTestId('product-select-trigger')).toBeVisible();
+  // Verify products appear in dropdown
+  await page.waitForSelector('[role="option"]', { timeout: 5000 });
 
   // Screenshot proof
   await page.screenshot({

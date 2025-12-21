@@ -35,10 +35,13 @@ test.describe('Visual & UX Flow Validation', () => {
    * - Wait for initial load
    */
   test.beforeEach(async ({ page }) => {
-    // Clear localStorage for clean test state
-    await page.goto('/');
-    await page.evaluate(() => localStorage.clear());
-    await page.goto('/');
+    // Clear localStorage and set tour as completed to prevent it from blocking interactions
+    await page.goto('http://localhost:5173');
+    await page.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('pcf-calculator-tour-completed', 'true');
+    });
+    await page.reload();
 
     // Wait for page to be fully loaded
     await page.waitForLoadState('networkidle');

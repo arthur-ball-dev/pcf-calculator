@@ -17,6 +17,17 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('BUG-002 Diagnosis: Wizard Navigation Broken', () => {
+  test.beforeEach(async ({ page }) => {
+    // Set tour as completed to prevent it from blocking interactions
+    await page.goto('http://localhost:5173');
+    await page.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('pcf-calculator-tour-completed', 'true');
+    });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+  });
+
   test('capture console output when clicking Next from Step 1', async ({ page }) => {
     const consoleMessages: string[] = [];
     const consoleWarnings: string[] = [];
@@ -36,10 +47,6 @@ test.describe('BUG-002 Diagnosis: Wizard Navigation Broken', () => {
       }
     });
 
-    // Navigate to app
-    await page.goto('http://localhost:5173');
-    await page.waitForLoadState('networkidle');
-
     // Wait for ProductSelector to load
     await page.waitForSelector('[data-testid="product-selector"]', { timeout: 10000 });
 
@@ -48,7 +55,17 @@ test.describe('BUG-002 Diagnosis: Wizard Navigation Broken', () => {
     // Open the Select dropdown
     const selectTrigger = page.locator('[data-testid="product-select-trigger"]');
     await selectTrigger.click();
-    await page.waitForTimeout(500);
+
+    // Wait for search API to complete
+    await page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/v1/products/search') &&
+        response.request().method() === 'GET',
+      { timeout: 10000 }
+    );
+
+    // Wait for dropdown options to appear
+    await page.waitForSelector('[role="option"]', { state: 'visible', timeout: 5000 });
 
     // Setup listener for product detail API call BEFORE selecting
     const productDetailPromise = page.waitForResponse(
@@ -59,9 +76,9 @@ test.describe('BUG-002 Diagnosis: Wizard Navigation Broken', () => {
       { timeout: 10000 }
     );
 
-    // Select a product
-    const productOption = page.locator('[data-testid="product-option-86ec41d652904f738c7f0cd85bfba490"]').first();
-    await productOption.click();
+    // Select first available product
+    const firstOption = page.locator('[role="option"]').first();
+    await firstOption.click();
 
     // Wait for product detail API to complete (includes BOM data)
     await productDetailPromise;
