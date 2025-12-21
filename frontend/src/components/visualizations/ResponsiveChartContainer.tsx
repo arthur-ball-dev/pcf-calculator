@@ -100,19 +100,13 @@ export function ResponsiveChartContainer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  // Use the breakpoints hook for reactive updates
-  const hookBreakpoints = useBreakpoints();
+  // Use the breakpoints hook for reactive updates (triggers re-render on viewport change)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _breakpoints = useBreakpoints();
 
   // Get current viewport state directly from matchMedia for immediate accuracy
   // This ensures correct behavior on rerender even if the hook hasn't updated yet
-  const viewportState = getViewportState();
-
-  // Use the viewport state that shows the change (either from hook or direct query)
-  const isMobile = viewportState.isMobile || hookBreakpoints.isMobile;
-  const isTablet = viewportState.isTablet || hookBreakpoints.isTablet;
-
-  // Recalculate on each render using current matchMedia state
-  // This is more reliable for test scenarios and initial render
+  // The hook is kept for reactive updates, but we use getViewportState() for calculations
   const currentViewport = getViewportState();
 
   // Track container width for aspect ratio calculations
