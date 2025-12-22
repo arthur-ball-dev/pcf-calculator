@@ -22,7 +22,7 @@ TASK-CALC-003: Implement Simplified PCF Calculator
 
 import brightway2 as bw
 from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from decimal import Decimal
 import logging
 
@@ -520,8 +520,15 @@ class PCFCalculator:
         if depth > max_depth:
             raise ValueError(f"Maximum BOM depth exceeded: {max_depth}")
 
-        # Get product
-        product = db_session.query(Product).filter(Product.id == product_id).first()
+        # TASK-CALC-P7-015: Fix N+1 query by using selectinload to prefetch
+        # 2-3 levels of BOM hierarchy in a single batch query, eliminating
+        # the O(n) COUNT queries that were executed for each BOM item.
+        product = db_session.query(Product).options(
+            selectinload(Product.bom_items)
+            .selectinload(BillOfMaterials.child_product)
+            .selectinload(Product.bom_items)
+            .selectinload(BillOfMaterials.child_product)
+        ).filter(Product.id == product_id).first()
 
         if product is None:
             raise ValueError(f"Product not found: {product_id}")
@@ -534,21 +541,18 @@ class PCFCalculator:
             "children": []
         }
 
-        # Get BOM items (children)
-        bom_items = db_session.query(BillOfMaterials).filter(
-            BillOfMaterials.parent_product_id == product_id
-        ).all()
+        # Use prefetched BOM items (no additional query)
+        bom_items = product.bom_items
 
         # For each child, recurse or add as leaf
         for bom_item in bom_items:
             child_product = bom_item.child_product
 
-            # Check if child has its own BOM (intermediate) or is a leaf (material)
-            child_bom_count = db_session.query(BillOfMaterials).filter(
-                BillOfMaterials.parent_product_id == child_product.id
-            ).count()
+            # TASK-CALC-P7-015: Use prefetched data instead of COUNT query
+            # The bom_items are already loaded via selectinload chain
+            has_child_bom = len(child_product.bom_items) > 0
 
-            if child_bom_count > 0:
+            if has_child_bom:
                 # Intermediate node - recurse
                 child_tree = self._build_bom_tree_from_db(
                     child_product.id,
