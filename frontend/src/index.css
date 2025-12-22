@@ -51,6 +51,12 @@
   * {
     border-color: hsl(var(--border));
   }
+
+  /* Force light color scheme to prevent iOS Safari dark mode interference */
+  :root {
+    color-scheme: light;
+  }
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
