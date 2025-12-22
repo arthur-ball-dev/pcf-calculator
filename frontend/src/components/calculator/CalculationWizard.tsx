@@ -216,7 +216,7 @@ const CalculationWizard: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header with title and progress indicator */}
-      <header className="border-b bg-white dark:bg-gray-950 sticky top-0 z-50 shadow-sm" role="banner">
+      <header className="border-b bg-white sticky top-0 z-50 shadow-sm" role="banner">
         <div className="container mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h1 className="text-xl sm:text-2xl font-semibold">PCF Calculator</h1>
