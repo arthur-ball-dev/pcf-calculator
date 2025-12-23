@@ -16,10 +16,14 @@ Features:
 - Breakdown by category (materials, energy, transport)
 - Data quality scoring
 - Integration with database products
+- Non-blocking async initialization (TASK-CALC-P7-016)
 
 TASK-CALC-003: Implement Simplified PCF Calculator
+TASK-CALC-P7-016: Make Brightway2 Initialization Non-Blocking
 """
 
+import asyncio
+import threading
 import brightway2 as bw
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session, selectinload
@@ -27,6 +31,153 @@ from decimal import Decimal
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# Module-level state for singleton pattern
+# TASK-CALC-P7-016: Support non-blocking async initialization
+_calculator_instance: Optional["PCFCalculator"] = None
+_init_lock = asyncio.Lock()
+_initialized = False
+
+
+def _initialize_brightway_sync() -> None:
+    """
+    Synchronous Brightway2 initialization to be run in thread pool.
+
+    This function performs the actual Brightway2 initialization work,
+    including creating the PCFCalculator instance and building the
+    name-to-activity lookup cache.
+
+    This is designed to be called via asyncio.to_thread() to avoid
+    blocking the event loop during FastAPI startup.
+
+    Raises:
+        Exception: If Brightway2 project or database not initialized
+    """
+    global _calculator_instance, _initialized
+
+    if _initialized:
+        logger.debug("PCFCalculator already initialized, skipping")
+        return
+
+    logger.info("Starting synchronous Brightway2 initialization in thread pool...")
+
+    # Import and run Brightway setup
+    from backend.calculator.brightway_setup import initialize_brightway
+    from backend.calculator.emission_factor_sync import sync_emission_factors
+    from backend.database.connection import db_context
+
+    # Initialize Brightway2
+    initialize_brightway()
+
+    # Sync emission factors from database
+    with db_context() as session:
+        result = sync_emission_factors(db_session=session)
+        logger.info(f"Synced {result['synced_count']} emission factors to Brightway2")
+
+    # Create calculator instance
+    _calculator_instance = PCFCalculator()
+    _initialized = True
+
+    logger.info("Brightway2 initialization complete")
+
+
+async def initialize_pcf_calculator() -> None:
+    """
+    Initialize PCF Calculator asynchronously using thread pool.
+
+    This function wraps the synchronous Brightway2 initialization
+    in asyncio.to_thread() to prevent blocking the event loop during
+    FastAPI startup.
+
+    Uses a lock to ensure initialization only runs once, even if
+    called concurrently from multiple tasks.
+
+    Example:
+        @app.on_event("startup")
+        async def startup_event():
+            await initialize_pcf_calculator()
+    """
+    global _initialized
+
+    # Fast path: already initialized
+    if _initialized:
+        return
+
+    async with _init_lock:
+        # Double-check after acquiring lock
+        if _initialized:
+            return
+
+        logger.info("Running Brightway2 initialization in thread pool...")
+        await asyncio.to_thread(_initialize_brightway_sync)
+
+
+def get_pcf_calculator() -> "PCFCalculator":
+    """
+    Get the initialized PCF Calculator instance.
+
+    Returns the singleton PCFCalculator instance that was created
+    during async initialization.
+
+    Returns:
+        PCFCalculator: The initialized calculator instance
+
+    Raises:
+        RuntimeError: If calculator has not been initialized yet.
+            Call initialize_pcf_calculator() first.
+
+    Example:
+        calculator = get_pcf_calculator()
+        result = calculator.calculate(bom)
+    """
+    if _calculator_instance is None:
+        raise RuntimeError(
+            "PCF Calculator not initialized. Wait for startup to complete. "
+            "Call initialize_pcf_calculator() during application startup."
+        )
+    return _calculator_instance
+
+
+def is_calculator_initialized() -> bool:
+    """
+    Check if the PCF Calculator has been initialized.
+
+    Returns:
+        bool: True if calculator is initialized and ready, False otherwise
+
+    Example:
+        if is_calculator_initialized():
+            calculator = get_pcf_calculator()
+    """
+    return _initialized
+
+
+async def wait_for_calculator_ready(timeout: float = 30.0) -> None:
+    """
+    Wait for the PCF Calculator to be initialized.
+
+    This is useful for request handlers that need to wait for
+    initialization to complete before proceeding.
+
+    Args:
+        timeout: Maximum seconds to wait (default 30)
+
+    Raises:
+        TimeoutError: If calculator is not ready within timeout
+
+    Example:
+        await wait_for_calculator_ready()
+        calculator = get_pcf_calculator()
+    """
+    start_time = asyncio.get_event_loop().time()
+
+    while not _initialized:
+        if asyncio.get_event_loop().time() - start_time > timeout:
+            raise TimeoutError(
+                f"PCF Calculator not initialized within {timeout} seconds"
+            )
+        await asyncio.sleep(0.1)
 
 
 class PCFCalculator:
