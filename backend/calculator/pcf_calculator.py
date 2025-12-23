@@ -2,9 +2,9 @@
 PCF Calculator Module - Simplified Calculation Engine
 
 This module implements a simplified PCF (Product Carbon Footprint) calculator
-using Brightway2 for emission factor management. The calculation approach uses
-direct multiplication (quantity × emission_factor) rather than full matrix
-inversion for MVP simplicity.
+with support for dependency injection. The calculator can work with either:
+1. Injected EmissionFactorProvider (decoupled, testable)
+2. Brightway2 database (legacy mode for backward compatibility)
 
 Calculation Scope: Cradle-to-gate (excludes use phase and end-of-life)
 Standard: ISO 14067, GHG Protocol Product Standard
@@ -17,21 +17,86 @@ Features:
 - Data quality scoring
 - Integration with database products
 - Non-blocking async initialization (TASK-CALC-P7-016)
+- Decoupled from ORM via dependency injection (TASK-CALC-P7-022)
 
 TASK-CALC-003: Implement Simplified PCF Calculator
 TASK-CALC-P7-016: Make Brightway2 Initialization Non-Blocking
+TASK-CALC-P7-022: Decouple Calculator from ORM + Add Emission Factor Cache
 """
 
 import asyncio
-import threading
-import brightway2 as bw
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session, selectinload
-from decimal import Decimal
 import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+from .exceptions import EmissionFactorNotFoundError
+from .providers import EmissionFactorDTO, EmissionFactorProvider
 
 logger = logging.getLogger(__name__)
 
+
+# ==================== Data Classes for Calculation ====================
+
+
+@dataclass
+class BOMItem:
+    """
+    Bill of Materials item for calculation input.
+
+    Represents a single material/component in the BOM with its quantity.
+
+    Attributes:
+        material: Material/category name (must match emission factor category)
+        quantity: Amount of material
+        unit: Unit of measurement (e.g., "kg", "kWh")
+    """
+
+    material: str
+    quantity: float
+    unit: str
+
+
+@dataclass
+class ComponentBreakdown:
+    """
+    Breakdown of emissions by component.
+
+    Provides detailed emissions data for a single BOM component.
+
+    Attributes:
+        material: Material/category name
+        co2e: Total CO2e emissions for this component
+        quantity: Amount of material used
+        unit: Unit of measurement
+        emission_factor: CO2e per unit used for calculation
+    """
+
+    material: str
+    co2e: float
+    quantity: float = 0.0
+    unit: str = "kg"
+    emission_factor: float = 0.0
+
+
+@dataclass
+class CalculationResult:
+    """
+    Result of PCF calculation.
+
+    Contains total emissions and detailed breakdown by component.
+
+    Attributes:
+        total_co2e: Total CO2e emissions in kg
+        breakdown: List of ComponentBreakdown for each BOM item
+        calculation_method: Calculation methodology used
+    """
+
+    total_co2e: float
+    breakdown: List[ComponentBreakdown]
+    calculation_method: str = "attributional"
+
+
+# ==================== Module-level State (Legacy Brightway2 Support) ====================
 
 # Module-level state for singleton pattern
 # TASK-CALC-P7-016: Support non-blocking async initialization
@@ -75,7 +140,7 @@ def _initialize_brightway_sync() -> None:
         result = sync_emission_factors(db_session=session)
         logger.info(f"Synced {result['synced_count']} emission factors to Brightway2")
 
-    # Create calculator instance
+    # Create calculator instance (legacy mode without ef_provider)
     _calculator_instance = PCFCalculator()
     _initialized = True
 
@@ -180,27 +245,57 @@ async def wait_for_calculator_ready(timeout: float = 30.0) -> None:
         await asyncio.sleep(0.1)
 
 
+# ==================== PCF Calculator Class ====================
+
+
 class PCFCalculator:
     """
-    Simplified PCF Calculator using Brightway2 emission factors.
+    Simplified PCF Calculator with dependency injection support.
 
-    This calculator implements a direct multiplication approach:
-    Total CO2e = Σ(quantity_i × emission_factor_i)
+    This calculator supports two modes:
+    1. Decoupled mode: Uses injected EmissionFactorProvider (recommended)
+    2. Legacy mode: Uses Brightway2 emission factors database (for backward compatibility)
 
-    For hierarchical BOMs, quantities are multiplied through levels:
-    Level 2 CO2e = parent_qty × child_qty × emission_factor
+    Calculation: Total CO2e = sum(quantity_i * emission_factor_i)
+
+    Example (decoupled mode - recommended):
+        >>> provider = SQLAlchemyEmissionFactorProvider(session)
+        >>> cached = CachedEmissionFactorProvider(provider, ttl_seconds=300)
+        >>> calculator = PCFCalculator(ef_provider=cached)
+        >>> result = await calculator.calculate(
+        ...     product_id="prod-1",
+        ...     bom_items=[BOMItem(material="steel", quantity=10, unit="kg")]
+        ... )
+
+    Example (legacy Brightway2 mode):
+        >>> calculator = PCFCalculator()  # Uses Brightway2 database
+        >>> result = calculator.calculate_legacy([{"name": "steel", "quantity": 10, "unit": "kg"}])
     """
 
-    def __init__(self):
+    def __init__(self, ef_provider: Optional[EmissionFactorProvider] = None):
         """
         Initialize PCF Calculator.
 
-        Sets Brightway2 project and loads emission factors database.
-        Builds name-based lookup cache for efficient emission factor retrieval.
+        Args:
+            ef_provider: Optional EmissionFactorProvider for decoupled mode.
+                        If not provided, falls back to Brightway2 database (legacy mode).
 
         Raises:
-            Exception: If Brightway2 project not initialized (run TASK-CALC-001)
+            Exception: In legacy mode, if Brightway2 project not initialized.
         """
+        self._ef_provider = ef_provider
+        self._name_to_activity: Dict[str, Any] = {}
+
+        # Only initialize Brightway2 if no provider is injected (legacy mode)
+        if ef_provider is None:
+            self._init_brightway_mode()
+        else:
+            logger.info("PCFCalculator initialized in decoupled mode with injected provider")
+
+    def _init_brightway_mode(self) -> None:
+        """Initialize Brightway2 mode (legacy)."""
+        import brightway2 as bw
+
         if "pcf_calculator" not in bw.projects:
             raise Exception(
                 "Brightway2 project 'pcf_calculator' not found. "
@@ -218,14 +313,93 @@ class PCFCalculator:
         self.ef_db = bw.Database("pcf_emission_factors")
 
         # Build name-based lookup cache for O(1) retrieval performance
-        # Brightway2's .get() searches by code, but we need to search by name
-        self._name_to_activity = {}
         for activity in self.ef_db:
             self._name_to_activity[activity["name"]] = activity
 
         logger.info(
             f"PCFCalculator initialized with {len(self._name_to_activity)} emission factors"
         )
+
+    # ==================== Decoupled Mode Methods (New) ====================
+
+    async def calculate(
+        self,
+        product_id: str,
+        bom_items: List[BOMItem],
+        include_transport: bool = False,
+    ) -> CalculationResult:
+        """
+        Calculate PCF for product using injected EF provider (async).
+
+        This is the primary calculation method for decoupled mode.
+        Requires ef_provider to be set during initialization.
+
+        Args:
+            product_id: Product identifier (for tracking)
+            bom_items: List of BOMItem objects with material, quantity, unit
+            include_transport: Whether to include transport emissions (not yet implemented)
+
+        Returns:
+            CalculationResult with total_co2e and breakdown
+
+        Raises:
+            EmissionFactorNotFoundError: If emission factor not found for a material
+            RuntimeError: If no ef_provider is configured
+
+        Example:
+            >>> result = await calculator.calculate(
+            ...     product_id="prod-1",
+            ...     bom_items=[
+            ...         BOMItem(material="steel", quantity=10, unit="kg"),
+            ...         BOMItem(material="aluminum", quantity=5, unit="kg")
+            ...     ]
+            ... )
+            >>> print(f"Total: {result.total_co2e} kg CO2e")
+        """
+        if self._ef_provider is None:
+            raise RuntimeError(
+                "No emission factor provider configured. "
+                "Initialize PCFCalculator with ef_provider parameter."
+            )
+
+        breakdown: List[ComponentBreakdown] = []
+        total_co2e = 0.0
+
+        for item in bom_items:
+            ef = await self._ef_provider.get_by_category(item.material)
+
+            if ef is None:
+                raise EmissionFactorNotFoundError(item.material)
+
+            item_co2e = item.quantity * ef.co2e_kg
+            total_co2e += item_co2e
+
+            breakdown.append(
+                ComponentBreakdown(
+                    material=item.material,
+                    co2e=item_co2e,
+                    quantity=item.quantity,
+                    unit=item.unit,
+                    emission_factor=ef.co2e_kg,
+                )
+            )
+
+            logger.debug(
+                f"{item.material}: {item.quantity} {item.unit} x "
+                f"{ef.co2e_kg} kg CO2e/{item.unit} = {item_co2e} kg CO2e"
+            )
+
+        logger.info(
+            f"PCF calculation complete for {product_id}: {total_co2e:.3f} kg CO2e"
+        )
+
+        return CalculationResult(
+            total_co2e=total_co2e,
+            breakdown=breakdown,
+            calculation_method="attributional",
+        )
+
+    # ==================== Legacy Brightway2 Mode Methods ====================
 
     def _get_item_name(self, item: Dict[str, Any]) -> str:
         """
@@ -252,53 +426,33 @@ class PCFCalculator:
                 f"BOM item must have 'name' or 'component_name' field. Got: {item.keys()}"
             )
 
-    def calculate(self, bom: List[Dict[str, Any]]) -> Dict[str, float]:
+    def calculate_legacy(self, bom: List[Dict[str, Any]]) -> Dict[str, float]:
         """
-        Calculate PCF for flat BOM using direct multiplication.
+        Calculate PCF for flat BOM using direct multiplication (legacy Brightway2 mode).
 
-        This is the core calculation method that implements:
-        CO2e = Σ(quantity_i × emission_factor_i)
+        This is the original calculation method using Brightway2 database.
+        Use calculate() with ef_provider for new implementations.
 
         Args:
             bom: List of BOM items with structure:
                 [
                     {"name": str, "quantity": float, "unit": str},
-                    # or: {"component_name": str, "quantity": float, "unit": str}
                     ...
                 ]
 
         Returns:
             Dictionary with calculation results:
             {
-                "total_co2e_kg": float,  # Total CO2e emissions in kg
-                "breakdown": {           # Emissions per component
-                    "component_name": float,
-                    ...
-                }
+                "total_co2e_kg": float,
+                "breakdown": {component_name: float, ...}
             }
-
-        Raises:
-            ValueError: If emission factor not found for any component
-
-        Example:
-            >>> calculator = PCFCalculator()
-            >>> bom = [
-            ...     {"name": "cotton", "quantity": 0.2, "unit": "kg"},
-            ...     {"name": "polyester", "quantity": 0.05, "unit": "kg"}
-            ... ]
-            >>> result = calculator.calculate(bom)
-            >>> print(f"Total: {result['total_co2e_kg']} kg CO2e")
         """
         total_co2e = 0.0
         breakdown = {}
 
         for item in bom:
-            # Extract component name (supports both "name" and "component_name")
             component_name = self._get_item_name(item)
 
-            # Search for emission factor by name using cached lookup
-            # BUG FIX [CALC-003-BUG-001]: Changed from .get() which searches by code
-            # to name-based dictionary lookup for correct activity retrieval
             activity = self._name_to_activity.get(component_name)
 
             if activity is None:
@@ -307,110 +461,63 @@ class PCFCalculator:
                     f"Available factors: {list(self._name_to_activity.keys())}"
                 )
 
-            # Get CO2e factor from activity
             co2e_per_unit = self._get_co2e_from_activity(activity)
-
-            # Simple calculation: quantity × emission_factor
             item_co2e = float(item["quantity"]) * co2e_per_unit
 
             total_co2e += item_co2e
             breakdown[component_name] = item_co2e
 
             logger.debug(
-                f"{component_name}: {item['quantity']} {item['unit']} × "
+                f"{component_name}: {item['quantity']} {item['unit']} x "
                 f"{co2e_per_unit} kg CO2e/{item['unit']} = {item_co2e} kg CO2e"
             )
 
-        return {
-            "total_co2e_kg": total_co2e,
-            "breakdown": breakdown
-        }
+        return {"total_co2e_kg": total_co2e, "breakdown": breakdown}
 
     def calculate_hierarchical(self, bom_tree: Dict[str, Any]) -> Dict[str, Any]:
         """
         Calculate PCF for hierarchical BOM with parent-child relationships.
 
-        Traverses BOM tree recursively, multiplying quantities through levels:
-        - Level 0: parent (finished product)
-        - Level 1: parent_qty × child_qty × emission_factor
-        - Level 2: parent_qty × level1_qty × level2_qty × emission_factor
+        Traverses BOM tree recursively, multiplying quantities through levels.
+        Uses Brightway2 database for emission factors.
 
         Args:
-            bom_tree: Hierarchical BOM structure:
-                {
-                    "name": str,
-                    "quantity": float,
-                    "unit": str,
-                    "children": [
-                        {
-                            "name": str,
-                            "quantity": float,
-                            "unit": str,
-                            "children": [...]
-                        },
-                        ...
-                    ]
-                }
+            bom_tree: Hierarchical BOM structure
 
         Returns:
-            Dictionary with calculation results:
-            {
-                "total_co2e_kg": float,
-                "breakdown": {component_name: co2e},
-                "max_depth": int  # Maximum depth reached in BOM tree
-            }
-
-        Example:
-            >>> bom_tree = {
-            ...     "name": "t-shirt",
-            ...     "quantity": 1,
-            ...     "unit": "unit",
-            ...     "children": [
-            ...         {
-            ...             "name": "cotton_fabric",
-            ...             "quantity": 0.2,
-            ...             "unit": "kg",
-            ...             "children": [
-            ...                 {"name": "cotton", "quantity": 1.05, "unit": "kg"}
-            ...             ]
-            ...         }
-            ...     ]
-            ... }
-            >>> result = calculator.calculate_hierarchical(bom_tree)
+            Dictionary with calculation results including max_depth
         """
         flat_bom = []
         max_depth = 0
 
-        def traverse(node: Dict[str, Any], cumulative_qty: float = 1.0, depth: int = 0):
-            """Recursively traverse BOM tree and flatten to material quantities."""
+        def traverse(
+            node: Dict[str, Any], cumulative_qty: float = 1.0, depth: int = 0
+        ):
             nonlocal max_depth
             max_depth = max(max_depth, depth)
 
             if "children" in node and node["children"]:
-                # Intermediate node - recurse to children
                 for child in node["children"]:
                     child_qty = cumulative_qty * float(child["quantity"])
                     traverse(child, child_qty, depth + 1)
             else:
-                # Leaf node - this is a material with emission factor
                 node_name = self._get_item_name(node)
                 if node_name not in [item["name"] for item in flat_bom]:
-                    flat_bom.append({
-                        "name": node_name,
-                        "quantity": cumulative_qty,
-                        "unit": node["unit"]
-                    })
+                    flat_bom.append(
+                        {
+                            "name": node_name,
+                            "quantity": cumulative_qty,
+                            "unit": node["unit"],
+                        }
+                    )
                 else:
-                    # Accumulate quantities for duplicate materials
                     for item in flat_bom:
                         if item["name"] == node_name:
                             item["quantity"] += cumulative_qty
 
-        # Start traversal from root
         traverse(bom_tree)
 
-        # Calculate using flat BOM
-        result = self.calculate(flat_bom)
+        result = self.calculate_legacy(flat_bom)
         result["max_depth"] = max_depth
 
         return result
@@ -419,56 +526,23 @@ class PCFCalculator:
         """
         Calculate PCF with breakdown by category (materials, energy, transport).
 
-        Categories are used to organize emissions into standard GHG Protocol
-        categories for reporting.
+        Uses Brightway2 database for emission factors.
 
         Args:
-            bom: List of BOM items with optional "category" field:
-                [
-                    {
-                        "name": str,
-                        "quantity": float,
-                        "unit": str,
-                        "category": str  # Optional: "materials", "energy", "transport"
-                    },
-                    ...
-                ]
+            bom: List of BOM items with optional "category" field
 
         Returns:
-            Dictionary with calculation results:
-            {
-                "total_co2e_kg": float,
-                "breakdown": {component_name: co2e},
-                "breakdown_by_category": {
-                    "materials": float,
-                    "energy": float,
-                    "transport": float,
-                    ...
-                }
-            }
-
-        Example:
-            >>> bom = [
-            ...     {"name": "cotton", "quantity": 0.18, "unit": "kg", "category": "materials"},
-            ...     {"name": "electricity_us", "quantity": 2.5, "unit": "kWh", "category": "energy"}
-            ... ]
-            >>> result = calculator.calculate_with_categories(bom)
+            Dictionary with breakdown_by_category
         """
-        # First, calculate total using base method
-        result = self.calculate(bom)
+        result = self.calculate_legacy(bom)
 
-        # Build category breakdown
         breakdown_by_category = {}
 
         for item in bom:
-            # Default category is "materials" if not specified
             category = item.get("category", "materials")
-
-            # Get emissions for this item from breakdown
             component_name = self._get_item_name(item)
             item_co2e = result["breakdown"][component_name]
 
-            # Accumulate by category
             if category not in breakdown_by_category:
                 breakdown_by_category[category] = 0.0
             breakdown_by_category[category] += item_co2e
@@ -481,68 +555,26 @@ class PCFCalculator:
         """
         Calculate PCF with data quality score and source tracking.
 
-        Data quality is assessed based on:
-        - Data source (EPA, DEFRA, Ecoinvent, etc.)
-        - Temporal validity
-        - Geographic representativeness
+        Uses Brightway2 database for emission factors.
 
         Args:
-            bom: List of BOM items with optional "data_source" field:
-                [
-                    {
-                        "name": str,
-                        "quantity": float,
-                        "unit": str,
-                        "data_source": str  # Optional: "EPA", "DEFRA", etc.
-                    },
-                    ...
-                ]
+            bom: List of BOM items with optional "data_source" field
 
         Returns:
-            Dictionary with calculation results:
-            {
-                "total_co2e_kg": float,
-                "breakdown": {component_name: co2e},
-                "data_quality_score": float,  # 0.0 to 1.0
-                "data_sources": [str]          # List of data sources used
-            }
-
-        Example:
-            >>> bom = [
-            ...     {"name": "cotton", "quantity": 0.2, "unit": "kg", "data_source": "EPA"}
-            ... ]
-            >>> result = calculator.calculate_with_quality(bom)
+            Dictionary with data_quality_score and data_sources
         """
-        # First, calculate total using base method
-        result = self.calculate(bom)
+        result = self.calculate_legacy(bom)
 
-        # Track data sources
         data_sources = []
 
         for item in bom:
-            # Get data source from item or from emission factor
             data_source = item.get("data_source", None)
+            if data_source and data_source not in data_sources:
+                data_sources.append(data_source)
 
-            if data_source:
-                if data_source not in data_sources:
-                    data_sources.append(data_source)
-            else:
-                # Try to get from emission factor metadata
-                component_name = self._get_item_name(item)
-                activity = self._name_to_activity.get(component_name)
-                if activity:
-                    # Brightway2 activities don't have direct data_source attribute
-                    # For MVP, we'll use a simple quality score
-                    pass
-
-        # Calculate simple data quality score
-        # For MVP: Score based on number of data sources and availability
-        # More sophisticated scoring can be added in future phases
         if len(data_sources) > 0:
-            # Score: 1.0 if single source, decreases with more sources (less consistent)
             quality_score = 1.0 / (1.0 + 0.1 * (len(data_sources) - 1))
         else:
-            # No source info - assume secondary data (medium quality)
             quality_score = 0.7
 
         result["data_quality_score"] = quality_score
@@ -550,255 +582,40 @@ class PCFCalculator:
 
         return result
 
-    def calculate_product(self, product_id: str, db_session: Session) -> Dict[str, Any]:
+    def calculate_product(self, product_id: str, db_session) -> Dict[str, Any]:
         """
         Calculate PCF for a product from database using its BOM.
 
-        This method queries the database to get the product's BOM structure
-        and calculates emissions using the hierarchical calculation method.
+        This is a legacy method that delegates to the legacy_calculator module.
+        For new implementations, use calculate() with an injected ef_provider.
 
         Args:
             product_id: UUID of product in database
             db_session: SQLAlchemy database session
 
         Returns:
-            Dictionary with calculation results:
-            {
-                "product_id": str,
-                "product_code": str,
-                "product_name": str,
-                "total_co2e_kg": float,
-                "breakdown": {component_name: co2e},
-                "breakdown_by_category": {category: co2e},  # If categorized
-                "max_depth": int
-            }
+            Dictionary with calculation results
 
         Raises:
             ValueError: If product not found in database
-
-        Example:
-            >>> with db_context() as session:
-            ...     result = calculator.calculate_product("product-id-123", session)
         """
-        from backend.models import Product, BillOfMaterials
-
-        # Get product from database
-        product = db_session.query(Product).filter(Product.id == product_id).first()
-
-        if product is None:
-            raise ValueError(f"Product not found: {product_id}")
-
-        logger.info(f"Calculating PCF for product: {product.code} - {product.name}")
-
-        # Build BOM tree from database
-        bom_tree = self._build_bom_tree_from_db(product_id, db_session)
-
-        # If no BOM, return zero emissions
-        if not bom_tree.get("children"):
-            logger.warning(f"Product {product.code} has no BOM - returning zero emissions")
-            return {
-                "product_id": product_id,
-                "product_code": product.code,
-                "product_name": product.name,
-                "total_co2e_kg": 0.0,
-                "breakdown": {},
-                "max_depth": 0
-            }
-
-        # Calculate using hierarchical method
-        result = self.calculate_hierarchical(bom_tree)
-
-        # Add product metadata to result
-        result["product_id"] = product_id
-        result["product_code"] = product.code
-        result["product_name"] = product.name
-
-        # Try to add category breakdown if we can infer categories
-        # For MVP, we'll categorize based on naming conventions:
-        # - *electricity* → energy
-        # - *transport* → transport
-        # - everything else → materials
-        breakdown_by_category = {
-            "materials": 0.0,
-            "energy": 0.0,
-            "transport": 0.0
-        }
-
-        for component_name, co2e in result["breakdown"].items():
-            name_lower = component_name.lower()
-            if "electricity" in name_lower or "energy" in name_lower:
-                breakdown_by_category["energy"] += co2e
-            elif "transport" in name_lower or "truck" in name_lower or "ship" in name_lower:
-                breakdown_by_category["transport"] += co2e
-            else:
-                breakdown_by_category["materials"] += co2e
-
-        result["breakdown_by_category"] = breakdown_by_category
-
-        logger.info(
-            f"PCF calculation complete: {product.code} = {result['total_co2e_kg']:.3f} kg CO2e"
-        )
-
-        return result
-
-    def _build_bom_tree_from_db(
-        self,
-        product_id: str,
-        db_session: Session,
-        depth: int = 0,
-        max_depth: int = 10
-    ) -> Dict[str, Any]:
-        """
-        Build hierarchical BOM tree from database.
-
-        Recursively traverses BOM relationships to build tree structure.
-        Includes circular reference detection.
-
-        Args:
-            product_id: UUID of product
-            db_session: SQLAlchemy database session
-            depth: Current recursion depth (for circular detection)
-            max_depth: Maximum recursion depth
-
-        Returns:
-            BOM tree dictionary
-
-        Raises:
-            ValueError: If circular reference detected or max depth exceeded
-        """
-        from backend.models import Product, BillOfMaterials
-
-        if depth > max_depth:
-            raise ValueError(f"Maximum BOM depth exceeded: {max_depth}")
-
-        # TASK-CALC-P7-015: Fix N+1 query by using selectinload to prefetch
-        # 2-3 levels of BOM hierarchy in a single batch query, eliminating
-        # the O(n) COUNT queries that were executed for each BOM item.
-        product = db_session.query(Product).options(
-            selectinload(Product.bom_items)
-            .selectinload(BillOfMaterials.child_product)
-            .selectinload(Product.bom_items)
-            .selectinload(BillOfMaterials.child_product)
-        ).filter(Product.id == product_id).first()
-
-        if product is None:
-            raise ValueError(f"Product not found: {product_id}")
-
-        # Build node
-        node = {
-            "name": product.code,  # Use code as name for emission factor lookup
-            "quantity": 1.0,
-            "unit": product.unit,
-            "children": []
-        }
-
-        # Use prefetched BOM items (no additional query)
-        bom_items = product.bom_items
-
-        # For each child, recurse or add as leaf
-        for bom_item in bom_items:
-            child_product = bom_item.child_product
-
-            # TASK-CALC-P7-015: Use prefetched data instead of COUNT query
-            # The bom_items are already loaded via selectinload chain
-            has_child_bom = len(child_product.bom_items) > 0
-
-            if has_child_bom:
-                # Intermediate node - recurse
-                child_tree = self._build_bom_tree_from_db(
-                    child_product.id,
-                    db_session,
-                    depth + 1,
-                    max_depth
-                )
-                child_tree["quantity"] = float(bom_item.quantity)
-                node["children"].append(child_tree)
-            else:
-                # Leaf node - this is a material
-                # Try to match to emission factor by code or name
-                material_name = self._map_product_to_emission_factor(child_product)
-
-                node["children"].append({
-                    "name": material_name,
-                    "quantity": float(bom_item.quantity),
-                    "unit": bom_item.unit or child_product.unit
-                })
-
-        return node
-
-    def _map_product_to_emission_factor(self, product) -> str:
-        """
-        Map product code/name to emission factor activity name.
-
-        For MVP, we use simple name matching. In future phases, this could
-        use a mapping table or fuzzy matching.
-
-        The matching strategy (in priority order):
-        1. Exact name match (case-insensitive)
-        2. Name with spaces preserved (lowercase)
-        3. Code normalized (lowercase, hyphens to underscores, trailing numbers removed)
-        4. Name with spaces as underscores
-
-        Args:
-            product: Product model instance
-
-        Returns:
-            Emission factor activity name
-
-        Example:
-            Product code "COTTON-001" → emission factor "cotton"
-            Product name "Plastic (ABS)" → emission factor "plastic (abs)"
-        """
-        import re
-
-        # Strategy 1: Try exact name match (lowercase, preserve spacing/punctuation)
-        # This handles names like "Plastic (ABS)" -> "plastic (abs)"
-        name_exact = product.name.lower()
-        if name_exact in self._name_to_activity:
-            return name_exact
-
-        # Strategy 2: Try code normalized (lowercase, hyphens to underscores)
-        code_normalized = product.code.lower().replace("-", "_")
-        # Remove trailing numbers
-        code_normalized = re.sub(r'_?\d+$', '', code_normalized)
-
-        if code_normalized in self._name_to_activity:
-            return code_normalized
-
-        # Strategy 3: Try name with underscores (for legacy compatibility)
-        name_underscored = product.name.lower().replace(" ", "_")
-        if name_underscored in self._name_to_activity:
-            return name_underscored
-
-        # Fallback: return name as-is (will cause helpful error message)
-        logger.warning(
-            f"Could not map product {product.code} ({product.name}) to emission factor. "
-            f"Using name as-is: {name_exact}"
-        )
-        return name_exact
+        # Import here to avoid module-level SQLAlchemy dependency
+        from backend.calculator.legacy_calculator import calculate_product_from_db
+        return calculate_product_from_db(self, product_id, db_session)
 
     def _get_co2e_from_activity(self, activity) -> float:
         """
         Extract CO2e emission factor from Brightway2 activity.
-
-        The emission factor is stored in the biosphere exchange with
-        "Carbon dioxide, fossil" flow.
 
         Args:
             activity: Brightway2 Activity object
 
         Returns:
             CO2e emission factor in kg CO2e per unit
-
-        Example:
-            >>> activity = ef_db.get("cotton")
-            >>> co2e = calculator._get_co2e_from_activity(activity)
-            >>> print(f"Cotton: {co2e} kg CO2e/kg")
         """
         for exchange in activity.exchanges():
             if exchange["type"] == "biosphere":
                 return float(exchange["amount"])
 
-        # No biosphere exchange found - return 0
         logger.warning(f"No biosphere exchange found for activity: {activity['name']}")
         return 0.0

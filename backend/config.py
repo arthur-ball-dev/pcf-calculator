@@ -6,6 +6,8 @@ Supports both SQLite (development) and PostgreSQL (production) databases.
 
 TASK-BE-P5-001: Added Celery and Redis configuration settings.
 TASK-BE-P7-003: Fixed database path resolution to use absolute path from project root.
+TASK-BE-P7-018: Added JWT authentication configuration settings.
+TASK-CALC-P7-022: Added emission factor cache TTL configuration.
 """
 
 import os
@@ -79,6 +81,9 @@ class Settings(BaseSettings):
         REDIS_HOST: Redis host
         REDIS_PORT: Redis port
         REDIS_DB: Redis database number
+        JWT_SECRET_KEY: Secret key for JWT token signing
+        ACCESS_TOKEN_EXPIRE_MINUTES: JWT token expiration time
+        emission_factor_cache_ttl: Emission factor cache TTL in seconds
     """
 
     model_config = SettingsConfigDict(
@@ -167,6 +172,22 @@ class Settings(BaseSettings):
     REDIS_DB: int = Field(
         default=0,
         description="Redis database number"
+    )
+
+    # JWT Authentication settings (TASK-BE-P7-018)
+    JWT_SECRET_KEY: str = Field(
+        default="dev-secret-key-change-in-production-must-be-at-least-32-chars",
+        description="Secret key for JWT token signing (MUST be changed in production)"
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=60,
+        description="JWT access token expiration time in minutes"
+    )
+
+    # Emission factor cache settings (TASK-CALC-P7-022)
+    emission_factor_cache_ttl: int = Field(
+        default=300,
+        description="Emission factor cache TTL in seconds (default: 5 minutes)"
     )
 
     @property
