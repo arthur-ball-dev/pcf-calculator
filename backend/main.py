@@ -1,6 +1,8 @@
 """
 FastAPI application entry point
 PCF Calculator MVP - Product Carbon Footprint Calculator
+
+TASK-BE-P7-018: Added JWT authentication routes and middleware.
 """
 
 import logging
@@ -20,6 +22,7 @@ from backend.api.routes.products import router as products_router
 from backend.api.routes.calculations import router as calculations_router
 from backend.api.routes.emission_factors import router as emission_factors_router
 from backend.api.routes.admin import router as admin_router
+from backend.api.routes.auth import router as auth_router
 from backend.database.connection import db_context
 from backend.database.seeds.data_sources import seed_data_sources, verify_data_sources
 
@@ -105,7 +108,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=[
-        "Authorization",      # For future auth tokens
+        "Authorization",      # For JWT auth tokens (TASK-BE-P7-018)
         "Content-Type",       # For JSON requests
         "X-Request-ID",       # For request tracing
         "Accept",             # Standard header
@@ -115,6 +118,7 @@ app.add_middleware(
     expose_headers=[
         "X-Request-ID",       # Allow frontend to read request ID
         "X-Total-Count",      # For pagination
+        "WWW-Authenticate",   # For auth errors (TASK-BE-P7-018)
     ],
 )
 
@@ -196,6 +200,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Include API routers
+# TASK-BE-P7-018: Auth router for login/logout/refresh endpoints
+app.include_router(auth_router)
 app.include_router(products_router)
 app.include_router(calculations_router)
 app.include_router(emission_factors_router)
