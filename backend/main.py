@@ -10,19 +10,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.errors import ServerErrorMiddleware
 
 from backend.config import settings
-from backend.middleware import SecurityHeadersMiddleware
+from backend.middleware import SecurityHeadersMiddleware, ExtendedCORSMiddleware
 from backend.api.routes.products import router as products_router
 from backend.api.routes.calculations import router as calculations_router
 from backend.api.routes.emission_factors import router as emission_factors_router
 from backend.api.routes.admin import router as admin_router
-from backend.calculator.brightway_setup import initialize_brightway
-from backend.calculator.emission_factor_sync import sync_emission_factors
 from backend.database.connection import db_context
 from backend.database.seeds.data_sources import seed_data_sources, verify_data_sources
 
@@ -52,8 +49,10 @@ async def startup_event():
 
     Performs the following initialization steps:
     1. Seeds data_sources table with EPA, DEFRA, Exiobase entries (idempotent)
-    2. Initializes Brightway2 for LCA calculations
-    3. Syncs emission factors from SQLite to Brightway2
+    2. Initializes Brightway2 for LCA calculations (non-blocking via thread pool)
+
+    TASK-CALC-P7-016: Brightway2 initialization now uses asyncio.to_thread()
+    to prevent blocking the FastAPI event loop during startup.
     """
     # Step 1: Seed data sources (idempotent - safe to call on every startup)
     try:
@@ -73,15 +72,13 @@ async def startup_event():
         logger.error(f"Failed to seed data sources: {e}", exc_info=True)
         # Don't fail startup - allow server to run for debugging
 
-    # Step 2: Initialize Brightway2
+    # Step 2: Initialize Brightway2 asynchronously (non-blocking)
+    # TASK-CALC-P7-016: Use async initialization to prevent blocking the event loop
     try:
-        logger.info("Initializing Brightway2 for PCF calculations...")
-        initialize_brightway()
-
-        # Step 3: Sync emission factors from SQLite to Brightway2
-        with db_context() as session:
-            result = sync_emission_factors(db_session=session)
-            logger.info(f"Synced {result['synced_count']} emission factors to Brightway2")
+        from backend.calculator.pcf_calculator import initialize_pcf_calculator
+        logger.info("Starting Brightway2 initialization (non-blocking)...")
+        await initialize_pcf_calculator()
+        logger.info("Brightway2 initialization complete")
     except Exception as e:
         logger.error(f"Failed to initialize Brightway2: {e}", exc_info=True)
         # Don't fail startup - allow server to run for debugging
@@ -89,12 +86,36 @@ async def startup_event():
 
 # Configure CORS middleware
 # Order: CORS should be first to handle preflight requests
+#
+# Security Configuration (TASK-BE-P7-017):
+# - allow_methods: Explicit list of HTTP methods used by the frontend
+#   (GET, POST, PUT, DELETE for CRUD, OPTIONS for CORS preflight)
+# - allow_headers: Explicit list of headers needed by the frontend
+#   (Authorization for auth tokens, Content-Type for JSON, X-Request-ID for tracing)
+# - expose_headers: Headers that the frontend can read from responses
+#   (X-Request-ID for tracing, X-Total-Count for pagination)
+#
+# Using ExtendedCORSMiddleware to include expose_headers in preflight responses
+# for better client compatibility.
+#
+# Reference: Code Review Report 2025-12-18 (Issue #6)
 app.add_middleware(
-    CORSMiddleware,
+    ExtendedCORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Authorization",      # For future auth tokens
+        "Content-Type",       # For JSON requests
+        "X-Request-ID",       # For request tracing
+        "Accept",             # Standard header
+        "Accept-Language",    # Internationalization
+        "Cache-Control",      # Caching hints
+    ],
+    expose_headers=[
+        "X-Request-ID",       # Allow frontend to read request ID
+        "X-Total-Count",      # For pagination
+    ],
 )
 
 # Add security headers middleware
