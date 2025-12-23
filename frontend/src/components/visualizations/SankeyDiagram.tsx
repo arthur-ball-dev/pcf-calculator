@@ -16,6 +16,7 @@
  * TASK-FE-008: Nivo Sankey Implementation
  * TASK-FE-P8-002: Category Drill-Down click handler
  * TASK-FE-P7-013: Visualization Responsiveness
+ * TASK-FE-P7-026: Eliminated TypeScript any usages
  */
 
 import { useState, useMemo, useCallback } from 'react';
@@ -28,6 +29,12 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useBreakpoints, BREAKPOINTS } from '../../hooks/useBreakpoints';
 import type { Calculation } from '../../types/store.types';
+import type {
+  PCFSankeyClickData,
+  PCFSankeyNodeDatum,
+  PCFSankeyLayerProps,
+  isSankeyLink,
+} from '../../types/nivo.d';
 
 /**
  * Truncate label text for mobile display
@@ -83,8 +90,7 @@ function wrapLabel(text: string, maxCharsPerLine: number): string[] {
  * @param isMobile - Whether the viewport is mobile-sized
  */
 function createLabelsLayer(labelMap: Map<string, string>, isMobile: boolean) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function LabelsLayer({ nodes }: { nodes: readonly any[] }) {
+  return function LabelsLayer({ nodes }: Pick<PCFSankeyLayerProps, 'nodes'>) {
     return (
       <g>
         {nodes.map((node) => {
@@ -194,6 +200,20 @@ function getResponsiveHeight(heightProp?: number): number {
 }
 
 /**
+ * Type guard to check if Sankey click data is a link (has source object with id)
+ */
+function isClickDataLink(data: PCFSankeyClickData): boolean {
+  return (
+    data !== null &&
+    typeof data === 'object' &&
+    'source' in data &&
+    typeof (data as { source: unknown }).source === 'object' &&
+    (data as { source: { id?: unknown } }).source !== null &&
+    typeof (data as { source: { id: unknown } }).source.id === 'string'
+  );
+}
+
+/**
  * SankeyDiagram Component
  *
  * Visualizes carbon emissions flow using Sankey diagram.
@@ -271,22 +291,23 @@ export default function SankeyDiagram({
   }, [isMobile, expandedCategory]);
 
   // Handle click on node or link - expand category
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // TASK-FE-P7-026: Properly typed handler - no any types
   const handleNodeClick = useCallback(
-    (data: any) => {
+    (data: PCFSankeyClickData) => {
       if (!data) return;
 
       let nodeId: string | null = null;
 
       // Check if this is a link click (has 'source' object with 'id')
       // Links have: { source: { id: 'materials', ... }, target: { id: 'total', ... }, value, ... }
-      if (data.source && typeof data.source === 'object' && data.source.id) {
+      if (isClickDataLink(data)) {
         // Link click - use the source node's id
-        nodeId = data.source.id as string;
+        const linkData = data as { source: { id: string } };
+        nodeId = linkData.source.id;
         console.log('Link click detected, source node:', nodeId);
-      } else if (data.id) {
+      } else if ('id' in data && typeof data.id === 'string') {
         // Node click - use the node's id directly
-        nodeId = data.id as string;
+        nodeId = data.id;
         console.log('Node click detected, node:', nodeId);
       }
 
