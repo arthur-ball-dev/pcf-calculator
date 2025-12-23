@@ -7,6 +7,7 @@ Supports both SQLite (development) and PostgreSQL (production) databases.
 TASK-BE-P5-001: Added Celery and Redis configuration settings.
 TASK-BE-P7-003: Fixed database path resolution to use absolute path from project root.
 TASK-BE-P7-018: Added JWT authentication configuration settings.
+TASK-BE-P7-020: Added rate limiting configuration settings.
 TASK-CALC-P7-022: Added emission factor cache TTL configuration.
 """
 
@@ -84,6 +85,11 @@ class Settings(BaseSettings):
         JWT_SECRET_KEY: Secret key for JWT token signing
         ACCESS_TOKEN_EXPIRE_MINUTES: JWT token expiration time
         emission_factor_cache_ttl: Emission factor cache TTL in seconds
+        RATE_LIMIT_GENERAL: General rate limit (requests/minute)
+        RATE_LIMIT_CALCULATION: Calculation rate limit (requests/minute)
+        RATE_LIMIT_AUTH_ATTEMPTS: Auth rate limit (attempts/5 minutes)
+        RATE_LIMIT_STORAGE: Storage backend for rate limiting
+        RATE_LIMIT_ADMIN_MULTIPLIER: Multiplier for admin rate limits
     """
 
     model_config = SettingsConfigDict(
@@ -190,6 +196,32 @@ class Settings(BaseSettings):
         description="Emission factor cache TTL in seconds (default: 5 minutes)"
     )
 
+    # Rate Limiting settings (TASK-BE-P7-020)
+    RATE_LIMIT_GENERAL: int = Field(
+        default=100,
+        description="General rate limit: requests per minute"
+    )
+    RATE_LIMIT_CALCULATION: int = Field(
+        default=10,
+        description="Calculation rate limit: requests per minute (expensive operations)"
+    )
+    RATE_LIMIT_AUTH_ATTEMPTS: int = Field(
+        default=5,
+        description="Auth rate limit: login attempts per 5 minutes"
+    )
+    RATE_LIMIT_STORAGE: str = Field(
+        default="memory",
+        description="Rate limit storage backend: 'memory' or 'redis'"
+    )
+    RATE_LIMIT_ADMIN_MULTIPLIER: int = Field(
+        default=10,
+        description="Rate limit multiplier for admin users"
+    )
+    RATE_LIMIT_REDIS_URL: Optional[str] = Field(
+        default=None,
+        description="Redis URL for distributed rate limiting (optional)"
+    )
+
     @property
     def is_postgresql(self) -> bool:
         """Check if the database is PostgreSQL."""
@@ -223,6 +255,15 @@ class Settings(BaseSettings):
                 return url.replace("sqlite:///", "sqlite+aiosqlite:///")
 
         return url
+
+    @property
+    def rate_limit_redis_url(self) -> Optional[str]:
+        """Get Redis URL for rate limiting if configured."""
+        if self.RATE_LIMIT_REDIS_URL:
+            return self.RATE_LIMIT_REDIS_URL
+        if self.RATE_LIMIT_STORAGE == "redis":
+            return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return None
 
     def model_post_init(self, __context) -> None:
         """Post-initialization hook to add Railway URL to CORS origins if set"""

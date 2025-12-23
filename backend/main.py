@@ -3,6 +3,7 @@ FastAPI application entry point
 PCF Calculator MVP - Product Carbon Footprint Calculator
 
 TASK-BE-P7-018: Added JWT authentication routes and middleware.
+TASK-BE-P7-020: Added rate limiting middleware with per-endpoint limits.
 """
 
 import logging
@@ -17,7 +18,12 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.errors import ServerErrorMiddleware
 
 from backend.config import settings
-from backend.middleware import SecurityHeadersMiddleware, ExtendedCORSMiddleware
+from backend.middleware import (
+    SecurityHeadersMiddleware,
+    ExtendedCORSMiddleware,
+    RateLimitMiddleware,
+    get_storage,
+)
 from backend.api.routes.products import router as products_router
 from backend.api.routes.calculations import router as calculations_router
 from backend.api.routes.emission_factors import router as emission_factors_router
@@ -119,11 +125,46 @@ app.add_middleware(
         "X-Request-ID",       # Allow frontend to read request ID
         "X-Total-Count",      # For pagination
         "WWW-Authenticate",   # For auth errors (TASK-BE-P7-018)
+        "X-RateLimit-Limit",      # Rate limit headers (TASK-BE-P7-020)
+        "X-RateLimit-Remaining",  # Rate limit headers (TASK-BE-P7-020)
+        "X-RateLimit-Reset",      # Rate limit headers (TASK-BE-P7-020)
+        "Retry-After",            # Rate limit headers (TASK-BE-P7-020)
     ],
 )
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Add rate limiting middleware (TASK-BE-P7-020)
+# Order: Rate limiting should be after CORS to ensure preflight requests pass,
+# but before route handlers to protect against abuse.
+#
+# Configuration:
+# - General endpoints: 100 requests/minute (configurable via RATE_LIMIT_GENERAL)
+# - Calculation endpoints: 10 requests/minute (expensive operations)
+# - Auth endpoints: 5 attempts/5 minutes (brute force protection)
+# - Admin users: 10x higher limits (configurable via RATE_LIMIT_ADMIN_MULTIPLIER)
+#
+# Storage: Memory (default) or Redis (for distributed deployments)
+rate_limit_storage = get_storage(settings.rate_limit_redis_url)
+app.add_middleware(
+    RateLimitMiddleware,
+    storage=rate_limit_storage,
+    default_limit=settings.RATE_LIMIT_GENERAL,
+    window_seconds=60,
+    endpoint_limits={
+        "/api/v1/calculate": settings.RATE_LIMIT_CALCULATION,
+        "/api/v1/auth/login": settings.RATE_LIMIT_AUTH_ATTEMPTS,
+    },
+    endpoint_windows={
+        "/api/v1/auth/login": 300,  # 5 minute window for auth
+    },
+    endpoint_error_messages={
+        "/api/v1/auth/login": "Too many login attempts. Please try again later.",
+    },
+    admin_multiplier=settings.RATE_LIMIT_ADMIN_MULTIPLIER,
+    excluded_paths=["/health", "/docs", "/openapi.json", "/redoc"],
+)
 
 
 # Request logging middleware
