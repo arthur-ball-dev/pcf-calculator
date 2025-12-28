@@ -6,6 +6,9 @@
  * - 30 second timeout
  * - Request/response interceptors
  * - Error transformation to APIError
+ * - JWT Authorization header injection
+ *
+ * TASK-QA-P7-032: Added auth token handling for JWT-protected endpoints
  */
 
 import axios, { type AxiosError } from 'axios';
@@ -16,6 +19,23 @@ import { APIError } from './errors';
 // Set VITE_API_BASE_URL in .env for local development (e.g., http://localhost:8000)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const API_TIMEOUT = 30000; // 30 seconds
+
+// Auth token storage key (must match E2E fixture)
+const AUTH_TOKEN_KEY = 'auth_token';
+
+/**
+ * Get auth token from localStorage
+ *
+ * @returns JWT token string or null if not set
+ */
+function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    // localStorage may be unavailable (e.g., private browsing)
+    return null;
+  }
+}
 
 /**
  * Axios client instance with interceptors configured
@@ -29,11 +49,17 @@ const client = axios.create({
 });
 
 // ============================================================================
-// Request Interceptor - Logging
+// Request Interceptor - Auth & Logging
 // ============================================================================
 
 client.interceptors.request.use(
   (config) => {
+    // Add Authorization header if token exists
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     // Log API requests in development mode
     if (import.meta.env.DEV) {
       console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
@@ -80,6 +106,24 @@ client.interceptors.response.use(
       if (error.response) {
         const status = error.response.status;
 
+        // 401 Unauthorized
+        if (status === 401) {
+          throw new APIError(
+            'UNAUTHORIZED',
+            'Authentication required. Please log in.',
+            error
+          );
+        }
+
+        // 403 Forbidden
+        if (status === 403) {
+          throw new APIError(
+            'FORBIDDEN',
+            'You do not have permission to access this resource.',
+            error
+          );
+        }
+
         // 404 Not Found
         if (status === 404) {
           throw new APIError('NOT_FOUND', 'Resource not found', error);
@@ -91,6 +135,15 @@ client.interceptors.response.use(
             (error.response.data as any)?.error ||
             'Invalid request. Please check your input.';
           throw new APIError('VALIDATION_ERROR', message, error);
+        }
+
+        // 429 Rate Limit
+        if (status === 429) {
+          throw new APIError(
+            'RATE_LIMITED',
+            'Too many requests. Please try again later.',
+            error
+          );
         }
 
         // 500 Server Error
