@@ -1,7 +1,7 @@
 """
 Pydantic Schemas for Product Search and Categories API
 TASK-API-P5-002: Enhanced Product Search - Implementation
-TASK-API-P7-027: Align API contract types - ProductSearchItem.category is now Optional[str]
+TASK-API-P7-027: Align API contract types - ProductSearchItem.category is now Optional[CategoryInfo]
 
 Contains request/response models for:
 - GET /api/v1/products/search
@@ -69,9 +69,10 @@ class ProductSearchItem(BaseModel):
     """
     Single product item in search results.
 
-    TASK-API-P7-027: category field is now Optional[str] to match frontend contract.
-    Frontend expects: category: string (e.g., "Materials")
-    NOT: category: {id: string, code: string, name: string, ...}
+    TASK-API-P7-027: category field is now Optional[CategoryInfo] to provide
+    richer category data to the frontend (id, code, name, industry_sector).
+
+    Frontend receives: category: { id: string, code: string, name: string, industry_sector: string | null }
     """
     model_config = ConfigDict(from_attributes=True)
 
@@ -80,9 +81,9 @@ class ProductSearchItem(BaseModel):
     name: str
     description: Optional[str] = None
     unit: str
-    # TASK-API-P7-027: Changed from Optional[CategoryInfo] to Optional[str]
-    # to align with frontend ProductSearchItem type contract
-    category: Optional[str] = None
+    # TASK-API-P7-027: Changed from Optional[str] to Optional[CategoryInfo]
+    # to provide richer category data for frontend filtering and display
+    category: Optional[CategoryInfo] = None
     manufacturer: Optional[str] = None
     country_of_origin: Optional[str] = None
     is_finished_product: bool
