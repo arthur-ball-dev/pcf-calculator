@@ -12,78 +12,41 @@ confirming the contract mismatches exist before fixes are implemented.
 
 Contract Requirements (from frontend types):
 - CalculationStatus: 'pending' | 'in_progress' | 'completed' | 'failed'
-- ProductSearchItem.category: string (not object)
+- ProductSearchItem.category: CategoryInfo object (with id, code, name, industry_sector)
+
+TASK-API-P7-027-A: Updated category tests to expect CategoryInfo object structure
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 from decimal import Decimal
 
-from backend.models import Base, Product, PCFCalculation
+from backend.models import Base, Product, ProductCategory, PCFCalculation
 from backend.main import app
 from backend.database.connection import get_db
 from backend.schemas import CalculationStartResponse, CalculationStatusResponse
-from backend.schemas.products import ProductSearchItem
+from backend.schemas.products import ProductSearchItem, CategoryInfo
 
 
 # Mark all tests in this module as contract alignment tests
 pytestmark = [pytest.mark.contracts, pytest.mark.api_alignment]
 
 
-# =============================================================================
-# Test Fixtures
-# =============================================================================
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create FastAPI TestClient with database dependency override."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-
-    yield test_client
-
-    app.dependency_overrides.clear()
-
-
 @pytest.fixture(scope="function")
 def seed_test_data(db_session):
     """Seed database with test data for contract alignment tests."""
+    # Create a category for the product
+    category = ProductCategory(
+        id="alignment-cat-001",
+        code="ALIGN-CAT",
+        name="Alignment Test Category",
+        level=0,
+        industry_sector="electronics"
+    )
+    db_session.add(category)
+    db_session.commit()
+
     # Create a finished product for calculation tests
     product = Product(
         id="alignment-test-prod-001",
@@ -91,8 +54,9 @@ def seed_test_data(db_session):
         name="Contract Alignment Test Product",
         description="A product for contract alignment testing",
         unit="unit",
-        category="electronics",
+        category_id="alignment-cat-001",
         is_finished_product=True,
+        search_vector="contract alignment test product"
     )
     db_session.add(product)
     db_session.commit()
@@ -141,6 +105,7 @@ def seed_test_data(db_session):
     db_session.commit()
 
     return {
+        "category": category,
         "product": product,
         "pending_calc": pending_calc,
         "processing_calc": processing_calc,
@@ -167,7 +132,7 @@ class TestCalculationStatusContractAlignment:
     VALID_FRONTEND_STATUSES = ["pending", "in_progress", "completed", "failed"]
 
     def test_calculation_start_status_matches_frontend_contract(
-        self, client, seed_test_data
+        self, authenticated_client, seed_test_data
     ):
         """
         Verify POST /calculate returns status that matches frontend contract.
@@ -178,7 +143,7 @@ class TestCalculationStatusContractAlignment:
 
         This test MUST FAIL if backend returns 'processing' (the current behavior).
         """
-        response = client.post(
+        response = authenticated_client.post(
             "/api/v1/calculate",
             json={
                 "product_id": "alignment-test-prod-001",
@@ -201,7 +166,7 @@ class TestCalculationStatusContractAlignment:
             f"'pending', 'in_progress', 'completed', or 'failed'."
 
     def test_calculation_status_response_matches_frontend_contract(
-        self, client, seed_test_data
+        self, authenticated_client, seed_test_data
     ):
         """
         Verify GET /calculations/{id} returns status matching frontend contract.
@@ -220,7 +185,7 @@ class TestCalculationStatusContractAlignment:
         ]
 
         for calc_id in calc_ids:
-            response = client.get(f"/api/v1/calculations/{calc_id}")
+            response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
 
             if response.status_code == 200:
                 data = response.json()
@@ -263,14 +228,14 @@ class TestCalculationStatusContractAlignment:
                 f"Contract Violation: Schema example uses status '{example_status}' " \
                 f"which is not frontend-compatible. Expected one of: {self.VALID_FRONTEND_STATUSES}"
 
-    def test_no_running_status_returned_by_api(self, client, seed_test_data):
+    def test_no_running_status_returned_by_api(self, authenticated_client, seed_test_data):
         """
         Verify the API never returns 'running' status.
 
         The frontend does not recognize 'running' - it expects 'in_progress'.
         """
         # Create a new calculation
-        response = client.post(
+        response = authenticated_client.post(
             "/api/v1/calculate",
             json={
                 "product_id": "alignment-test-prod-001",
@@ -288,21 +253,21 @@ class TestCalculationStatusContractAlignment:
 
         # Also check the status endpoint if we got a calc_id
         if calc_id:
-            status_response = client.get(f"/api/v1/calculations/{calc_id}")
+            status_response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 assert status_data.get("status") != "running", \
                     "Contract Violation: Calculation status endpoint returned 'running'. " \
                     "Frontend expects 'in_progress'."
 
-    def test_no_processing_status_returned_by_api(self, client, seed_test_data):
+    def test_no_processing_status_returned_by_api(self, authenticated_client, seed_test_data):
         """
         Verify the API never returns 'processing' status.
 
         The frontend does not recognize 'processing' - it expects 'in_progress'.
         """
         # Create a new calculation
-        response = client.post(
+        response = authenticated_client.post(
             "/api/v1/calculate",
             json={
                 "product_id": "alignment-test-prod-001",
@@ -320,7 +285,7 @@ class TestCalculationStatusContractAlignment:
 
         # Also check the status endpoint
         if calc_id:
-            status_response = client.get(f"/api/v1/calculations/{calc_id}")
+            status_response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 assert status_data.get("status") != "processing", \
@@ -334,25 +299,30 @@ class TestCalculationStatusContractAlignment:
 
 class TestProductSearchCategoryContractAlignment:
     """
-    Tests ensuring ProductSearchItem.category is a string, not an object.
+    Tests ensuring ProductSearchItem.category is a CategoryInfo object.
 
-    Frontend expects: category: string (e.g., "Materials")
-    Backend currently returns: category: {id: string, code: string, name: string, ...}
+    TASK-API-P7-027: Updated contract requirement.
 
-    These tests verify the category field type matches frontend expectations.
+    Category should be a CategoryInfo object with fields:
+    - id: string (UUID)
+    - code: string
+    - name: string
+    - industry_sector: string or null
+
+    This provides richer data to the frontend for filtering and display.
     """
 
-    def test_product_search_category_is_string_type(self, client, seed_test_data):
+    def test_product_search_category_is_object_type(self, authenticated_client, seed_test_data):
         """
-        Verify product search returns category as string, not object.
+        Verify product search returns category as CategoryInfo object.
 
-        Contract Requirement:
-        - ProductSearchItem.category MUST be a string
-        - NOT an object like {id: "1", name: "Materials", ...}
+        Contract Requirement (TASK-API-P7-027):
+        - ProductSearchItem.category MUST be a CategoryInfo object or null
+        - Object should have id, code, name, industry_sector fields
 
-        This test MUST FAIL if backend returns category as CategoryInfo object.
+        This test validates the CategoryInfo structure is returned.
         """
-        response = client.get("/api/v1/products/search?q=Contract")
+        response = authenticated_client.get("/api/v1/products/search?query=Contract")
 
         assert response.status_code == 200, \
             f"Expected 200, got {response.status_code}"
@@ -364,20 +334,19 @@ class TestProductSearchCategoryContractAlignment:
             item = items[0]
             category = item.get("category")
 
-            # Category should be a string or null, NOT an object
+            # Category should be a dict (object) or null, NOT a string
             if category is not None:
-                assert isinstance(category, str), \
-                    f"Contract Violation: ProductSearchItem.category should be a string, " \
-                    f"but got {type(category).__name__}: {category}. " \
-                    f"Frontend expects 'category: string', not 'category: CategoryInfo'."
+                assert isinstance(category, dict), \
+                    f"Contract Requirement: ProductSearchItem.category should be a CategoryInfo object, " \
+                    f"but got {type(category).__name__}: {category}."
 
-    def test_product_search_category_not_object_with_id(self, client, seed_test_data):
+    def test_product_search_category_has_id_field(self, authenticated_client, seed_test_data):
         """
-        Verify category does not have 'id' property (would indicate it's an object).
+        Verify category object has 'id' field.
 
-        If category has nested properties, it's returning an object instead of string.
+        CategoryInfo contract requires id field for frontend filtering.
         """
-        response = client.get("/api/v1/products/search?q=Contract")
+        response = authenticated_client.get("/api/v1/products/search?query=Contract")
 
         assert response.status_code == 200
 
@@ -387,19 +356,19 @@ class TestProductSearchCategoryContractAlignment:
         for item in items:
             category = item.get("category")
 
-            # If category is an object with 'id', it's wrong
-            if category is not None and isinstance(category, dict):
-                assert "id" not in category, \
-                    f"Contract Violation: ProductSearchItem.category is an object with 'id': {category}. " \
-                    f"Frontend expects a simple string like 'Materials', not an object."
+            if category is not None:
+                assert isinstance(category, dict), \
+                    f"Category should be an object, got {type(category).__name__}"
+                assert "id" in category, \
+                    f"Contract Requirement: CategoryInfo must have 'id' field."
 
-    def test_product_search_category_not_object_with_name(self, client, seed_test_data):
+    def test_product_search_category_has_name_field(self, authenticated_client, seed_test_data):
         """
-        Verify category does not have 'name' property (would indicate it's an object).
+        Verify category object has 'name' field.
 
-        Backend may be returning CategoryInfo object {id, code, name, industry_sector}.
+        CategoryInfo contract requires name field for display.
         """
-        response = client.get("/api/v1/products/search?q=Contract")
+        response = authenticated_client.get("/api/v1/products/search?query=Contract")
 
         assert response.status_code == 200
 
@@ -409,18 +378,63 @@ class TestProductSearchCategoryContractAlignment:
         for item in items:
             category = item.get("category")
 
-            # If category is an object with 'name', it's wrong
-            if category is not None and isinstance(category, dict):
-                assert "name" not in category, \
-                    f"Contract Violation: ProductSearchItem.category is an object with 'name': {category}. " \
-                    f"Frontend expects a simple string like 'Materials', not a CategoryInfo object."
+            if category is not None:
+                assert isinstance(category, dict), \
+                    f"Category should be an object, got {type(category).__name__}"
+                assert "name" in category, \
+                    f"Contract Requirement: CategoryInfo must have 'name' field."
 
-    def test_pydantic_schema_category_type_is_string(self):
+    def test_product_search_category_has_code_field(self, authenticated_client, seed_test_data):
         """
-        Verify ProductSearchItem Pydantic schema defines category as string.
+        Verify category object has 'code' field.
 
-        Contract Requirement:
-        - ProductSearchItem.category should be Optional[str], not Optional[CategoryInfo]
+        CategoryInfo contract requires code field.
+        """
+        response = authenticated_client.get("/api/v1/products/search?query=Contract")
+
+        assert response.status_code == 200
+
+        data = response.json()
+        items = data.get("items", [])
+
+        for item in items:
+            category = item.get("category")
+
+            if category is not None:
+                assert isinstance(category, dict), \
+                    f"Category should be an object, got {type(category).__name__}"
+                assert "code" in category, \
+                    f"Contract Requirement: CategoryInfo must have 'code' field."
+
+    def test_product_search_category_has_industry_sector_field(self, authenticated_client, seed_test_data):
+        """
+        Verify category object has 'industry_sector' field.
+
+        CategoryInfo contract requires industry_sector for filtering.
+        """
+        response = authenticated_client.get("/api/v1/products/search?query=Contract")
+
+        assert response.status_code == 200
+
+        data = response.json()
+        items = data.get("items", [])
+
+        for item in items:
+            category = item.get("category")
+
+            if category is not None:
+                assert isinstance(category, dict), \
+                    f"Category should be an object, got {type(category).__name__}"
+                assert "industry_sector" in category, \
+                    f"Contract Requirement: CategoryInfo must have 'industry_sector' field."
+
+    def test_pydantic_schema_category_type_is_category_info(self):
+        """
+        Verify ProductSearchItem Pydantic schema defines category as CategoryInfo.
+
+        Contract Requirement (TASK-API-P7-027):
+        - ProductSearchItem.category should be Optional[CategoryInfo]
+        - NOT Optional[str]
 
         This test checks the schema definition directly.
         """
@@ -428,35 +442,35 @@ class TestProductSearchCategoryContractAlignment:
         properties = schema.get("properties", {})
         category_schema = properties.get("category", {})
 
-        # Check if category is defined as string type
-        # If it references another schema (CategoryInfo), this will fail
-        category_type = category_schema.get("type")
+        # Check if category references CategoryInfo schema or has object structure
         category_ref = category_schema.get("$ref")
         category_anyof = category_schema.get("anyOf", [])
 
-        # If there's a $ref, it's referencing another schema (object)
-        if category_ref:
+        # Either a direct $ref to CategoryInfo or anyOf with CategoryInfo ref is valid
+        has_category_info_ref = False
+
+        if category_ref and "CategoryInfo" in category_ref:
+            has_category_info_ref = True
+
+        for option in category_anyof:
+            if "$ref" in option and "CategoryInfo" in option["$ref"]:
+                has_category_info_ref = True
+                break
+            if option.get("type") == "object":
+                has_category_info_ref = True
+                break
+
+        # If category is defined as simple string type, that's wrong
+        category_type = category_schema.get("type")
+        if category_type == "string":
             pytest.fail(
-                f"Contract Violation: ProductSearchItem.category uses $ref: {category_ref}. "
-                f"Should be 'type: string' to match frontend contract."
+                f"Contract Violation: ProductSearchItem.category is defined as 'string'. "
+                f"Should be CategoryInfo object type per TASK-API-P7-027."
             )
 
-        # If anyOf contains a $ref, it's also wrong
-        for option in category_anyof:
-            if "$ref" in option:
-                pytest.fail(
-                    f"Contract Violation: ProductSearchItem.category uses anyOf with $ref: {option}. "
-                    f"Should be a simple string type to match frontend contract."
-                )
-
-        # If type is present, verify it's string (or includes string for Optional)
-        if category_type:
-            valid_types = ["string", "null"]
-            if category_type not in valid_types:
-                pytest.fail(
-                    f"Contract Violation: ProductSearchItem.category has type '{category_type}'. "
-                    f"Expected 'string' to match frontend contract."
-                )
+        # This assertion validates the schema uses CategoryInfo
+        assert has_category_info_ref or category_schema.get("type") == "object", \
+            f"Contract Requirement: ProductSearchItem.category should reference CategoryInfo."
 
 
 # =============================================================================
@@ -471,7 +485,7 @@ class TestOpenAPISchemaAlignment:
     the correct contract types that the frontend expects.
     """
 
-    def test_openapi_calculation_status_enum_values(self, client):
+    def test_openapi_calculation_status_enum_values(self, authenticated_client):
         """
         Verify OpenAPI schema defines CalculationStatus with frontend-compatible values.
 
@@ -479,7 +493,7 @@ class TestOpenAPISchemaAlignment:
         - CalculationStatus enum should be: ["pending", "in_progress", "completed", "failed"]
         - NOT ["pending", "processing", "running", "completed", "failed"]
         """
-        response = client.get("/openapi.json")
+        response = authenticated_client.get("/openapi.json")
         assert response.status_code == 200
 
         openapi = response.json()
@@ -500,15 +514,15 @@ class TestOpenAPISchemaAlignment:
                     f"Contract Violation: OpenAPI status enum {status_enum} " \
                     f"does not match frontend expected values {expected_enum}."
 
-    def test_openapi_product_search_category_type(self, client):
+    def test_openapi_product_search_category_is_object(self, authenticated_client):
         """
-        Verify OpenAPI schema defines ProductSearchItem.category as string type.
+        Verify OpenAPI schema defines ProductSearchItem.category as CategoryInfo object.
 
-        Contract Requirement:
-        - category should be defined as 'type: string' or nullable string
-        - NOT as a $ref to CategoryInfo
+        Contract Requirement (TASK-API-P7-027):
+        - category should reference CategoryInfo schema or define object structure
+        - NOT as 'type: string'
         """
-        response = client.get("/openapi.json")
+        response = authenticated_client.get("/openapi.json")
         assert response.status_code == 200
 
         openapi = response.json()
@@ -520,23 +534,28 @@ class TestOpenAPISchemaAlignment:
             properties = search_item_schema.get("properties", {})
             category_prop = properties.get("category", {})
 
-            # Check if category references another schema
-            if "$ref" in category_prop:
-                ref = category_prop["$ref"]
+            # Check if category is defined as simple string (wrong)
+            if category_prop.get("type") == "string":
                 pytest.fail(
-                    f"Contract Violation: OpenAPI ProductSearchItem.category has $ref: {ref}. "
-                    f"Frontend expects simple string type, not a complex object."
+                    f"Contract Violation: OpenAPI ProductSearchItem.category is 'type: string'. "
+                    f"Should reference CategoryInfo object per TASK-API-P7-027."
                 )
 
-            # Check anyOf for $ref
+            # Check for $ref to CategoryInfo (correct)
+            has_category_info = False
+            if "$ref" in category_prop and "CategoryInfo" in category_prop["$ref"]:
+                has_category_info = True
+
+            # Check anyOf for CategoryInfo ref
             anyof = category_prop.get("anyOf", [])
             for option in anyof:
-                if "$ref" in option:
-                    ref = option["$ref"]
-                    pytest.fail(
-                        f"Contract Violation: OpenAPI ProductSearchItem.category anyOf contains $ref: {ref}. "
-                        f"Frontend expects simple string type."
-                    )
+                if "$ref" in option and "CategoryInfo" in option["$ref"]:
+                    has_category_info = True
+                    break
+
+            # Validate CategoryInfo is referenced
+            assert has_category_info or category_prop.get("type") == "object", \
+                f"Contract Requirement: OpenAPI ProductSearchItem.category should reference CategoryInfo."
 
 
 # =============================================================================
@@ -551,7 +570,7 @@ class TestIntegrationContractAlignment:
     the responses match what the frontend components expect.
     """
 
-    def test_calculation_workflow_status_alignment(self, client, seed_test_data):
+    def test_calculation_workflow_status_alignment(self, authenticated_client, seed_test_data):
         """
         Verify complete calculation workflow uses aligned status values.
 
@@ -562,7 +581,7 @@ class TestIntegrationContractAlignment:
         valid_statuses = ["pending", "in_progress", "completed", "failed"]
 
         # Step 1: Create calculation
-        create_response = client.post(
+        create_response = authenticated_client.post(
             "/api/v1/calculate",
             json={
                 "product_id": "alignment-test-prod-001",
@@ -581,7 +600,7 @@ class TestIntegrationContractAlignment:
         # Step 2: Check calculation status endpoint
         calc_id = create_data.get("calculation_id")
         if calc_id:
-            status_response = client.get(f"/api/v1/calculations/{calc_id}")
+            status_response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
 
             if status_response.status_code == 200:
                 status_data = status_response.json()
@@ -591,18 +610,18 @@ class TestIntegrationContractAlignment:
                     f"Contract Violation: Polled calculation status '{polled_status}' " \
                     f"not in frontend-compatible values: {valid_statuses}"
 
-    def test_product_search_response_format_alignment(self, client, seed_test_data):
+    def test_product_search_response_format_alignment(self, authenticated_client, seed_test_data):
         """
         Verify product search response format matches frontend ProductSearchResponse.
 
         Frontend expects:
-        - items: ProductSearchItem[] with category: string
+        - items: ProductSearchItem[] with category: CategoryInfo object
         - total: number
         - limit: number
         - offset: number
         - has_more: boolean
         """
-        response = client.get("/api/v1/products/search?q=test")
+        response = authenticated_client.get("/api/v1/products/search?query=Contract")
 
         assert response.status_code == 200
 
@@ -617,9 +636,14 @@ class TestIntegrationContractAlignment:
 
         # Verify items structure
         for item in data.get("items", []):
-            # Check category is string, not object
+            # Check category is object (CategoryInfo), not string
             category = item.get("category")
             if category is not None:
-                assert isinstance(category, str), \
-                    f"Contract Violation: item.category is {type(category).__name__}, " \
-                    f"expected string. Value: {category}"
+                assert isinstance(category, dict), \
+                    f"Contract Requirement (TASK-API-P7-027): item.category should be CategoryInfo object, " \
+                    f"got {type(category).__name__}: {category}"
+                # Verify CategoryInfo fields
+                assert "id" in category, "CategoryInfo must have 'id' field"
+                assert "name" in category, "CategoryInfo must have 'name' field"
+                assert "code" in category, "CategoryInfo must have 'code' field"
+                assert "industry_sector" in category, "CategoryInfo must have 'industry_sector' field"
