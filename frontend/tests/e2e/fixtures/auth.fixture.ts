@@ -4,9 +4,14 @@
  * TASK-QA-P7-032: Provides authenticated page fixture for E2E tests
  *
  * This fixture:
- * 1. Authenticates via /api/v1/auth/login API
+ * 1. Reads cached auth token from global setup (or falls back to API)
  * 2. Injects JWT token into localStorage
  * 3. Provides authenticated page for tests
+ *
+ * Token Caching:
+ * - Auth token is obtained once in global-setup.ts
+ * - Cached token is read from .auth-state.json via auth-helpers.ts
+ * - Avoids hitting rate limit (5 attempts per 5 minutes)
  *
  * Usage:
  *   import { test, expect } from './fixtures/auth.fixture';
@@ -20,52 +25,8 @@
  *   import { test as unauthTest, expect } from '@playwright/test';
  */
 
-import { test as base, expect, Page, APIRequestContext } from '@playwright/test';
-
-// E2E Test User Credentials
-// Note: This user must exist in the database (seeded via backend/database/seeds)
-const E2E_TEST_USER = {
-  username: 'e2e-test',
-  password: 'E2ETestPassword123!',
-};
-
-// API endpoints
-const API_BASE_URL = 'http://localhost:8000';
-const AUTH_LOGIN_ENDPOINT = `${API_BASE_URL}/api/v1/auth/login`;
-const FRONTEND_URL = 'http://localhost:5173';
-
-// localStorage key for auth token (must match frontend client.ts usage)
-const AUTH_TOKEN_KEY = 'auth_token';
-
-/**
- * Get JWT access token from the auth API
- *
- * @param request - Playwright's APIRequestContext
- * @returns JWT access token string
- * @throws Error if authentication fails
- */
-async function getAuthToken(request: APIRequestContext): Promise<string> {
-  const response = await request.post(AUTH_LOGIN_ENDPOINT, {
-    data: E2E_TEST_USER,
-  });
-
-  if (!response.ok()) {
-    const errorText = await response.text();
-    throw new Error(
-      `E2E Auth failed: ${response.status()} - ${errorText}\n` +
-        `Ensure test user '${E2E_TEST_USER.username}' exists in database.\n` +
-        `Run: python -c "from backend.database.seeds.e2e_test_user import seed_test_user; seed_test_user()"`
-    );
-  }
-
-  const data = await response.json();
-
-  if (!data.access_token) {
-    throw new Error('Auth response missing access_token field');
-  }
-
-  return data.access_token;
-}
+import { test as base, expect, Page } from '@playwright/test';
+import { getAuthToken, AUTH_TOKEN_KEY, FRONTEND_URL } from './auth-helpers';
 
 /**
  * Custom fixture type for authenticated page
@@ -90,7 +51,7 @@ type AuthFixtures = {
  */
 export const test = base.extend<AuthFixtures>({
   authenticatedPage: async ({ page, request }, use) => {
-    // Step 1: Get JWT token from auth API
+    // Step 1: Get JWT token (from cache or API)
     const token = await getAuthToken(request);
 
     // Step 2: Inject token into localStorage BEFORE navigating

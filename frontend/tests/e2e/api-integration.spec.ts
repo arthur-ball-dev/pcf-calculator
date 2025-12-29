@@ -299,7 +299,7 @@ test('submits calculation and receives calculation_id', async ({ authenticatedPa
  * - Results display appears
  * - Total CO2e value shown
  */
-test('polls for calculation results until complete', async ({ page, context }) => {
+test('polls for calculation results until complete', async ({ authenticatedPage }) => {
   // Track all API requests
   const pollingRequests: string[] = [];
 
