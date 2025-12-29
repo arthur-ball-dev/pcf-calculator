@@ -23,7 +23,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { ResponsiveSankey } from '@nivo/sankey';
 import { ArrowLeft } from 'lucide-react';
 import { transformToSankeyData, transformToExpandedSankeyData } from '../../utils/sankeyTransform';
-import SankeyTooltip from './SankeyTooltip';
+import SankeyTooltip, { SankeyLinkTooltip } from './SankeyTooltip';
 import { ResponsiveChartContainer } from './ResponsiveChartContainer';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -273,20 +273,21 @@ export default function SankeyDiagram({
 
   // Calculate responsive margins
   // Mobile needs adequate margins for labels that extend outside nodes
+  // Increased left margin to prevent label truncation at container edge
   const margins = useMemo(() => {
     if (isMobile) {
       return {
         top: 10,
         right: expandedCategory ? 70 : 50,
         bottom: 10,
-        left: expandedCategory ? 80 : 60,
+        left: expandedCategory ? 100 : 90,
       };
     }
     return {
       top: 20,
       right: expandedCategory ? 85 : 65,
       bottom: 20,
-      left: expandedCategory ? 100 : 85,
+      left: expandedCategory ? 120 : 110,
     };
   }, [isMobile, expandedCategory]);
 
@@ -460,6 +461,7 @@ export default function SankeyDiagram({
           enableLabels={false}
           layers={['links', 'nodes', customLabelsLayer, 'legends']}
           nodeTooltip={SankeyTooltip}
+          linkTooltip={SankeyLinkTooltip}
           onClick={handleNodeClick}
           theme={{
             background: 'transparent',
