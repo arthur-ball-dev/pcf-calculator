@@ -1,4 +1,5 @@
 """
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 Test Product Detail API Performance - N+1 Query Detection
 TASK-BE-P7-014: Fix N+1 Query in Product Detail Endpoint - Phase A Tests
 
@@ -23,9 +24,7 @@ import time
 import logging
 from contextlib import contextmanager
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text, event
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text, event
 from decimal import Decimal
 
 from backend.models import Base, Product, BillOfMaterials
@@ -62,39 +61,7 @@ def count_queries(engine):
         yield counter
 
 
-@pytest.fixture(scope="function")
-def db_engine():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-    yield session
     session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session, db_engine):
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-    yield test_client
-    app.dependency_overrides.clear()
 
 
 def create_product(db_session, code, name, **kwargs):
@@ -132,7 +99,7 @@ class TestProductDetailQueryCount:
             child = create_product(db_session, f"CHILD-5-{i:03d}", f"Child Product {i}", is_finished_product=False)
             create_bom_item(db_session, parent.id, child.id, quantity=1.0)
         with count_queries(db_engine) as counter:
-            response = client.get(f"/api/v1/products/{parent.id}")
+            response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 5
@@ -144,7 +111,7 @@ class TestProductDetailQueryCount:
             child = create_product(db_session, f"CHILD-10-{i:03d}", f"Child Product {i}", is_finished_product=False)
             create_bom_item(db_session, parent.id, child.id, quantity=float(i + 1))
         with count_queries(db_engine) as counter:
-            response = client.get(f"/api/v1/products/{parent.id}")
+            response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 10
@@ -156,7 +123,7 @@ class TestProductDetailQueryCount:
             child = create_product(db_session, f"CHILD-20-{i:03d}", f"Child Product {i}", is_finished_product=False)
             create_bom_item(db_session, parent.id, child.id, quantity=1.5)
         with count_queries(db_engine) as counter:
-            response = client.get(f"/api/v1/products/{parent.id}")
+            response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 20
@@ -170,7 +137,7 @@ class TestProductDetailQueryCount:
                 child = create_product(db_session, f"SCALE-CHILD-{bom_size}-{i}", f"Child {i}")
                 create_bom_item(db_session, parent.id, child.id)
             with count_queries(db_engine) as counter:
-                response = client.get(f"/api/v1/products/{parent.id}")
+                response = authenticated_client.get(f"/api/v1/products/{parent.id}")
             assert response.status_code == 200
             query_counts.append(counter.total)
         max_count = max(query_counts)
@@ -187,23 +154,23 @@ class TestProductDetailResponseTime:
             child = create_product(db_session, f"PERF-CHILD-{bom_count}-{i}", f"Child {i}")
             create_bom_item(db_session, parent.id, child.id, quantity=1.0)
         start_time = time.perf_counter()
-        response = client.get(f"/api/v1/products/{parent.id}")
+        response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         elapsed_ms = (time.perf_counter() - start_time) * 1000
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == bom_count
         assert elapsed_ms < 100, f"Response time {elapsed_ms:.2f}ms exceeded 100ms SLA"
 
-    def test_response_time_does_not_scale_linearly(self, db_session, client):
+    def test_response_time_does_not_scale_linearly(self, db_session, authenticated_client):
         times = {}
         for bom_count in [5, 15]:
             parent = create_product(db_session, f"LINEAR-{bom_count}", f"Linear Test {bom_count}")
             for i in range(bom_count):
                 child = create_product(db_session, f"LINEAR-CHILD-{bom_count}-{i}", f"Child {i}")
                 create_bom_item(db_session, parent.id, child.id)
-            client.get(f"/api/v1/products/{parent.id}")
+            authenticated_client.get(f"/api/v1/products/{parent.id}")
             start = time.perf_counter()
-            response = client.get(f"/api/v1/products/{parent.id}")
+            response = authenticated_client.get(f"/api/v1/products/{parent.id}")
             elapsed = (time.perf_counter() - start) * 1000
             assert response.status_code == 200
             times[bom_count] = elapsed
@@ -212,11 +179,11 @@ class TestProductDetailResponseTime:
 
 
 class TestProductDetailBackwardCompatibility:
-    def test_response_format_unchanged(self, db_session, client):
+    def test_response_format_unchanged(self, db_session, authenticated_client):
         parent = create_product(db_session, "COMPAT-PARENT", "Compatibility Test Parent", description="Test description")
         child = create_product(db_session, "COMPAT-CHILD", "Compatibility Test Child", is_finished_product=False)
         create_bom_item(db_session, parent.id, child.id, quantity=2.5, unit="kg", notes="Test notes")
-        response = client.get(f"/api/v1/products/{parent.id}")
+        response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()
         assert "id" in data
@@ -227,11 +194,11 @@ class TestProductDetailBackwardCompatibility:
         assert data["code"] == "COMPAT-PARENT"
         assert data["name"] == "Compatibility Test Parent"
 
-    def test_bom_item_format_unchanged(self, db_session, client):
+    def test_bom_item_format_unchanged(self, db_session, authenticated_client):
         parent = create_product(db_session, "BOM-FORMAT-PARENT", "Parent")
         child = create_product(db_session, "BOM-FORMAT-CHILD", "Child Product Name", is_finished_product=False)
         create_bom_item(db_session, parent.id, child.id, quantity=3.75, unit="kg", notes="BOM notes here")
-        response = client.get(f"/api/v1/products/{parent.id}")
+        response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         data = response.json()
         assert len(data["bill_of_materials"]) == 1
         bom_item = data["bill_of_materials"][0]
@@ -247,25 +214,25 @@ class TestProductDetailBackwardCompatibility:
         assert bom_item["unit"] == "kg"
         assert bom_item["notes"] == "BOM notes here"
 
-    def test_child_product_name_correctly_loaded(self, db_session, client):
+    def test_child_product_name_correctly_loaded(self, db_session, authenticated_client):
         parent = create_product(db_session, "NAMES-PARENT", "Parent")
         child_names = ["Aluminum Frame", "Lithium Battery", "Copper Wiring", "Steel Bracket", "Plastic Cover"]
         for i, name in enumerate(child_names):
             child = create_product(db_session, f"NAMES-CHILD-{i}", name, is_finished_product=False)
             create_bom_item(db_session, parent.id, child.id)
-        response = client.get(f"/api/v1/products/{parent.id}")
+        response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         data = response.json()
         assert len(data["bill_of_materials"]) == 5
         returned_names = {item["child_product_name"] for item in data["bill_of_materials"]}
         for expected_name in child_names:
             assert expected_name in returned_names, f"Child name {expected_name} not found in response"
 
-    def test_multiple_bom_items_all_fields_populated(self, db_session, client):
+    def test_multiple_bom_items_all_fields_populated(self, db_session, authenticated_client):
         parent = create_product(db_session, "MULTI-BOM-PARENT", "Parent")
         for i in range(3):
             child = create_product(db_session, f"MULTI-BOM-CHILD-{i}", f"Component {i}", is_finished_product=False)
             create_bom_item(db_session, parent.id, child.id, quantity=float(i + 1), unit="kg" if i % 2 == 0 else "unit")
-        response = client.get(f"/api/v1/products/{parent.id}")
+        response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         data = response.json()
         assert len(data["bill_of_materials"]) == 3
         for item in data["bill_of_materials"]:
@@ -279,14 +246,14 @@ class TestProductDetailEdgeCases:
     def test_product_with_no_bom_items(self, db_session, client, db_engine):
         product = create_product(db_session, "NO-BOM", "Product Without BOM")
         with count_queries(db_engine) as counter:
-            response = client.get(f"/api/v1/products/{product.id}")
+            response = authenticated_client.get(f"/api/v1/products/{product.id}")
         assert response.status_code == 200
         data = response.json()
         assert data["bill_of_materials"] == []
         assert counter.total <= 3
 
-    def test_product_not_found_returns_404(self, client):
-        response = client.get("/api/v1/products/nonexistent-id-12345")
+    def test_product_not_found_returns_404(self, authenticated_client):
+        response = authenticated_client.get("/api/v1/products/nonexistent-id-12345")
         assert response.status_code == 404
 
     def test_product_with_single_bom_item(self, db_session, client, db_engine):
@@ -294,14 +261,14 @@ class TestProductDetailEdgeCases:
         child = create_product(db_session, "SINGLE-BOM-CHILD", "Only Child", is_finished_product=False)
         create_bom_item(db_session, parent.id, child.id, quantity=1.0)
         with count_queries(db_engine) as counter:
-            response = client.get(f"/api/v1/products/{parent.id}")
+            response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 1
         assert data["bill_of_materials"][0]["child_product_name"] == "Only Child"
         assert counter.total <= 3
 
-    def test_bom_with_null_optional_fields(self, db_session, client):
+    def test_bom_with_null_optional_fields(self, db_session, authenticated_client):
         parent = create_product(db_session, "NULL-FIELDS-PARENT", "Parent")
         child = create_product(db_session, "NULL-FIELDS-CHILD", "Child")
         bom = BillOfMaterials(
@@ -313,7 +280,7 @@ class TestProductDetailEdgeCases:
         )
         db_session.add(bom)
         db_session.commit()
-        response = client.get(f"/api/v1/products/{parent.id}")
+        response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         data = response.json()
         assert response.status_code == 200
         assert len(data["bill_of_materials"]) == 1
@@ -323,19 +290,19 @@ class TestProductDetailEdgeCases:
 
 
 class TestProductDetailDataIntegrity:
-    def test_bom_quantities_accurate(self, db_session, client):
+    def test_bom_quantities_accurate(self, db_session, authenticated_client):
         parent = create_product(db_session, "QTY-PARENT", "Parent")
         quantities = [0.5, 1.25, 10.0, 100.0, 0.001]
         for i, qty in enumerate(quantities):
             child = create_product(db_session, f"QTY-CHILD-{i}", f"Child {i}")
             create_bom_item(db_session, parent.id, child.id, quantity=qty)
-        response = client.get(f"/api/v1/products/{parent.id}")
+        response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         data = response.json()
         returned_quantities = sorted([item["quantity"] for item in data["bill_of_materials"]])
         expected_quantities = sorted(quantities)
         assert returned_quantities == expected_quantities
 
-    def test_each_bom_item_has_correct_child_name(self, db_session, client):
+    def test_each_bom_item_has_correct_child_name(self, db_session, authenticated_client):
         parent = create_product(db_session, "MATCH-PARENT", "Parent")
         child_data = [("MATCH-C1", "Component Alpha"), ("MATCH-C2", "Component Beta"), ("MATCH-C3", "Component Gamma")]
         expected_mapping = {}
@@ -343,7 +310,7 @@ class TestProductDetailDataIntegrity:
             child = create_product(db_session, code, name)
             create_bom_item(db_session, parent.id, child.id)
             expected_mapping[child.id] = name
-        response = client.get(f"/api/v1/products/{parent.id}")
+        response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         data = response.json()
         for item in data["bill_of_materials"]:
             child_id = item["child_product_id"]

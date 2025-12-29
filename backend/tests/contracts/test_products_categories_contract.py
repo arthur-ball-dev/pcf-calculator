@@ -16,13 +16,13 @@ Test-Driven Development Protocol:
 - These tests MUST be committed BEFORE implementation
 - Tests validate contract compliance, not business logic
 - Implementation must make tests PASS without modifying tests
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.models import (
     Base,
@@ -35,50 +35,6 @@ from backend.database.connection import get_db
 
 # Mark all tests in this module as contract tests
 pytestmark = pytest.mark.contracts
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for contract testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for contract testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create FastAPI TestClient with database dependency override."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-
-    yield test_client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -180,25 +136,25 @@ class TestCategoriesResponseStructureContract:
     - max_depth: integer maximum depth
     """
 
-    def test_response_has_categories_field(self, client, seed_contract_categories):
+    def test_response_has_categories_field(self, authenticated_client, seed_contract_categories):
         """Contract: Response MUST have 'categories' field."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert "categories" in data, \
             "Contract violation: 'categories' field is required"
 
-    def test_response_has_total_categories_field(self, client, seed_contract_categories):
+    def test_response_has_total_categories_field(self, authenticated_client, seed_contract_categories):
         """Contract: Response MUST have 'total_categories' field."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert "total_categories" in data, \
             "Contract violation: 'total_categories' field is required"
 
-    def test_response_has_max_depth_field(self, client, seed_contract_categories):
+    def test_response_has_max_depth_field(self, authenticated_client, seed_contract_categories):
         """Contract: Response MUST have 'max_depth' field."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert "max_depth" in data, \
@@ -219,25 +175,25 @@ class TestCategoriesFieldTypesContract:
     - max_depth: integer
     """
 
-    def test_categories_is_array(self, client, seed_contract_categories):
+    def test_categories_is_array(self, authenticated_client, seed_contract_categories):
         """Contract: 'categories' MUST be an array."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert isinstance(data["categories"], list), \
             "Contract violation: 'categories' must be an array"
 
-    def test_total_categories_is_integer(self, client, seed_contract_categories):
+    def test_total_categories_is_integer(self, authenticated_client, seed_contract_categories):
         """Contract: 'total_categories' MUST be an integer."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert isinstance(data["total_categories"], int), \
             "Contract violation: 'total_categories' must be an integer"
 
-    def test_max_depth_is_integer(self, client, seed_contract_categories):
+    def test_max_depth_is_integer(self, authenticated_client, seed_contract_categories):
         """Contract: 'max_depth' MUST be an integer."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert isinstance(data["max_depth"], int), \
@@ -264,9 +220,9 @@ class TestCategoryObjectStructureContract:
     - product_count: integer or null
     """
 
-    def test_category_has_id(self, client, seed_contract_categories):
+    def test_category_has_id(self, authenticated_client, seed_contract_categories):
         """Contract: Category MUST have 'id' field."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert len(data["categories"]) > 0, "Need categories to test"
@@ -274,45 +230,45 @@ class TestCategoryObjectStructureContract:
             assert "id" in cat, \
                 "Contract violation: 'id' required in category"
 
-    def test_category_has_code(self, client, seed_contract_categories):
+    def test_category_has_code(self, authenticated_client, seed_contract_categories):
         """Contract: Category MUST have 'code' field."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert "code" in cat, \
                 "Contract violation: 'code' required in category"
 
-    def test_category_has_name(self, client, seed_contract_categories):
+    def test_category_has_name(self, authenticated_client, seed_contract_categories):
         """Contract: Category MUST have 'name' field."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert "name" in cat, \
                 "Contract violation: 'name' required in category"
 
-    def test_category_has_level(self, client, seed_contract_categories):
+    def test_category_has_level(self, authenticated_client, seed_contract_categories):
         """Contract: Category MUST have 'level' field."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert "level" in cat, \
                 "Contract violation: 'level' required in category"
 
-    def test_category_has_children(self, client, seed_contract_categories):
+    def test_category_has_children(self, authenticated_client, seed_contract_categories):
         """Contract: Category MUST have 'children' field."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert "children" in cat, \
                 "Contract violation: 'children' required in category"
 
-    def test_category_has_industry_sector(self, client, seed_contract_categories):
+    def test_category_has_industry_sector(self, authenticated_client, seed_contract_categories):
         """Contract: Category MUST have 'industry_sector' field (nullable)."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
@@ -327,45 +283,45 @@ class TestCategoryObjectStructureContract:
 class TestCategoryFieldTypesContract:
     """Contract: Category fields MUST have correct types."""
 
-    def test_category_id_is_string(self, client, seed_contract_categories):
+    def test_category_id_is_string(self, authenticated_client, seed_contract_categories):
         """Contract: 'id' MUST be a string (UUID)."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert isinstance(cat["id"], str), \
                 "Contract violation: 'id' must be a string"
 
-    def test_category_code_is_string(self, client, seed_contract_categories):
+    def test_category_code_is_string(self, authenticated_client, seed_contract_categories):
         """Contract: 'code' MUST be a string."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert isinstance(cat["code"], str), \
                 "Contract violation: 'code' must be a string"
 
-    def test_category_name_is_string(self, client, seed_contract_categories):
+    def test_category_name_is_string(self, authenticated_client, seed_contract_categories):
         """Contract: 'name' MUST be a string."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert isinstance(cat["name"], str), \
                 "Contract violation: 'name' must be a string"
 
-    def test_category_level_is_integer(self, client, seed_contract_categories):
+    def test_category_level_is_integer(self, authenticated_client, seed_contract_categories):
         """Contract: 'level' MUST be an integer."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert isinstance(cat["level"], int), \
                 "Contract violation: 'level' must be an integer"
 
-    def test_category_children_is_array(self, client, seed_contract_categories):
+    def test_category_children_is_array(self, authenticated_client, seed_contract_categories):
         """Contract: 'children' MUST be an array."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
@@ -380,9 +336,9 @@ class TestCategoryFieldTypesContract:
 class TestNullableCategoryFieldsContract:
     """Contract: Optional fields MAY be null."""
 
-    def test_industry_sector_can_be_null(self, client, seed_contract_categories):
+    def test_industry_sector_can_be_null(self, authenticated_client, seed_contract_categories):
         """Contract: 'industry_sector' MAY be null."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # Find category without industry sector
@@ -395,10 +351,10 @@ class TestNullableCategoryFieldsContract:
                 "Contract violation: industry_sector can be null"
 
     def test_product_count_null_when_not_requested(
-        self, client, seed_products_for_count
+        self, authenticated_client, seed_products_for_count
     ):
         """Contract: 'product_count' null when not requested."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
@@ -415,10 +371,10 @@ class TestProductCountContract:
     """Contract: product_count behavior when include_product_count=true."""
 
     def test_product_count_present_when_requested(
-        self, client, seed_products_for_count
+        self, authenticated_client, seed_products_for_count
     ):
         """Contract: 'product_count' present when include_product_count=true."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/categories?include_product_count=true"
         )
         data = response.json()
@@ -432,9 +388,9 @@ class TestProductCountContract:
 
         check_count_present(data["categories"])
 
-    def test_product_count_is_integer(self, client, seed_products_for_count):
+    def test_product_count_is_integer(self, authenticated_client, seed_products_for_count):
         """Contract: 'product_count' MUST be integer when present."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/categories?include_product_count=true"
         )
         data = response.json()
@@ -448,9 +404,9 @@ class TestProductCountContract:
 
         check_count_type(data["categories"])
 
-    def test_product_count_non_negative(self, client, seed_products_for_count):
+    def test_product_count_non_negative(self, authenticated_client, seed_products_for_count):
         """Contract: 'product_count' MUST be >= 0."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/categories?include_product_count=true"
         )
         data = response.json()
@@ -472,9 +428,9 @@ class TestProductCountContract:
 class TestRecursiveStructureContract:
     """Contract: Children follow same structure as parent."""
 
-    def test_children_have_same_structure(self, client, seed_contract_categories):
+    def test_children_have_same_structure(self, authenticated_client, seed_contract_categories):
         """Contract: Child categories have same structure as parents."""
-        response = client.get("/api/v1/products/categories?depth=5")
+        response = authenticated_client.get("/api/v1/products/categories?depth=5")
         data = response.json()
 
         required_fields = ["id", "code", "name", "level", "children", "industry_sector"]
@@ -503,25 +459,25 @@ class TestCategoriesErrorResponseContract:
     - 404: Parent category not found
     """
 
-    def test_400_for_invalid_depth(self, client, seed_contract_categories):
+    def test_400_for_invalid_depth(self, authenticated_client, seed_contract_categories):
         """Contract: Invalid depth MUST return 400."""
-        response = client.get("/api/v1/products/categories?depth=10")
+        response = authenticated_client.get("/api/v1/products/categories?depth=10")
 
         assert response.status_code in [400, 422], \
             f"Contract violation: invalid depth should return 400/422"
 
-    def test_404_for_invalid_parent_id(self, client, seed_contract_categories):
+    def test_404_for_invalid_parent_id(self, authenticated_client, seed_contract_categories):
         """Contract: Non-existent parent_id MUST return 404."""
         fake_id = "00000000000000000000000000000000"
-        response = client.get(f"/api/v1/products/categories?parent_id={fake_id}")
+        response = authenticated_client.get(f"/api/v1/products/categories?parent_id={fake_id}")
 
         assert response.status_code == 404, \
             f"Contract violation: invalid parent_id should return 404"
 
-    def test_error_response_has_error_details(self, client, seed_contract_categories):
+    def test_error_response_has_error_details(self, authenticated_client, seed_contract_categories):
         """Contract: Error response MUST have error details."""
         fake_id = "00000000000000000000000000000000"
-        response = client.get(f"/api/v1/products/categories?parent_id={fake_id}")
+        response = authenticated_client.get(f"/api/v1/products/categories?parent_id={fake_id}")
         data = response.json()
 
         assert "error" in data or "detail" in data, \
@@ -535,10 +491,10 @@ class TestCategoriesErrorResponseContract:
 class TestQueryParameterDefaultsContract:
     """Contract: Query parameters have specific defaults."""
 
-    def test_default_depth_is_3(self, client, seed_contract_categories):
+    def test_default_depth_is_3(self, authenticated_client, seed_contract_categories):
         """Contract: Default depth MUST be 3."""
         # This is implicit - we verify by checking max_depth <= 3
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # Per contract, default depth is 3
@@ -546,10 +502,10 @@ class TestQueryParameterDefaultsContract:
             "Contract violation: default depth should limit to 3"
 
     def test_include_product_count_default_false(
-        self, client, seed_products_for_count
+        self, authenticated_client, seed_products_for_count
     ):
         """Contract: Default include_product_count is false."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # Product count should be null when not explicitly requested
@@ -566,24 +522,24 @@ class TestQueryParameterDefaultsContract:
 class TestCategoriesHttpStatusCodesContract:
     """Contract: Endpoints return correct HTTP status codes."""
 
-    def test_success_returns_200(self, client, seed_contract_categories):
+    def test_success_returns_200(self, authenticated_client, seed_contract_categories):
         """Contract: Successful request MUST return 200."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
 
         assert response.status_code == 200, \
             f"Contract violation: success should return 200"
 
-    def test_empty_result_returns_200(self, client):
+    def test_empty_result_returns_200(self, authenticated_client):
         """Contract: Empty categories MUST return 200, not 404."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
 
         assert response.status_code == 200, \
             "Contract violation: empty result should return 200"
 
-    def test_not_found_parent_returns_404(self, client, seed_contract_categories):
+    def test_not_found_parent_returns_404(self, authenticated_client, seed_contract_categories):
         """Contract: Non-existent parent MUST return 404."""
         fake_id = "00000000000000000000000000000000"
-        response = client.get(f"/api/v1/products/categories?parent_id={fake_id}")
+        response = authenticated_client.get(f"/api/v1/products/categories?parent_id={fake_id}")
 
         assert response.status_code == 404, \
             "Contract violation: non-existent parent should return 404"
@@ -596,9 +552,9 @@ class TestCategoriesHttpStatusCodesContract:
 class TestLevelFieldContract:
     """Contract: Level field follows hierarchical semantics."""
 
-    def test_root_level_is_zero(self, client, seed_contract_categories):
+    def test_root_level_is_zero(self, authenticated_client, seed_contract_categories):
         """Contract: Root categories MUST have level=0."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # Top-level categories should have level=0
@@ -606,9 +562,9 @@ class TestLevelFieldContract:
             assert cat["level"] == 0, \
                 f"Contract violation: root category should have level=0"
 
-    def test_child_level_increments(self, client, seed_contract_categories):
+    def test_child_level_increments(self, authenticated_client, seed_contract_categories):
         """Contract: Child level = parent level + 1."""
-        response = client.get("/api/v1/products/categories?depth=5")
+        response = authenticated_client.get("/api/v1/products/categories?depth=5")
         data = response.json()
 
         def check_levels(categories, expected_level):
@@ -628,18 +584,18 @@ class TestLevelFieldContract:
 class TestEmptyArraysContract:
     """Contract: Empty arrays are valid responses."""
 
-    def test_empty_categories_array_valid(self, client):
+    def test_empty_categories_array_valid(self, authenticated_client):
         """Contract: Empty categories array is valid."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert response.status_code == 200
         assert isinstance(data["categories"], list)
         # Empty list is acceptable
 
-    def test_empty_children_array_valid(self, client, seed_contract_categories):
+    def test_empty_children_array_valid(self, authenticated_client, seed_contract_categories):
         """Contract: Empty children array is valid for leaf categories."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # Find a leaf category (no children)

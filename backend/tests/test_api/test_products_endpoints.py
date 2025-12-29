@@ -11,13 +11,13 @@ Test Scenarios (per specification):
 6. Response format validation with Pydantic
 7. HTTP status codes (200, 404, 422)
 8. Response structure matches API specification
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 from datetime import datetime
 
 # Import models and base
@@ -29,58 +29,6 @@ from backend.models import (
 )
 from backend.main import app
 from backend.database.connection import get_db
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing with threading support"""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},  # Allow cross-thread access
-        poolclass=StaticPool,  # Use static pool for thread safety
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing"""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """
-    Create FastAPI TestClient with database dependency override
-
-    This fixture overrides the get_db dependency to use the test database
-    instead of the production database
-    """
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    test_client = TestClient(app)
-
-    yield test_client
-
-    # Clean up dependency override
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -240,16 +188,16 @@ def seed_test_products(db_session):
 class TestListProducts:
     """Test GET /api/v1/products endpoint"""
 
-    def test_list_products_returns_200(self, client, seed_test_products):
+    def test_list_products_returns_200(self, authenticated_client, seed_test_products):
         """Test that listing products returns 200 OK"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
 
         assert response.status_code == 200, \
             f"Expected status 200, got {response.status_code}"
 
-    def test_list_products_returns_items(self, client, seed_test_products):
+    def test_list_products_returns_items(self, authenticated_client, seed_test_products):
         """Test that response includes items array"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert "items" in data, \
@@ -257,9 +205,9 @@ class TestListProducts:
         assert isinstance(data["items"], list), \
             "Items should be a list"
 
-    def test_list_products_returns_total(self, client, seed_test_products):
+    def test_list_products_returns_total(self, authenticated_client, seed_test_products):
         """Test that response includes total count"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert "total" in data, \
@@ -269,9 +217,9 @@ class TestListProducts:
         assert data["total"] == seed_test_products["total_count"], \
             f"Expected total={seed_test_products['total_count']}, got {data['total']}"
 
-    def test_list_products_includes_expected_products(self, client, seed_test_products):
+    def test_list_products_includes_expected_products(self, authenticated_client, seed_test_products):
         """Test that response includes known test products"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         # Extract product codes
@@ -284,9 +232,9 @@ class TestListProducts:
         assert "CASE-001" in codes, \
             "Response should include CASE-001"
 
-    def test_list_products_item_structure(self, client, seed_test_products):
+    def test_list_products_item_structure(self, authenticated_client, seed_test_products):
         """Test that each item has required fields"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert len(data["items"]) > 0, \
@@ -310,9 +258,9 @@ class TestListProducts:
 class TestProductsPagination:
     """Test pagination parameters (limit, offset)"""
 
-    def test_pagination_with_limit(self, client, seed_test_products):
+    def test_pagination_with_limit(self, authenticated_client, seed_test_products):
         """Test that limit parameter restricts results"""
-        response = client.get("/api/v1/products?limit=2")
+        response = authenticated_client.get("/api/v1/products?limit=2")
         data = response.json()
 
         assert response.status_code == 200
@@ -321,15 +269,15 @@ class TestProductsPagination:
         assert data["limit"] == 2, \
             f"Response should include limit=2, got {data.get('limit')}"
 
-    def test_pagination_with_offset(self, client, seed_test_products):
+    def test_pagination_with_offset(self, authenticated_client, seed_test_products):
         """Test that offset parameter skips results"""
         # Get first 2 products
-        response1 = client.get("/api/v1/products?limit=2&offset=0")
+        response1 = authenticated_client.get("/api/v1/products?limit=2&offset=0")
         data1 = response1.json()
         first_two_ids = [item["id"] for item in data1["items"]]
 
         # Get next 2 products
-        response2 = client.get("/api/v1/products?limit=2&offset=2")
+        response2 = authenticated_client.get("/api/v1/products?limit=2&offset=2")
         data2 = response2.json()
         next_two_ids = [item["id"] for item in data2["items"]]
 
@@ -339,9 +287,9 @@ class TestProductsPagination:
         assert data2["offset"] == 2, \
             f"Response should include offset=2, got {data2.get('offset')}"
 
-    def test_pagination_default_values(self, client, seed_test_products):
+    def test_pagination_default_values(self, authenticated_client, seed_test_products):
         """Test default pagination values"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert "limit" in data, "Response should include limit"
@@ -349,25 +297,25 @@ class TestProductsPagination:
         assert data["offset"] == 0, \
             f"Default offset should be 0, got {data['offset']}"
 
-    def test_pagination_limit_validation(self, client, seed_test_products):
+    def test_pagination_limit_validation(self, authenticated_client, seed_test_products):
         """Test that limit has minimum value of 1"""
-        response = client.get("/api/v1/products?limit=0")
+        response = authenticated_client.get("/api/v1/products?limit=0")
 
         # Should return 422 for invalid parameter
         assert response.status_code == 422, \
             f"Expected 422 for limit=0, got {response.status_code}"
 
-    def test_pagination_offset_validation(self, client, seed_test_products):
+    def test_pagination_offset_validation(self, authenticated_client, seed_test_products):
         """Test that offset cannot be negative"""
-        response = client.get("/api/v1/products?offset=-1")
+        response = authenticated_client.get("/api/v1/products?offset=-1")
 
         # Should return 422 for invalid parameter
         assert response.status_code == 422, \
             f"Expected 422 for offset=-1, got {response.status_code}"
 
-    def test_pagination_limit_max_value(self, client, seed_test_products):
+    def test_pagination_limit_max_value(self, authenticated_client, seed_test_products):
         """Test that limit has maximum value of 1000"""
-        response = client.get("/api/v1/products?limit=2000")
+        response = authenticated_client.get("/api/v1/products?limit=2000")
 
         # Should return 422 for limit > 1000
         assert response.status_code == 422, \
@@ -381,16 +329,16 @@ class TestProductsPagination:
 class TestGetProductById:
     """Test GET /api/v1/products/{id} endpoint"""
 
-    def test_get_product_by_id_returns_200(self, client, seed_test_products):
+    def test_get_product_by_id_returns_200(self, authenticated_client, seed_test_products):
         """Test that getting product by ID returns 200 OK"""
-        response = client.get("/api/v1/products/tshirt-001")
+        response = authenticated_client.get("/api/v1/products/tshirt-001")
 
         assert response.status_code == 200, \
             f"Expected status 200, got {response.status_code}"
 
-    def test_get_product_by_id_returns_correct_product(self, client, seed_test_products):
+    def test_get_product_by_id_returns_correct_product(self, authenticated_client, seed_test_products):
         """Test that response contains correct product data"""
-        response = client.get("/api/v1/products/tshirt-001")
+        response = authenticated_client.get("/api/v1/products/tshirt-001")
         data = response.json()
 
         assert data["id"] == "tshirt-001", \
@@ -400,9 +348,9 @@ class TestGetProductById:
         assert data["name"] == "Cotton T-Shirt", \
             f"Expected name='Cotton T-Shirt', got '{data['name']}'"
 
-    def test_get_product_includes_bom(self, client, seed_test_products):
+    def test_get_product_includes_bom(self, authenticated_client, seed_test_products):
         """Test that response includes bill_of_materials"""
-        response = client.get("/api/v1/products/tshirt-001")
+        response = authenticated_client.get("/api/v1/products/tshirt-001")
         data = response.json()
 
         assert "bill_of_materials" in data, \
@@ -410,9 +358,9 @@ class TestGetProductById:
         assert isinstance(data["bill_of_materials"], list), \
             "bill_of_materials should be a list"
 
-    def test_get_product_bom_has_items(self, client, seed_test_products):
+    def test_get_product_bom_has_items(self, authenticated_client, seed_test_products):
         """Test that BOM contains expected items for T-Shirt"""
-        response = client.get("/api/v1/products/tshirt-001")
+        response = authenticated_client.get("/api/v1/products/tshirt-001")
         data = response.json()
 
         bom = data["bill_of_materials"]
@@ -428,9 +376,9 @@ class TestGetProductById:
         assert "unit" in first_bom_item, \
             "BOM item should have unit"
 
-    def test_get_product_bom_includes_child_details(self, client, seed_test_products):
+    def test_get_product_bom_includes_child_details(self, authenticated_client, seed_test_products):
         """Test that BOM items include child product name"""
-        response = client.get("/api/v1/products/tshirt-001")
+        response = authenticated_client.get("/api/v1/products/tshirt-001")
         data = response.json()
 
         bom = data["bill_of_materials"]
@@ -440,9 +388,9 @@ class TestGetProductById:
         assert "child_product_name" in first_bom_item, \
             "BOM item should include child_product_name"
 
-    def test_get_product_without_bom(self, client, seed_test_products):
+    def test_get_product_without_bom(self, authenticated_client, seed_test_products):
         """Test getting product without BOM (Phone Case has no BOM in seed)"""
-        response = client.get("/api/v1/products/case-001")
+        response = authenticated_client.get("/api/v1/products/case-001")
         data = response.json()
 
         assert response.status_code == 200
@@ -458,16 +406,16 @@ class TestGetProductById:
 class TestProductNotFound:
     """Test 404 error handling"""
 
-    def test_get_nonexistent_product_returns_404(self, client, seed_test_products):
+    def test_get_nonexistent_product_returns_404(self, authenticated_client, seed_test_products):
         """Test that requesting nonexistent product returns 404"""
-        response = client.get("/api/v1/products/nonexistent-id")
+        response = authenticated_client.get("/api/v1/products/nonexistent-id")
 
         assert response.status_code == 404, \
             f"Expected status 404 for nonexistent product, got {response.status_code}"
 
-    def test_get_nonexistent_product_error_format(self, client, seed_test_products):
+    def test_get_nonexistent_product_error_format(self, authenticated_client, seed_test_products):
         """Test that 404 response follows error format"""
-        response = client.get("/api/v1/products/nonexistent-id")
+        response = authenticated_client.get("/api/v1/products/nonexistent-id")
         data = response.json()
 
         assert "detail" in data, \
@@ -485,9 +433,9 @@ class TestProductNotFound:
 class TestProductsFiltering:
     """Test filtering by is_finished_product parameter"""
 
-    def test_filter_finished_products_only(self, client, seed_test_products):
+    def test_filter_finished_products_only(self, authenticated_client, seed_test_products):
         """Test filtering for finished products only"""
-        response = client.get("/api/v1/products?is_finished=true")
+        response = authenticated_client.get("/api/v1/products?is_finished=true")
         data = response.json()
 
         assert response.status_code == 200
@@ -501,9 +449,9 @@ class TestProductsFiltering:
         assert len(data["items"]) == seed_test_products["finished_count"], \
             f"Expected {seed_test_products['finished_count']} finished products, got {len(data['items'])}"
 
-    def test_filter_components_only(self, client, seed_test_products):
+    def test_filter_components_only(self, authenticated_client, seed_test_products):
         """Test filtering for components only (not finished products)"""
-        response = client.get("/api/v1/products?is_finished=false")
+        response = authenticated_client.get("/api/v1/products?is_finished=false")
         data = response.json()
 
         assert response.status_code == 200
@@ -517,9 +465,9 @@ class TestProductsFiltering:
         assert len(data["items"]) == seed_test_products["component_count"], \
             f"Expected {seed_test_products['component_count']} components, got {len(data['items'])}"
 
-    def test_filter_without_parameter_returns_all(self, client, seed_test_products):
+    def test_filter_without_parameter_returns_all(self, authenticated_client, seed_test_products):
         """Test that omitting is_finished returns all products"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert response.status_code == 200
@@ -534,9 +482,9 @@ class TestProductsFiltering:
 class TestResponseFormat:
     """Test that responses match API specification format"""
 
-    def test_list_response_has_all_required_fields(self, client, seed_test_products):
+    def test_list_response_has_all_required_fields(self, authenticated_client, seed_test_products):
         """Test list response structure"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         # Per API spec: items, total, limit, offset
@@ -545,9 +493,9 @@ class TestResponseFormat:
             assert field in data, \
                 f"List response should include '{field}'"
 
-    def test_product_item_has_all_required_fields(self, client, seed_test_products):
+    def test_product_item_has_all_required_fields(self, authenticated_client, seed_test_products):
         """Test individual product structure in list"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         item = data["items"][0]
@@ -561,9 +509,9 @@ class TestResponseFormat:
             assert field in item, \
                 f"Product item should include '{field}'"
 
-    def test_product_detail_has_all_required_fields(self, client, seed_test_products):
+    def test_product_detail_has_all_required_fields(self, authenticated_client, seed_test_products):
         """Test product detail response structure"""
-        response = client.get("/api/v1/products/tshirt-001")
+        response = authenticated_client.get("/api/v1/products/tshirt-001")
         data = response.json()
 
         # Per API spec (knowledge/api-specifications.md lines 58-76)
@@ -575,9 +523,9 @@ class TestResponseFormat:
             assert field in data, \
                 f"Product detail should include '{field}'"
 
-    def test_bom_item_structure(self, client, seed_test_products):
+    def test_bom_item_structure(self, authenticated_client, seed_test_products):
         """Test BOM item structure in product detail"""
-        response = client.get("/api/v1/products/tshirt-001")
+        response = authenticated_client.get("/api/v1/products/tshirt-001")
         data = response.json()
 
         bom_item = data["bill_of_materials"][0]
@@ -598,35 +546,35 @@ class TestResponseFormat:
 class TestDataTypes:
     """Test that response data types are correct"""
 
-    def test_product_id_is_string(self, client, seed_test_products):
+    def test_product_id_is_string(self, authenticated_client, seed_test_products):
         """Test that product ID is a string"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         item = data["items"][0]
         assert isinstance(item["id"], str), \
             f"Product ID should be string, got {type(item['id'])}"
 
-    def test_is_finished_product_is_boolean(self, client, seed_test_products):
+    def test_is_finished_product_is_boolean(self, authenticated_client, seed_test_products):
         """Test that is_finished_product is a boolean"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         item = data["items"][0]
         assert isinstance(item["is_finished_product"], bool), \
             f"is_finished_product should be boolean, got {type(item['is_finished_product'])}"
 
-    def test_total_is_integer(self, client, seed_test_products):
+    def test_total_is_integer(self, authenticated_client, seed_test_products):
         """Test that total count is an integer"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert isinstance(data["total"], int), \
             f"Total should be integer, got {type(data['total'])}"
 
-    def test_bom_quantity_is_numeric(self, client, seed_test_products):
+    def test_bom_quantity_is_numeric(self, authenticated_client, seed_test_products):
         """Test that BOM quantity is numeric"""
-        response = client.get("/api/v1/products/tshirt-001")
+        response = authenticated_client.get("/api/v1/products/tshirt-001")
         data = response.json()
 
         bom_item = data["bill_of_materials"][0]
@@ -646,9 +594,9 @@ class TestDataTypes:
 class TestEdgeCases:
     """Test edge cases and boundary conditions"""
 
-    def test_list_products_with_no_data(self, client):
+    def test_list_products_with_no_data(self, authenticated_client):
         """Test listing products when database is empty"""
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert response.status_code == 200
@@ -657,17 +605,17 @@ class TestEdgeCases:
         assert len(data["items"]) == 0, \
             "Empty database should return empty items list"
 
-    def test_pagination_offset_beyond_total(self, client, seed_test_products):
+    def test_pagination_offset_beyond_total(self, authenticated_client, seed_test_products):
         """Test offset beyond total count"""
         total_count = seed_test_products["total_count"]
-        response = client.get(f"/api/v1/products?offset={total_count + 10}")
+        response = authenticated_client.get(f"/api/v1/products?offset={total_count + 10}")
         data = response.json()
 
         assert response.status_code == 200
         assert len(data["items"]) == 0, \
             "Offset beyond total should return empty list"
 
-    def test_product_with_special_characters_in_id(self, client, db_session):
+    def test_product_with_special_characters_in_id(self, authenticated_client, db_session):
         """Test product ID can be retrieved correctly"""
         # Create product with hyphenated ID
         special_product = Product(
@@ -680,7 +628,7 @@ class TestEdgeCases:
         db_session.add(special_product)
         db_session.commit()
 
-        response = client.get("/api/v1/products/test-product-123")
+        response = authenticated_client.get("/api/v1/products/test-product-123")
 
         assert response.status_code == 200
         data = response.json()

@@ -2,6 +2,7 @@
 Test suite for Rate Limiting Middleware.
 
 TASK-BE-P7-020: Rate Limiting Middleware
+TASK-QA-P7-031: Updated to support authenticated endpoints
 Following TDD methodology - these tests are written BEFORE implementation.
 
 This test suite verifies that rate limiting middleware is properly configured to:
@@ -36,6 +37,17 @@ from fastapi.testclient import TestClient
 # Fixtures
 # ============================================================================
 
+
+def _get_test_auth_headers():
+    from backend.auth.jwt import create_access_token
+    token = create_access_token(data={"user_id": 1, "username": "ratelimittest", "role": "user"})
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _get_admin_auth_headers():
+    from backend.auth.jwt import create_access_token
+    token = create_access_token(data={"user_id": 2, "username": "adminratelimittest", "role": "admin"})
+    return {"Authorization": f"Bearer {token}"}
 
 @pytest.fixture
 def app_with_rate_limiting():
@@ -90,7 +102,7 @@ def test_rate_limit_within_limit_succeeds():
 
     # Make 10 requests (well under 100/min limit)
     for i in range(10):
-        response = client.get("/api/v1/products")
+        response = client.get("/api/v1/products", headers=_get_test_auth_headers())
         assert response.status_code == 200, (
             f"Request {i+1} should succeed within rate limit, got {response.status_code}"
         )
@@ -109,7 +121,7 @@ def test_rate_limit_headers_present_on_success():
 
     client = TestClient(app)
 
-    response = client.get("/api/v1/products")
+    response = client.get("/api/v1/products", headers=_get_test_auth_headers())
 
     assert response.status_code == 200
 
@@ -375,13 +387,13 @@ def test_calculation_endpoint_has_stricter_limit():
 
     # Make 10 calculation requests (at limit)
     for i in range(10):
-        response = client.post("/api/v1/calculate")
+        response = client.post("/api/v1/calculate", headers=_get_test_auth_headers())
         assert response.status_code == 200, (
             f"Calculation request {i+1} should succeed, got {response.status_code}"
         )
 
     # 11th calculation request should be rate limited
-    response = client.post("/api/v1/calculate")
+    response = client.post("/api/v1/calculate", headers=_get_test_auth_headers())
     assert response.status_code == 429, (
         f"11th calculation request should return 429, got {response.status_code}"
     )
@@ -421,17 +433,17 @@ def test_calculation_limit_independent_of_general_limit():
     client = TestClient(test_app)
 
     # Exhaust calculation limit
-    client.post("/api/v1/calculate")
-    client.post("/api/v1/calculate")
+    client.post("/api/v1/calculate", headers=_get_test_auth_headers())
+    client.post("/api/v1/calculate", headers=_get_test_auth_headers())
 
     # Calculation should now be rate limited
-    calc_response = client.post("/api/v1/calculate")
+    calc_response = client.post("/api/v1/calculate", headers=_get_test_auth_headers())
     assert calc_response.status_code == 429, (
         "Calculation endpoint should be rate limited"
     )
 
     # But products endpoint should still work
-    products_response = client.get("/api/v1/products")
+    products_response = client.get("/api/v1/products", headers=_get_test_auth_headers())
     assert products_response.status_code == 200, (
         "Products endpoint should not be affected by calculation limit"
     )
@@ -465,7 +477,7 @@ def test_calculation_endpoint_shows_correct_limit_header():
 
     client = TestClient(test_app)
 
-    response = client.post("/api/v1/calculate")
+    response = client.post("/api/v1/calculate", headers=_get_test_auth_headers())
 
     assert response.status_code == 200
     limit = int(response.headers.get("X-RateLimit-Limit", 0))
@@ -1044,7 +1056,7 @@ def test_rate_limit_headers_case_insensitive():
 
     client = TestClient(app)
 
-    response = client.get("/api/v1/products")
+    response = client.get("/api/v1/products", headers=_get_test_auth_headers())
 
     # Headers should be accessible in various cases
     headers_lower = {k.lower(): v for k, v in response.headers.items()}
@@ -1183,7 +1195,7 @@ def test_products_endpoint_respects_rate_limit():
 
     client = TestClient(app)
 
-    response = client.get("/api/v1/products")
+    response = client.get("/api/v1/products", headers=_get_test_auth_headers())
 
     # Should have rate limit headers
     assert "X-RateLimit-Limit" in response.headers, (
