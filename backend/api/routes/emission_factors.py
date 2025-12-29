@@ -20,7 +20,7 @@ from decimal import Decimal
 from backend.database.connection import get_db
 from backend.models import EmissionFactor, DataSource
 from backend.models.user import User
-from backend.auth.dependencies import get_current_active_user, require_admin
+from backend.auth.dependencies import require_admin
 
 
 # ============================================================================
@@ -226,13 +226,10 @@ def list_emission_factors(
     geography: Optional[str] = Query(None, description="Filter by geography (GLO, US, EU, etc.)"),
     unit: Optional[str] = Query(None, description="Filter by unit (kg, L, kWh, etc.)"),
     activity_name: Optional[str] = Query(None, description="Filter by activity name (case-insensitive partial match)"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ) -> EmissionFactorListResponse:
     """
     List all emission factors with pagination and optional filtering.
-
-    Requires authentication (user or admin role).
 
     Query Parameters:
     - limit: Maximum number of emission factors to return (1-1000, default: 100)
@@ -539,13 +536,10 @@ class AttributionResponse(BaseModel):
     description="Get license and attribution information for all active data sources"
 )
 def get_attributions(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ) -> AttributionResponse:
     """
     Get attribution and license information for all active data sources.
-
-    Requires authentication (user or admin role).
 
     This endpoint provides information needed to comply with data source
     license requirements, including:

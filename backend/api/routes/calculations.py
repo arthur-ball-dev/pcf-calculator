@@ -28,8 +28,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from backend.database.connection import get_db
 from backend.models import Product, PCFCalculation, generate_uuid
-from backend.models.user import User
-from backend.auth.dependencies import get_current_active_user
 from backend.calculator.pcf_calculator import PCFCalculator
 
 # Configure logging
@@ -250,13 +248,10 @@ def execute_calculation(
 async def start_calculation(
     request: CalculationRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ) -> CalculationStartResponse:
     """
     Start async PCF calculation for a product.
-
-    Requires authentication (user or admin role).
 
     This endpoint returns immediately (202 Accepted) with a calculation_id.
     The actual calculation runs in the background. Clients should poll
@@ -285,8 +280,7 @@ async def start_calculation(
 
     logger.info(
         f"Received calculation request: calc_id={calc_id}, "
-        f"product_id={request.product_id}, type={request.calculation_type.value}, "
-        f"user={current_user.username}"
+        f"product_id={request.product_id}, type={request.calculation_type.value}"
     )
 
     # Create initial calculation record
@@ -340,13 +334,10 @@ async def start_calculation(
 )
 def get_calculation_status(
     calculation_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ) -> CalculationStatusResponse:
     """
     Get current status and results of a calculation.
-
-    Requires authentication (user or admin role).
 
     Clients should poll this endpoint after receiving a calculation_id
     from POST /calculate. Poll until status changes to "completed" or "failed".

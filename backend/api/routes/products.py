@@ -24,8 +24,6 @@ from pydantic import BaseModel, Field
 
 from backend.database.connection import get_db
 from backend.models import Product, BillOfMaterials, ProductCategory
-from backend.models.user import User
-from backend.auth.dependencies import get_current_active_user
 from backend.schemas.products import (
     IndustrySector,
     CategoryInfo,
@@ -297,13 +295,10 @@ def search_products(
         ge=0,
         description="Number of results to skip"
     ),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ):
     """
     Search products with full-text search and multi-criteria filtering.
-
-    Requires authentication (user or admin role).
 
     Query Parameters:
     - query: Full-text search in name, description, and code (min 2 chars)
@@ -521,13 +516,10 @@ def get_product_categories(
         None,
         description="Filter categories by industry sector"
     ),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ):
     """
     Get hierarchical product category tree.
-
-    Requires authentication (user or admin role).
 
     Query Parameters:
     - parent_id: Get children of specific category (omit for root)
@@ -631,13 +623,10 @@ def list_products(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     is_finished: Optional[bool] = Query(None, description="Filter by is_finished_product"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ) -> ProductListResponse:
     """
     List all products with pagination and optional filtering.
-
-    Requires authentication (user or admin role).
 
     Query Parameters:
     - limit: Maximum number of products to return (1-1000, default: 100)
@@ -694,13 +683,10 @@ def list_products(
 )
 def get_product(
     product_id: str = Path(..., description="Unique product identifier (UUID or alphanumeric ID)"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ) -> ProductDetailResponse:
     """
     Get detailed information for a specific product.
-
-    Requires authentication (user or admin role).
 
     Path Parameters:
     - product_id: Unique product identifier
