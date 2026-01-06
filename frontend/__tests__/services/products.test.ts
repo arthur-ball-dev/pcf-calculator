@@ -69,7 +69,7 @@ describe('Products API - fetchProducts Export', () => {
 
     // Verify it makes the correct API call
     expect(client.get).toHaveBeenCalledWith('/api/v1/products', {
-      params: { limit: 100, offset: 0, is_finished_product: true },
+      params: { limit: 100, offset: 0, is_finished: true },
     });
 
     // Verify it returns the items array
@@ -97,7 +97,7 @@ describe('Products API - fetchProducts Export', () => {
 
     // Verify parameters are passed through
     expect(client.get).toHaveBeenCalledWith('/api/v1/products', {
-      params: { limit: 50, offset: 10, is_finished_product: true },
+      params: { limit: 50, offset: 10, is_finished: true },
     });
   });
 
