@@ -766,9 +766,11 @@ class TestJWTConfiguration:
         import os
         from backend.config import settings
 
-        # The secret should come from environment or have a default for dev
-        # but should NOT be a simple string like "secret"
-        assert hasattr(settings, 'JWT_SECRET_KEY') or os.getenv('JWT_SECRET_KEY') is not None
+        # P0 Security Fix: Secret must come from file or environment variable
+        # The attribute is now PCF_CALC_JWT_SECRET_KEY (not JWT_SECRET_KEY)
+        assert hasattr(settings, 'PCF_CALC_JWT_SECRET_KEY')
+        # Verify it's not the old hardcoded default
+        assert settings.PCF_CALC_JWT_SECRET_KEY != "dev-secret-key-change-in-production-must-be-at-least-32-chars"
 
     def test_jwt_expiry_is_configurable(self):
         """Test that JWT expiry time is configurable."""

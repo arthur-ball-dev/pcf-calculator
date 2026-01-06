@@ -8,8 +8,9 @@ This module provides JWT token creation and validation using python-jose.
 Security Features:
 - HS256 algorithm for token signing
 - Configurable token expiration
-- Secret key from environment variable
+- Secret key from file (/etc/environment.txt) or environment variable
 - Token payload includes user_id, username, and role
+- No hardcoded defaults (P0 security fix)
 
 JWT Specification:
 - Algorithm: HS256
@@ -21,20 +22,17 @@ References:
 - JWT RFC 7519: https://datatracker.ietf.org/doc/html/rfc7519
 """
 
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 
 from jose import jwt, JWTError, ExpiredSignatureError
 
+from backend.config import settings
+
 
 # JWT Configuration
-# Secret key loaded from environment (NEVER hardcode in production)
-# Default is for development only - must be overridden in production
-JWT_SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY",
-    "dev-secret-key-change-in-production-must-be-at-least-32-chars"
-)
+# P0 Security Fix: Secret key loaded from settings (file or env var, no hardcoded default)
+JWT_SECRET_KEY = settings.PCF_CALC_JWT_SECRET_KEY
 
 # Algorithm used for signing tokens
 JWT_ALGORITHM = "HS256"

@@ -52,6 +52,14 @@ Usage:
 """
 
 import os
+
+# Set test JWT secret before importing any backend modules (P0 security fix)
+# This must happen before any imports that trigger backend.config loading
+os.environ.setdefault(
+    "PCF_CALC_JWT_SECRET_KEY",
+    "test-secret-key-for-pytest-only-32-chars-minimum"
+)
+
 import pytest
 from typing import Generator, Callable
 
