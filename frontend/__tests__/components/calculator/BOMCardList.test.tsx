@@ -431,8 +431,13 @@ describe('BOMCardList Component', () => {
       await user.click(screen.getByTestId('remove-btn-1'));
 
       await waitFor(() => {
-        expect(screen.getByText(/steel/i)).toBeInTheDocument();
+        // Wait for dialog to appear
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
       });
+
+      // Use within() to scope to the AlertDialog to avoid matching the card's h3
+      const dialog = screen.getByRole('alertdialog');
+      expect(within(dialog).getByText(/steel/i)).toBeInTheDocument();
     });
 
     it('should call onRemove when confirm button is clicked', async () => {

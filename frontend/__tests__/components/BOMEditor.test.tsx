@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor, userEvent } from '../testUtils';
+import { render, screen, fireEvent, waitFor, userEvent, within } from '../testUtils';
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import BOMEditor from '@/components/forms/BOMEditor';
 import { useCalculatorStore } from '@/store/calculatorStore';
@@ -197,12 +197,23 @@ describe('BOMEditor Component', () => {
     let rows = screen.getAllByRole('row').filter(row => row.closest('tbody') !== null);
     expect(rows.length).toBe(2);
 
-    // Click delete on first row
+    // Click delete on first row - this opens AlertDialog confirmation
     const deleteButtons = screen.getAllByLabelText(/delete component/i);
     await user.click(deleteButtons[0]);
 
-    // Should now have 1 row
+    // Wait for AlertDialog to appear and confirm deletion
     await waitFor(() => {
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    });
+
+    // Click the "Delete" confirmation button in the AlertDialog
+    const dialog = screen.getByRole('alertdialog');
+    const confirmDeleteButton = within(dialog).getByRole('button', { name: /^delete$/i });
+    await user.click(confirmDeleteButton);
+
+    // Should now have 1 row after confirmation
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
       rows = screen.getAllByRole('row').filter(row => row.closest('tbody') !== null);
       expect(rows.length).toBe(1);
     });
