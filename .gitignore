@@ -67,5 +67,15 @@ frontend/debug-screenshots/
 frontend/performance-reports/
 project-sdlc-admin/handoffs/*/artifacts-archived-*/
 docs/phase4-evidence/
-# Vite build cache
+# Vite build cache and dev artifacts
 .vite/
+frontend/.vite/
+frontend/dev-dist/
+
+# E2E test auth state
+frontend/tests/e2e/.auth-state.json
+
+# Legacy one-time scripts (not needed in repo)
+scripts/update_e2e_auth.py
+scripts/fix-*.py
+scripts/fix-*.js
