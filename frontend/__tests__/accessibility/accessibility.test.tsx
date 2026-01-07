@@ -49,6 +49,7 @@ vi.mock('@/services/api/products', () => {
   ];
   return {
     productsAPI: {
+      search: vi.fn().mockResolvedValue({ items: mockProducts, total: mockProducts.length, has_more: false }),
       list: vi.fn().mockResolvedValue(mockProducts),
       getById: vi.fn().mockResolvedValue(mockProducts[0]),
     },

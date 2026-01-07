@@ -92,7 +92,7 @@ async def execute_sync_task(
 
     # Create async engine and session for background task
     # Use SQLite async driver for SQLite databases
-    database_url = settings.DATABASE_URL
+    database_url = settings.database_url
     if database_url.startswith("sqlite:///"):
         async_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
     elif database_url.startswith("postgresql://"):

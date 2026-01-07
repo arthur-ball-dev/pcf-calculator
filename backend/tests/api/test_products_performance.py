@@ -61,9 +61,6 @@ def count_queries(engine):
         yield counter
 
 
-    session.close()
-
-
 def create_product(db_session, code, name, **kwargs):
     product = Product(
         code=code,
@@ -93,50 +90,50 @@ def create_bom_item(db_session, parent_id, child_id, quantity=1.0, unit="unit", 
 
 
 class TestProductDetailQueryCount:
-    def test_query_count_with_5_bom_items(self, db_session, client, db_engine):
+    def test_query_count_with_5_bom_items(self, db_session, authenticated_client, test_engine):
         parent = create_product(db_session, "PARENT-5", "Parent Product 5 Children")
         for i in range(5):
             child = create_product(db_session, f"CHILD-5-{i:03d}", f"Child Product {i}", is_finished_product=False)
             create_bom_item(db_session, parent.id, child.id, quantity=1.0)
-        with count_queries(db_engine) as counter:
+        with count_queries(test_engine) as counter:
             response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 5
         assert counter.total <= 3, f"Expected max 3 queries, got {counter.total}. N+1 query pattern detected!"
 
-    def test_query_count_with_10_bom_items(self, db_session, client, db_engine):
+    def test_query_count_with_10_bom_items(self, db_session, authenticated_client, test_engine):
         parent = create_product(db_session, "PARENT-10", "Parent Product 10 Children")
         for i in range(10):
             child = create_product(db_session, f"CHILD-10-{i:03d}", f"Child Product {i}", is_finished_product=False)
             create_bom_item(db_session, parent.id, child.id, quantity=float(i + 1))
-        with count_queries(db_engine) as counter:
+        with count_queries(test_engine) as counter:
             response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 10
         assert counter.total <= 3, f"Expected max 3 queries for 10 BOM items, got {counter.total}. N+1 detected!"
 
-    def test_query_count_with_20_bom_items(self, db_session, client, db_engine):
+    def test_query_count_with_20_bom_items(self, db_session, authenticated_client, test_engine):
         parent = create_product(db_session, "PARENT-20", "Parent Product 20 Children")
         for i in range(20):
             child = create_product(db_session, f"CHILD-20-{i:03d}", f"Child Product {i}", is_finished_product=False)
             create_bom_item(db_session, parent.id, child.id, quantity=1.5)
-        with count_queries(db_engine) as counter:
+        with count_queries(test_engine) as counter:
             response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 20
         assert counter.total <= 3, f"Expected max 3 queries for 20 BOM items, got {counter.total}. N+1 detected!"
 
-    def test_query_count_does_not_scale_with_bom_size(self, db_session, client, db_engine):
+    def test_query_count_does_not_scale_with_bom_size(self, db_session, authenticated_client, test_engine):
         query_counts = []
         for bom_size in [1, 5, 10]:
             parent = create_product(db_session, f"SCALE-TEST-{bom_size}", f"Product with {bom_size} children")
             for i in range(bom_size):
                 child = create_product(db_session, f"SCALE-CHILD-{bom_size}-{i}", f"Child {i}")
                 create_bom_item(db_session, parent.id, child.id)
-            with count_queries(db_engine) as counter:
+            with count_queries(test_engine) as counter:
                 response = authenticated_client.get(f"/api/v1/products/{parent.id}")
             assert response.status_code == 200
             query_counts.append(counter.total)
@@ -148,7 +145,7 @@ class TestProductDetailQueryCount:
 
 class TestProductDetailResponseTime:
     @pytest.mark.parametrize("bom_count", [1, 5, 10, 20])
-    def test_response_time_within_sla(self, db_session, client, bom_count):
+    def test_response_time_within_sla(self, db_session, authenticated_client, bom_count):
         parent = create_product(db_session, f"PERF-{bom_count}", f"Performance Test {bom_count} Items")
         for i in range(bom_count):
             child = create_product(db_session, f"PERF-CHILD-{bom_count}-{i}", f"Child {i}")
@@ -243,9 +240,9 @@ class TestProductDetailBackwardCompatibility:
 
 
 class TestProductDetailEdgeCases:
-    def test_product_with_no_bom_items(self, db_session, client, db_engine):
+    def test_product_with_no_bom_items(self, db_session, authenticated_client, test_engine):
         product = create_product(db_session, "NO-BOM", "Product Without BOM")
-        with count_queries(db_engine) as counter:
+        with count_queries(test_engine) as counter:
             response = authenticated_client.get(f"/api/v1/products/{product.id}")
         assert response.status_code == 200
         data = response.json()
@@ -256,11 +253,11 @@ class TestProductDetailEdgeCases:
         response = authenticated_client.get("/api/v1/products/nonexistent-id-12345")
         assert response.status_code == 404
 
-    def test_product_with_single_bom_item(self, db_session, client, db_engine):
+    def test_product_with_single_bom_item(self, db_session, authenticated_client, test_engine):
         parent = create_product(db_session, "SINGLE-BOM-PARENT", "Parent")
         child = create_product(db_session, "SINGLE-BOM-CHILD", "Only Child", is_finished_product=False)
         create_bom_item(db_session, parent.id, child.id, quantity=1.0)
-        with count_queries(db_engine) as counter:
+        with count_queries(test_engine) as counter:
             response = authenticated_client.get(f"/api/v1/products/{parent.id}")
         assert response.status_code == 200
         data = response.json()

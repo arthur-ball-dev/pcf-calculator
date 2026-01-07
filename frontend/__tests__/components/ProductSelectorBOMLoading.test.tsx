@@ -106,6 +106,7 @@ const mockProducts = [
 
 vi.mock('../../src/services/api/products', () => ({
   productsAPI: {
+    search: vi.fn(),
     list: vi.fn(),
     getById: vi.fn(),
   },
@@ -132,6 +133,11 @@ describe('ProductSelector - BOM Loading Integration (TASK-FE-019)', () => {
 
     // Default mock implementations
     vi.mocked(productsApi.fetchProducts).mockResolvedValue(mockProductsList);
+    vi.mocked(productsApi.productsAPI.search).mockResolvedValue({
+      items: mockProductsList,
+      total: mockProductsList.length,
+      has_more: false,
+    });
     vi.mocked(productsApi.productsAPI.getById).mockResolvedValue(mockProductDetail);
     vi.mocked(emissionFactorsApi.emissionFactorsAPI.list).mockResolvedValue(mockEmissionFactors);
   });
