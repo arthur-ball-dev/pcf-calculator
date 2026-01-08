@@ -161,7 +161,7 @@ CORS_ORIGINS=http://localhost:5173
 
 ## License
 
-[Add license information here]
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
