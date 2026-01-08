@@ -18,9 +18,11 @@
  *
  * Enhanced in Phase 7: Replaced simple Select with searchable Command combobox
  * Enhanced in Phase 8: Added BOM filter toggle
+ * Fixed in Phase 7 (TASK-FE-P7-042): Fixed infinite API loop bug by adding
+ *   ref-based deduplication and consolidating competing useEffect hooks
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
@@ -184,6 +186,9 @@ const ProductSelector: React.FC = () => {
   const [emissionFactors, setEmissionFactors] = useState<EmissionFactorListItem[]>([]);
   const [isLoadingEmissionFactors, setIsLoadingEmissionFactors] = useState(true);
 
+  // Ref to prevent concurrent search calls (TASK-FE-P7-042 fix)
+  const searchInProgressRef = useRef(false);
+
   // Store access
   const { selectedProductId, setSelectedProduct, setLoadingBOM, setBomItems, setSelectedProductDetails } = useCalculatorStore();
   const { markStepComplete, markStepIncomplete } = useWizardStore();
@@ -209,8 +214,17 @@ const ProductSelector: React.FC = () => {
 
   /**
    * Search products with debounced query using backend search API
+   *
+   * TASK-FE-P7-042 fix: Added ref-based deduplication to prevent
+   * concurrent API calls that caused the infinite loop bug.
    */
   const searchProducts = useCallback(async (query: string, hasBom: boolean) => {
+    // Prevent concurrent calls - fixes infinite loop bug (TASK-FE-P7-042)
+    if (searchInProgressRef.current) {
+      return;
+    }
+
+    searchInProgressRef.current = true;
     setIsSearching(true);
     setError(null);
 
@@ -230,11 +244,26 @@ const ProductSelector: React.FC = () => {
       setError(err instanceof Error ? err : new Error('Unknown error'));
     } finally {
       setIsSearching(false);
+      searchInProgressRef.current = false;
     }
   }, []);
 
   /**
-   * Effect to trigger search when debounced search query or BOM filter changes
+   * Consolidated effect to trigger search when popover opens or search params change
+   *
+   * TASK-FE-P7-042 fix: Consolidated two competing useEffect hooks into one.
+   * Previously, there were two effects:
+   * - Effect 1 triggered on: open, debouncedSearch, showOnlyWithBom
+   * - Effect 2 triggered on: open, products.length, isSearching, showOnlyWithBom
+   *
+   * The race condition occurred because both effects fired when `open` changed,
+   * and Effect 2 would re-fire when isSearching changed, potentially triggering
+   * another search under certain timing conditions.
+   *
+   * This single effect handles all search triggers:
+   * - Initial load when popover opens (open becomes true)
+   * - Search query changes (debouncedSearch changes)
+   * - BOM filter changes (showOnlyWithBom changes)
    */
   useEffect(() => {
     if (open) {
@@ -242,15 +271,9 @@ const ProductSelector: React.FC = () => {
     }
   }, [open, debouncedSearch, showOnlyWithBom, searchProducts]);
 
-  /**
-   * Load initial products when popover opens
-   */
-  useEffect(() => {
-    if (open && products.length === 0 && !isSearching) {
-      setIsLoading(true);
-      searchProducts('', showOnlyWithBom).finally(() => setIsLoading(false));
-    }
-  }, [open, products.length, isSearching, showOnlyWithBom, searchProducts]);
+  // NOTE: The second useEffect that was here (lines 248-253 in the original)
+  // has been removed as part of TASK-FE-P7-042 fix. It was redundant and
+  // caused the infinite loop by creating a race condition with the first effect.
 
   /**
    * Sync wizard step completion based on selection
@@ -268,8 +291,8 @@ const ProductSelector: React.FC = () => {
    */
   const handleBomFilterChange = (value: boolean) => {
     setShowOnlyWithBom(value);
-    // Clear current products to trigger a fresh search
-    setProducts([]);
+    // Products will be refreshed automatically via the useEffect
+    // that watches showOnlyWithBom
   };
 
   /**

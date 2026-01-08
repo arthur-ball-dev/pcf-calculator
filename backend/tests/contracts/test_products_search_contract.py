@@ -16,13 +16,13 @@ Test-Driven Development Protocol:
 - These tests MUST be committed BEFORE implementation
 - Tests validate contract compliance, not business logic
 - Implementation must make tests PASS without modifying tests
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 from datetime import datetime
 
 from backend.models import (
@@ -36,50 +36,6 @@ from backend.database.connection import get_db
 
 # Mark all tests in this module as contract tests
 pytestmark = pytest.mark.contracts
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for contract testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for contract testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create FastAPI TestClient with database dependency override."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-
-    yield test_client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -154,41 +110,41 @@ class TestSearchResponseStructureContract:
     - has_more: boolean
     """
 
-    def test_response_has_items_field(self, client, seed_contract_data):
+    def test_response_has_items_field(self, authenticated_client, seed_contract_data):
         """Contract: Response MUST have 'items' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert "items" in data, \
             "Contract violation: 'items' field is required"
 
-    def test_response_has_total_field(self, client, seed_contract_data):
+    def test_response_has_total_field(self, authenticated_client, seed_contract_data):
         """Contract: Response MUST have 'total' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert "total" in data, \
             "Contract violation: 'total' field is required"
 
-    def test_response_has_limit_field(self, client, seed_contract_data):
+    def test_response_has_limit_field(self, authenticated_client, seed_contract_data):
         """Contract: Response MUST have 'limit' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert "limit" in data, \
             "Contract violation: 'limit' field is required"
 
-    def test_response_has_offset_field(self, client, seed_contract_data):
+    def test_response_has_offset_field(self, authenticated_client, seed_contract_data):
         """Contract: Response MUST have 'offset' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert "offset" in data, \
             "Contract violation: 'offset' field is required"
 
-    def test_response_has_has_more_field(self, client, seed_contract_data):
+    def test_response_has_has_more_field(self, authenticated_client, seed_contract_data):
         """Contract: Response MUST have 'has_more' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert "has_more" in data, \
@@ -211,41 +167,41 @@ class TestSearchFieldTypesContract:
     - has_more: boolean
     """
 
-    def test_items_is_array(self, client, seed_contract_data):
+    def test_items_is_array(self, authenticated_client, seed_contract_data):
         """Contract: 'items' MUST be an array."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert isinstance(data["items"], list), \
             "Contract violation: 'items' must be an array"
 
-    def test_total_is_integer(self, client, seed_contract_data):
+    def test_total_is_integer(self, authenticated_client, seed_contract_data):
         """Contract: 'total' MUST be an integer."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert isinstance(data["total"], int), \
             "Contract violation: 'total' must be an integer"
 
-    def test_limit_is_integer(self, client, seed_contract_data):
+    def test_limit_is_integer(self, authenticated_client, seed_contract_data):
         """Contract: 'limit' MUST be an integer."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert isinstance(data["limit"], int), \
             "Contract violation: 'limit' must be an integer"
 
-    def test_offset_is_integer(self, client, seed_contract_data):
+    def test_offset_is_integer(self, authenticated_client, seed_contract_data):
         """Contract: 'offset' MUST be an integer."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert isinstance(data["offset"], int), \
             "Contract violation: 'offset' must be an integer"
 
-    def test_has_more_is_boolean(self, client, seed_contract_data):
+    def test_has_more_is_boolean(self, authenticated_client, seed_contract_data):
         """Contract: 'has_more' MUST be a boolean."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert isinstance(data["has_more"], bool), \
@@ -276,9 +232,9 @@ class TestProductItemStructureContract:
     - relevance_score: number or null
     """
 
-    def test_item_has_id(self, client, seed_contract_data):
+    def test_item_has_id(self, authenticated_client, seed_contract_data):
         """Contract: Product item MUST have 'id' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert len(data["items"]) > 0, "Need items to test"
@@ -286,45 +242,45 @@ class TestProductItemStructureContract:
             assert "id" in item, \
                 "Contract violation: 'id' required in product item"
 
-    def test_item_has_code(self, client, seed_contract_data):
+    def test_item_has_code(self, authenticated_client, seed_contract_data):
         """Contract: Product item MUST have 'code' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert "code" in item, \
                 "Contract violation: 'code' required in product item"
 
-    def test_item_has_name(self, client, seed_contract_data):
+    def test_item_has_name(self, authenticated_client, seed_contract_data):
         """Contract: Product item MUST have 'name' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert "name" in item, \
                 "Contract violation: 'name' required in product item"
 
-    def test_item_has_unit(self, client, seed_contract_data):
+    def test_item_has_unit(self, authenticated_client, seed_contract_data):
         """Contract: Product item MUST have 'unit' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert "unit" in item, \
                 "Contract violation: 'unit' required in product item"
 
-    def test_item_has_is_finished_product(self, client, seed_contract_data):
+    def test_item_has_is_finished_product(self, authenticated_client, seed_contract_data):
         """Contract: Product item MUST have 'is_finished_product' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert "is_finished_product" in item, \
                 "Contract violation: 'is_finished_product' required"
 
-    def test_item_has_created_at(self, client, seed_contract_data):
+    def test_item_has_created_at(self, authenticated_client, seed_contract_data):
         """Contract: Product item MUST have 'created_at' field."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
@@ -339,54 +295,54 @@ class TestProductItemStructureContract:
 class TestProductItemFieldTypesContract:
     """Contract: Product item fields MUST have correct types."""
 
-    def test_item_id_is_string(self, client, seed_contract_data):
+    def test_item_id_is_string(self, authenticated_client, seed_contract_data):
         """Contract: 'id' MUST be a string (UUID)."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert isinstance(item["id"], str), \
                 "Contract violation: 'id' must be a string"
 
-    def test_item_code_is_string(self, client, seed_contract_data):
+    def test_item_code_is_string(self, authenticated_client, seed_contract_data):
         """Contract: 'code' MUST be a string."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert isinstance(item["code"], str), \
                 "Contract violation: 'code' must be a string"
 
-    def test_item_name_is_string(self, client, seed_contract_data):
+    def test_item_name_is_string(self, authenticated_client, seed_contract_data):
         """Contract: 'name' MUST be a string."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert isinstance(item["name"], str), \
                 "Contract violation: 'name' must be a string"
 
-    def test_item_unit_is_string(self, client, seed_contract_data):
+    def test_item_unit_is_string(self, authenticated_client, seed_contract_data):
         """Contract: 'unit' MUST be a string."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert isinstance(item["unit"], str), \
                 "Contract violation: 'unit' must be a string"
 
-    def test_item_is_finished_product_is_boolean(self, client, seed_contract_data):
+    def test_item_is_finished_product_is_boolean(self, authenticated_client, seed_contract_data):
         """Contract: 'is_finished_product' MUST be a boolean."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
             assert isinstance(item["is_finished_product"], bool), \
                 "Contract violation: 'is_finished_product' must be boolean"
 
-    def test_item_created_at_is_iso8601(self, client, seed_contract_data):
+    def test_item_created_at_is_iso8601(self, authenticated_client, seed_contract_data):
         """Contract: 'created_at' MUST be ISO 8601 datetime string."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
@@ -408,9 +364,9 @@ class TestProductItemFieldTypesContract:
 class TestNullableFieldsContract:
     """Contract: Optional fields MAY be null."""
 
-    def test_description_can_be_null(self, client, seed_contract_data):
+    def test_description_can_be_null(self, authenticated_client, seed_contract_data):
         """Contract: 'description' MAY be null."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         # Find minimal product (has null description)
@@ -425,9 +381,9 @@ class TestNullableFieldsContract:
             # Value can be null
             assert minimal["description"] is None or isinstance(minimal["description"], str)
 
-    def test_category_can_be_null(self, client, seed_contract_data):
+    def test_category_can_be_null(self, authenticated_client, seed_contract_data):
         """Contract: 'category' MAY be null."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         # Find minimal product (has null category)
@@ -441,9 +397,9 @@ class TestNullableFieldsContract:
             # Can be null for products without category
             assert minimal["category"] is None or isinstance(minimal["category"], dict)
 
-    def test_manufacturer_can_be_null(self, client, seed_contract_data):
+    def test_manufacturer_can_be_null(self, authenticated_client, seed_contract_data):
         """Contract: 'manufacturer' MAY be null."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         minimal = next(
@@ -454,9 +410,9 @@ class TestNullableFieldsContract:
             assert "manufacturer" in minimal, \
                 "Contract violation: 'manufacturer' field must be present"
 
-    def test_country_of_origin_can_be_null(self, client, seed_contract_data):
+    def test_country_of_origin_can_be_null(self, authenticated_client, seed_contract_data):
         """Contract: 'country_of_origin' MAY be null."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         minimal = next(
@@ -467,9 +423,9 @@ class TestNullableFieldsContract:
             assert "country_of_origin" in minimal, \
                 "Contract violation: 'country_of_origin' field must be present"
 
-    def test_relevance_score_null_without_query(self, client, seed_contract_data):
+    def test_relevance_score_null_without_query(self, authenticated_client, seed_contract_data):
         """Contract: 'relevance_score' MUST be null when no query provided."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         for item in data["items"]:
@@ -493,9 +449,9 @@ class TestCategoryObjectContract:
     - industry_sector: string
     """
 
-    def test_category_has_id(self, client, seed_contract_data):
+    def test_category_has_id(self, authenticated_client, seed_contract_data):
         """Contract: Category object MUST have 'id'."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         # Find product with category
@@ -507,9 +463,9 @@ class TestCategoryObjectContract:
             assert "id" in with_cat["category"], \
                 "Contract violation: category 'id' required"
 
-    def test_category_has_code(self, client, seed_contract_data):
+    def test_category_has_code(self, authenticated_client, seed_contract_data):
         """Contract: Category object MUST have 'code'."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         with_cat = next(
@@ -520,9 +476,9 @@ class TestCategoryObjectContract:
             assert "code" in with_cat["category"], \
                 "Contract violation: category 'code' required"
 
-    def test_category_has_name(self, client, seed_contract_data):
+    def test_category_has_name(self, authenticated_client, seed_contract_data):
         """Contract: Category object MUST have 'name'."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         with_cat = next(
@@ -533,9 +489,9 @@ class TestCategoryObjectContract:
             assert "name" in with_cat["category"], \
                 "Contract violation: category 'name' required"
 
-    def test_category_has_industry_sector(self, client, seed_contract_data):
+    def test_category_has_industry_sector(self, authenticated_client, seed_contract_data):
         """Contract: Category object MUST have 'industry_sector'."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         with_cat = next(
@@ -561,24 +517,24 @@ class TestErrorResponseContract:
     - 500: Internal error
     """
 
-    def test_400_for_query_too_short(self, client, seed_contract_data):
+    def test_400_for_query_too_short(self, authenticated_client, seed_contract_data):
         """Contract: Query <2 chars MUST return 400."""
-        response = client.get("/api/v1/products/search?query=a")
+        response = authenticated_client.get("/api/v1/products/search?query=a")
 
         assert response.status_code == 400, \
             f"Contract violation: query<2 chars should return 400"
 
-    def test_422_for_invalid_category(self, client, seed_contract_data):
+    def test_422_for_invalid_category(self, authenticated_client, seed_contract_data):
         """Contract: Invalid category_id MUST return 422."""
         fake_id = "00000000000000000000000000000000"
-        response = client.get(f"/api/v1/products/search?category_id={fake_id}")
+        response = authenticated_client.get(f"/api/v1/products/search?category_id={fake_id}")
 
         assert response.status_code == 422, \
             f"Contract violation: invalid category should return 422"
 
-    def test_error_response_has_error_field(self, client, seed_contract_data):
+    def test_error_response_has_error_field(self, authenticated_client, seed_contract_data):
         """Contract: Error response MUST have 'error' or 'detail' field."""
-        response = client.get("/api/v1/products/search?query=a")
+        response = authenticated_client.get("/api/v1/products/search?query=a")
         data = response.json()
 
         assert "error" in data or "detail" in data, \
@@ -592,17 +548,17 @@ class TestErrorResponseContract:
 class TestPaginationDefaultsContract:
     """Contract: Pagination parameters have specific defaults."""
 
-    def test_default_limit_is_50(self, client, seed_contract_data):
+    def test_default_limit_is_50(self, authenticated_client, seed_contract_data):
         """Contract: Default limit MUST be 50."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert data["limit"] == 50, \
             f"Contract violation: default limit should be 50, got {data['limit']}"
 
-    def test_default_offset_is_0(self, client, seed_contract_data):
+    def test_default_offset_is_0(self, authenticated_client, seed_contract_data):
         """Contract: Default offset MUST be 0."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert data["offset"] == 0, \
@@ -616,23 +572,23 @@ class TestPaginationDefaultsContract:
 class TestHttpStatusCodesContract:
     """Contract: Endpoints return correct HTTP status codes."""
 
-    def test_success_returns_200(self, client, seed_contract_data):
+    def test_success_returns_200(self, authenticated_client, seed_contract_data):
         """Contract: Successful search MUST return 200."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
 
         assert response.status_code == 200, \
             f"Contract violation: success should return 200, got {response.status_code}"
 
-    def test_validation_error_returns_400_or_422(self, client, seed_contract_data):
+    def test_validation_error_returns_400_or_422(self, authenticated_client, seed_contract_data):
         """Contract: Validation errors return 400 or 422."""
-        response = client.get("/api/v1/products/search?limit=0")
+        response = authenticated_client.get("/api/v1/products/search?limit=0")
 
         assert response.status_code in [400, 422], \
             f"Contract violation: validation error should return 400/422"
 
-    def test_empty_results_still_returns_200(self, client, seed_contract_data):
+    def test_empty_results_still_returns_200(self, authenticated_client, seed_contract_data):
         """Contract: Empty results MUST return 200, not 404."""
-        response = client.get("/api/v1/products/search?query=xyz123nonexistent")
+        response = authenticated_client.get("/api/v1/products/search?query=xyz123nonexistent")
 
         assert response.status_code == 200, \
             "Contract violation: empty results should return 200"

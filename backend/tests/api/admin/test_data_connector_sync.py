@@ -2,6 +2,7 @@
 Tests for admin data source sync endpoint with real connector integration.
 
 TASK-BE-P7-002: Activate Data Connector Admin Endpoints
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 
 TDD Tests for:
 - Connector registry functionality
@@ -19,54 +20,17 @@ Test scenarios from TASK-BE-P7-002_SPEC:
 
 import uuid
 from datetime import datetime, timezone
-from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import Session
 
-from backend.models import Base, DataSource, DataSyncLog
+from backend.models import DataSource, DataSyncLog
 
 
 # ============================================================================
-# Test Fixtures
+# Test Data Fixtures (use db_session from root conftest.py)
 # ============================================================================
-
-
-@pytest.fixture(scope="function")
-def test_engine():
-    """Create an in-memory SQLite test engine."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    Base.metadata.create_all(bind=engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(test_engine) -> Generator[Session, None, None]:
-    """Provide a database session for testing."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=test_engine
-    )
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
 
 
 @pytest.fixture
@@ -135,23 +99,6 @@ def unknown_data_source(db_session: Session) -> DataSource:
     db_session.commit()
     db_session.refresh(data_source)
     return data_source
-
-
-@pytest.fixture
-def app_with_db(db_session: Session) -> FastAPI:
-    """Create FastAPI app with database dependency override."""
-    from backend.main import app
-    from backend.database.connection import get_db
-
-    app.dependency_overrides[get_db] = lambda: db_session
-    yield app
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def client(app_with_db: FastAPI) -> TestClient:
-    """Create test client with database override."""
-    return TestClient(app_with_db)
 
 
 # ============================================================================
@@ -249,7 +196,7 @@ class TestEPASyncTrigger:
 
     def test_sync_trigger_epa_returns_202(
         self,
-        client: TestClient,
+        admin_client,
         epa_data_source: DataSource,
         db_session: Session
     ):
@@ -271,7 +218,7 @@ class TestEPASyncTrigger:
         ) as mock_execute:
             mock_execute.return_value = None
 
-            response = client.post(f"/admin/data-sources/{epa_data_source.id}/sync")
+            response = admin_client.post(f"/admin/data-sources/{epa_data_source.id}/sync")
 
             assert response.status_code == 202
             data = response.json()
@@ -282,7 +229,7 @@ class TestEPASyncTrigger:
 
     def test_sync_trigger_epa_creates_sync_log(
         self,
-        client: TestClient,
+        admin_client,
         epa_data_source: DataSource,
         db_session: Session
     ):
@@ -297,7 +244,7 @@ class TestEPASyncTrigger:
         ) as mock_execute:
             mock_execute.return_value = None
 
-            response = client.post(f"/admin/data-sources/{epa_data_source.id}/sync")
+            response = admin_client.post(f"/admin/data-sources/{epa_data_source.id}/sync")
 
             assert response.status_code == 202
             data = response.json()
@@ -323,7 +270,7 @@ class TestDEFRASyncTrigger:
 
     def test_sync_trigger_defra_returns_202(
         self,
-        client: TestClient,
+        admin_client,
         defra_data_source: DataSource,
         db_session: Session
     ):
@@ -342,7 +289,7 @@ class TestDEFRASyncTrigger:
         ) as mock_execute:
             mock_execute.return_value = None
 
-            response = client.post(f"/admin/data-sources/{defra_data_source.id}/sync")
+            response = admin_client.post(f"/admin/data-sources/{defra_data_source.id}/sync")
 
             assert response.status_code == 202
             data = response.json()
@@ -359,7 +306,7 @@ class TestExiobaseSyncTrigger:
 
     def test_sync_trigger_exiobase_returns_202(
         self,
-        client: TestClient,
+        admin_client,
         exiobase_data_source: DataSource,
         db_session: Session
     ):
@@ -378,7 +325,7 @@ class TestExiobaseSyncTrigger:
         ) as mock_execute:
             mock_execute.return_value = None
 
-            response = client.post(f"/admin/data-sources/{exiobase_data_source.id}/sync")
+            response = admin_client.post(f"/admin/data-sources/{exiobase_data_source.id}/sync")
 
             assert response.status_code == 202
             data = response.json()
@@ -395,7 +342,7 @@ class TestUnknownConnectorError:
 
     def test_sync_trigger_unknown_connector_returns_422(
         self,
-        client: TestClient,
+        admin_client,
         unknown_data_source: DataSource,
         db_session: Session
     ):
@@ -409,7 +356,7 @@ class TestUnknownConnectorError:
             - Returns 422 Unprocessable Entity
             - Error message indicates no connector registered
         """
-        response = client.post(f"/admin/data-sources/{unknown_data_source.id}/sync")
+        response = admin_client.post(f"/admin/data-sources/{unknown_data_source.id}/sync")
 
         assert response.status_code == 422
         data = response.json()
@@ -433,7 +380,7 @@ class TestBackgroundExecution:
 
     def test_sync_returns_immediately_without_blocking(
         self,
-        client: TestClient,
+        admin_client,
         epa_data_source: DataSource,
         db_session: Session
     ):
@@ -452,7 +399,7 @@ class TestBackgroundExecution:
             mock_execute.return_value = None
 
             start_time = time.time()
-            response = client.post(f"/admin/data-sources/{epa_data_source.id}/sync")
+            response = admin_client.post(f"/admin/data-sources/{epa_data_source.id}/sync")
             elapsed_time = time.time() - start_time
 
             assert response.status_code == 202
@@ -461,7 +408,7 @@ class TestBackgroundExecution:
 
     def test_sync_calls_execute_sync_in_background(
         self,
-        client: TestClient,
+        admin_client,
         epa_data_source: DataSource,
         db_session: Session
     ):
@@ -473,7 +420,7 @@ class TestBackgroundExecution:
         ) as mock_execute:
             mock_execute.return_value = None
 
-            response = client.post(f"/admin/data-sources/{epa_data_source.id}/sync")
+            response = admin_client.post(f"/admin/data-sources/{epa_data_source.id}/sync")
 
             assert response.status_code == 202
             # Verify execute_sync_in_background was called
@@ -495,7 +442,7 @@ class TestSyncOptions:
 
     def test_sync_with_force_refresh(
         self,
-        client: TestClient,
+        admin_client,
         epa_data_source: DataSource,
         db_session: Session
     ):
@@ -507,7 +454,7 @@ class TestSyncOptions:
         ) as mock_execute:
             mock_execute.return_value = None
 
-            response = client.post(
+            response = admin_client.post(
                 f"/admin/data-sources/{epa_data_source.id}/sync",
                 json={"force_refresh": True}
             )
@@ -523,7 +470,7 @@ class TestSyncOptions:
 
     def test_sync_with_dry_run(
         self,
-        client: TestClient,
+        admin_client,
         epa_data_source: DataSource,
         db_session: Session
     ):
@@ -535,7 +482,7 @@ class TestSyncOptions:
         ) as mock_execute:
             mock_execute.return_value = None
 
-            response = client.post(
+            response = admin_client.post(
                 f"/admin/data-sources/{epa_data_source.id}/sync",
                 json={"dry_run": True}
             )

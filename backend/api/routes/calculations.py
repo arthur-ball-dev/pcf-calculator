@@ -3,6 +3,8 @@ Calculations API Routes
 TASK-API-002: Implementation of async calculation endpoints
 TASK-BE-P5-010: Fix Backend Test Failures - Add enum validation for calculation_type
 TASK-FE-P8-003: Added breakdown field to response for expandable items
+TASK-API-P7-027: Align API contract types - change 'processing'/'running' to 'in_progress'
+TASK-BE-P7-018: Added JWT authentication (user role required)
 
 Endpoints:
 - POST /api/v1/calculate - Start async PCF calculation (returns 202 Accepted)
@@ -67,13 +69,13 @@ class CalculationRequest(BaseModel):
 class CalculationStartResponse(BaseModel):
     """Response model for POST /calculate (202 Accepted)"""
     calculation_id: str = Field(..., description="UUID for tracking calculation status")
-    status: str = Field(..., description="Initial status (always 'processing')")
+    status: str = Field(..., description="Initial status (always 'in_progress')")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "calculation_id": "calc123abc456def789ghi012jkl345mno",
-                "status": "processing"
+                "status": "in_progress"
             }
         }
 
@@ -81,16 +83,16 @@ class CalculationStartResponse(BaseModel):
 class CalculationStatusResponse(BaseModel):
     """Response model for GET /calculations/{id}"""
     calculation_id: str = Field(..., description="Calculation UUID")
-    status: str = Field(..., description="Current status: processing, completed, failed")
+    status: str = Field(..., description="Current status: pending, in_progress, completed, failed")
     product_id: Optional[str] = Field(None, description="Product UUID")
     created_at: Optional[str] = Field(None, description="Calculation start time (ISO 8601)")
 
     # Fields present when completed
-    total_co2e_kg: Optional[float] = Field(None, description="Total emissions in kg CO2e")
-    materials_co2e: Optional[float] = Field(None, description="Materials emissions in kg CO2e")
-    energy_co2e: Optional[float] = Field(None, description="Energy emissions in kg CO2e")
-    transport_co2e: Optional[float] = Field(None, description="Transport emissions in kg CO2e")
-    calculation_time_ms: Optional[int] = Field(None, description="Calculation duration in milliseconds")
+    total_co2e_kg: Optional[float] = Field(None, ge=0, description="Total emissions in kg CO2e")
+    materials_co2e: Optional[float] = Field(None, ge=0, description="Materials emissions in kg CO2e")
+    energy_co2e: Optional[float] = Field(None, ge=0, description="Energy emissions in kg CO2e")
+    transport_co2e: Optional[float] = Field(None, ge=0, description="Transport emissions in kg CO2e")
+    calculation_time_ms: Optional[int] = Field(None, ge=0, description="Calculation duration in milliseconds")
 
     # TASK-FE-P8-003: Detailed breakdown by component for expandable items
     breakdown: Optional[Dict[str, float]] = Field(
@@ -147,7 +149,7 @@ def execute_calculation(
     202 Accepted to the client. Updates database with results or error.
 
     Lifecycle:
-    1. Update status to 'running'
+    1. Update status to 'in_progress'
     2. Verify product exists
     3. Perform calculation using PCFCalculator
     4. Update status to 'completed' with results
@@ -163,14 +165,14 @@ def execute_calculation(
     start_time = time.time()
 
     try:
-        # Update status to 'running'
+        # Update status to 'in_progress'
         calculation = db_session.query(PCFCalculation).filter_by(id=calculation_id).first()
 
         if not calculation:
             logger.error(f"Calculation {calculation_id} not found in database")
             return
 
-        calculation.status = "running"
+        calculation.status = "in_progress"
         db_session.commit()
 
         logger.info(f"Starting calculation {calculation_id} for product {product_id}")
@@ -269,7 +271,7 @@ async def start_calculation(
     Returns:
     - 202 Accepted: Calculation started
         - calculation_id: UUID for polling status
-        - status: "processing" (always)
+        - status: "in_progress" (always)
 
     - 422 Unprocessable Entity: Invalid request (missing product_id or invalid calculation_type)
     """
@@ -319,7 +321,7 @@ async def start_calculation(
 
     return CalculationStartResponse(
         calculation_id=calc_id,
-        status="processing"
+        status="in_progress"
     )
 
 
@@ -350,7 +352,8 @@ def get_calculation_status(
 
     Returns:
     - 200 OK: Calculation found
-        - status="processing": Still calculating (no result yet)
+        - status="pending": Calculation queued but not yet started
+        - status="in_progress": Still calculating (no result yet)
         - status="completed": Done (includes total_co2e_kg, breakdown, and category totals)
         - status="failed": Error occurred (includes error_message)
 
@@ -383,10 +386,16 @@ def get_calculation_status(
             detail=f"Calculation not found"
         )
 
+    # Map internal status values to frontend-compatible values
+    # TASK-API-P7-027: Ensure 'running' and 'processing' are mapped to 'in_progress'
+    status_value = calculation.status
+    if status_value in ("running", "processing"):
+        status_value = "in_progress"
+
     # Build response based on status
     response_data = {
         "calculation_id": calculation.id,
-        "status": calculation.status,
+        "status": status_value,
         "product_id": calculation.product_id,
         "created_at": calculation.created_at.isoformat() if calculation.created_at else None
     }
@@ -413,6 +422,6 @@ def get_calculation_status(
 
         response_data["error_message"] = error_msg or "Calculation failed"
 
-    logger.debug(f"Returning status for calculation {calculation_id}: {calculation.status}")
+    logger.debug(f"Returning status for calculation {calculation_id}: {status_value}")
 
     return CalculationStatusResponse(**response_data)

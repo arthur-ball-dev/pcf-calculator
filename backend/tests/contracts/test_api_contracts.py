@@ -17,13 +17,13 @@ Test-Driven Development Protocol:
 - These tests MUST be committed BEFORE implementation
 - Tests define the expected response contracts
 - Implementation must preserve these contracts exactly
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 from datetime import datetime
 from decimal import Decimal
 
@@ -40,50 +40,6 @@ from backend.database.connection import get_db
 
 # Mark all tests in this module as contract tests
 pytestmark = pytest.mark.contracts
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for contract testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for contract testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create FastAPI TestClient with database dependency override."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-
-    yield test_client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -178,14 +134,14 @@ class TestProductsListContract:
     """
 
     def test_products_list_response_has_required_top_level_fields(
-        self, client, seed_contract_data
+        self, authenticated_client, seed_contract_data
     ):
         """
         Verify products list response has all required top-level fields.
 
         Contract: Response MUST contain 'items', 'total', 'limit', 'offset'
         """
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         required_fields = ["items", "total", "limit", "offset"]
@@ -193,27 +149,27 @@ class TestProductsListContract:
             assert field in data, \
                 f"Contract violation: '{field}' missing from products list response"
 
-    def test_products_list_items_type_is_array(self, client, seed_contract_data):
+    def test_products_list_items_type_is_array(self, authenticated_client, seed_contract_data):
         """
         Verify 'items' field is an array.
 
         Contract: 'items' MUST be an array, even if empty
         """
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert isinstance(data["items"], list), \
             "Contract violation: 'items' must be an array"
 
     def test_products_list_pagination_fields_are_integers(
-        self, client, seed_contract_data
+        self, authenticated_client, seed_contract_data
     ):
         """
         Verify pagination fields are integers.
 
         Contract: 'total', 'limit', 'offset' MUST be integers
         """
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert isinstance(data["total"], int), \
@@ -224,7 +180,7 @@ class TestProductsListContract:
             "Contract violation: 'offset' must be an integer"
 
     def test_products_list_item_has_required_fields(
-        self, client, seed_contract_data
+        self, authenticated_client, seed_contract_data
     ):
         """
         Verify each product item has all required fields.
@@ -238,7 +194,7 @@ class TestProductsListContract:
         - is_finished_product (boolean)
         - created_at (string, ISO 8601 datetime)
         """
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         assert len(data["items"]) > 0, "Need at least one product to test"
@@ -268,7 +224,7 @@ class TestProductsListContract:
             assert isinstance(item["created_at"], str), \
                 "Contract violation: 'created_at' must be a string"
 
-    def test_products_list_category_can_be_null(self, client, db_session):
+    def test_products_list_category_can_be_null(self, authenticated_client, db_session):
         """
         Verify category field can be null.
 
@@ -286,7 +242,7 @@ class TestProductsListContract:
         db_session.add(product)
         db_session.commit()
 
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         # Find our test product
@@ -305,7 +261,7 @@ class TestProductDetailContract:
     Contract tests for GET /api/v1/products/{id} response structure.
     """
 
-    def test_product_detail_has_required_fields(self, client, seed_contract_data):
+    def test_product_detail_has_required_fields(self, authenticated_client, seed_contract_data):
         """
         Verify product detail response has all required fields.
 
@@ -313,7 +269,7 @@ class TestProductDetailContract:
         - description (string or null)
         - bill_of_materials (array)
         """
-        response = client.get("/api/v1/products/contract-prod-001")
+        response = authenticated_client.get("/api/v1/products/contract-prod-001")
         data = response.json()
 
         required_fields = [
@@ -326,19 +282,19 @@ class TestProductDetailContract:
             assert field in data, \
                 f"Contract violation: '{field}' missing from product detail response"
 
-    def test_product_detail_bom_is_array(self, client, seed_contract_data):
+    def test_product_detail_bom_is_array(self, authenticated_client, seed_contract_data):
         """
         Verify bill_of_materials is an array.
 
         Contract: 'bill_of_materials' MUST be an array, even if empty
         """
-        response = client.get("/api/v1/products/contract-prod-001")
+        response = authenticated_client.get("/api/v1/products/contract-prod-001")
         data = response.json()
 
         assert isinstance(data["bill_of_materials"], list), \
             "Contract violation: 'bill_of_materials' must be an array"
 
-    def test_product_detail_bom_item_structure(self, client, seed_contract_data):
+    def test_product_detail_bom_item_structure(self, authenticated_client, seed_contract_data):
         """
         Verify BOM item has required structure.
 
@@ -349,7 +305,7 @@ class TestProductDetailContract:
         - quantity (number)
         - unit (string or null)
         """
-        response = client.get("/api/v1/products/contract-prod-001")
+        response = authenticated_client.get("/api/v1/products/contract-prod-001")
         data = response.json()
 
         bom = data["bill_of_materials"]
@@ -375,13 +331,13 @@ class TestProductDetailContract:
             assert isinstance(item["quantity"], (int, float)), \
                 "Contract violation: 'quantity' must be numeric"
 
-    def test_product_detail_not_found_returns_404(self, client, seed_contract_data):
+    def test_product_detail_not_found_returns_404(self, authenticated_client, seed_contract_data):
         """
         Verify 404 response for non-existent product.
 
         Contract: Non-existent product MUST return 404 with 'detail' field
         """
-        response = client.get("/api/v1/products/non-existent-id")
+        response = authenticated_client.get("/api/v1/products/non-existent-id")
 
         assert response.status_code == 404, \
             "Contract violation: Non-existent product must return 404"
@@ -399,14 +355,14 @@ class TestEmissionFactorsListContract:
     """
 
     def test_emission_factors_list_response_structure(
-        self, client, seed_contract_data
+        self, authenticated_client, seed_contract_data
     ):
         """
         Verify emission factors list response has required structure.
 
         Contract: Response MUST contain 'items', 'total', 'limit', 'offset'
         """
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         required_fields = ["items", "total", "limit", "offset"]
@@ -424,7 +380,7 @@ class TestEmissionFactorsListContract:
             "Contract violation: 'offset' must be an integer"
 
     def test_emission_factor_item_has_required_fields(
-        self, client, seed_contract_data
+        self, authenticated_client, seed_contract_data
     ):
         """
         Verify emission factor item has all required fields.
@@ -438,7 +394,7 @@ class TestEmissionFactorsListContract:
         - geography (string)
         - created_at (string)
         """
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         assert len(data["items"]) > 0, "Need at least one emission factor to test"
@@ -469,7 +425,7 @@ class TestEmissionFactorsListContract:
             assert isinstance(item["created_at"], str), \
                 "Contract violation: 'created_at' must be a string"
 
-    def test_emission_factor_optional_fields(self, client, seed_contract_data):
+    def test_emission_factor_optional_fields(self, authenticated_client, seed_contract_data):
         """
         Verify emission factor optional fields can be null.
 
@@ -478,7 +434,7 @@ class TestEmissionFactorsListContract:
         - reference_year
         - data_quality_rating
         """
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         # These fields should be present (as keys) but may be null
@@ -495,7 +451,7 @@ class TestCalculateContract:
     Contract tests for POST /api/v1/calculate response structure.
     """
 
-    def test_calculate_start_response_structure(self, client, seed_contract_data):
+    def test_calculate_start_response_structure(self, authenticated_client, seed_contract_data):
         """
         Verify calculation start response has required structure.
 
@@ -504,7 +460,7 @@ class TestCalculateContract:
         - status (string, value="processing")
         Response status code MUST be 202 Accepted
         """
-        response = client.post(
+        response = authenticated_client.post(
             "/api/v1/calculate",
             json={
                 "product_id": "contract-prod-001",
@@ -529,13 +485,13 @@ class TestCalculateContract:
         assert data["status"] == "processing", \
             "Contract violation: Initial status must be 'processing'"
 
-    def test_calculate_invalid_request_returns_422(self, client, seed_contract_data):
+    def test_calculate_invalid_request_returns_422(self, authenticated_client, seed_contract_data):
         """
         Verify invalid request returns 422.
 
         Contract: Missing required fields MUST return 422 with error details
         """
-        response = client.post(
+        response = authenticated_client.post(
             "/api/v1/calculate",
             json={}  # Missing required product_id
         )
@@ -554,7 +510,7 @@ class TestCalculationStatusContract:
     """
 
     def test_calculation_status_completed_structure(
-        self, client, seed_contract_data
+        self, authenticated_client, seed_contract_data
     ):
         """
         Verify completed calculation response has required structure.
@@ -572,7 +528,7 @@ class TestCalculationStatusContract:
         - energy_co2e (number or null)
         - transport_co2e (number or null)
         """
-        response = client.get("/api/v1/calculations/contract-calc-001")
+        response = authenticated_client.get("/api/v1/calculations/contract-calc-001")
 
         assert response.status_code == 200, \
             "Contract violation: Existing calculation must return 200"
@@ -603,14 +559,14 @@ class TestCalculationStatusContract:
                 "Contract violation: 'total_co2e_kg' must be numeric"
 
     def test_calculation_status_not_found_returns_404(
-        self, client, seed_contract_data
+        self, authenticated_client, seed_contract_data
     ):
         """
         Verify 404 response for non-existent calculation.
 
         Contract: Non-existent calculation MUST return 404 with 'detail' field
         """
-        response = client.get("/api/v1/calculations/non-existent-calc-id")
+        response = authenticated_client.get("/api/v1/calculations/non-existent-calc-id")
 
         assert response.status_code == 404, \
             "Contract violation: Non-existent calculation must return 404"
@@ -620,7 +576,7 @@ class TestCalculationStatusContract:
             "Contract violation: 404 response must contain 'detail' field"
 
     def test_calculation_status_valid_status_values(
-        self, client, seed_contract_data
+        self, authenticated_client, seed_contract_data
     ):
         """
         Verify status field has valid value.
@@ -632,7 +588,7 @@ class TestCalculationStatusContract:
         - "completed"
         - "failed"
         """
-        response = client.get("/api/v1/calculations/contract-calc-001")
+        response = authenticated_client.get("/api/v1/calculations/contract-calc-001")
         data = response.json()
 
         valid_statuses = ["pending", "processing", "running", "completed", "failed"]
@@ -646,7 +602,7 @@ class TestAPIResponseConsistency:
     Contract tests for consistent API response behavior.
     """
 
-    def test_all_list_endpoints_use_pagination_format(self, client, seed_contract_data):
+    def test_all_list_endpoints_use_pagination_format(self, authenticated_client, seed_contract_data):
         """
         Verify all list endpoints use consistent pagination format.
 
@@ -659,7 +615,7 @@ class TestAPIResponseConsistency:
         ]
 
         for endpoint in list_endpoints:
-            response = client.get(endpoint)
+            response = authenticated_client.get(endpoint)
             data = response.json()
 
             assert "items" in data, \
@@ -671,7 +627,7 @@ class TestAPIResponseConsistency:
             assert "offset" in data, \
                 f"Contract violation: {endpoint} missing 'offset'"
 
-    def test_all_404_responses_have_detail_field(self, client, seed_contract_data):
+    def test_all_404_responses_have_detail_field(self, authenticated_client, seed_contract_data):
         """
         Verify all 404 responses use consistent format.
 
@@ -683,7 +639,7 @@ class TestAPIResponseConsistency:
         ]
 
         for endpoint in not_found_endpoints:
-            response = client.get(endpoint)
+            response = authenticated_client.get(endpoint)
 
             assert response.status_code == 404, \
                 f"Expected 404 for {endpoint}"
@@ -694,14 +650,14 @@ class TestAPIResponseConsistency:
             assert isinstance(data["detail"], str), \
                 f"Contract violation: {endpoint} 'detail' must be string"
 
-    def test_datetime_fields_are_iso8601_format(self, client, seed_contract_data):
+    def test_datetime_fields_are_iso8601_format(self, authenticated_client, seed_contract_data):
         """
         Verify datetime fields use ISO 8601 format.
 
         Contract: All datetime fields MUST be ISO 8601 formatted strings
         """
         # Test products
-        response = client.get("/api/v1/products")
+        response = authenticated_client.get("/api/v1/products")
         data = response.json()
 
         for item in data["items"]:
@@ -716,7 +672,7 @@ class TestAPIResponseConsistency:
                     )
 
         # Test emission factors
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         for item in data["items"]:
@@ -729,14 +685,14 @@ class TestAPIResponseConsistency:
                         f"Contract violation: 'created_at' not ISO 8601: {created_at}"
                     )
 
-    def test_numeric_fields_are_not_strings(self, client, seed_contract_data):
+    def test_numeric_fields_are_not_strings(self, authenticated_client, seed_contract_data):
         """
         Verify numeric fields are actual numbers, not strings.
 
         Contract: Numeric fields MUST be JSON numbers, not quoted strings
         """
         # Test emission factors
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         for item in data["items"]:
@@ -745,7 +701,7 @@ class TestAPIResponseConsistency:
                 f"Contract violation: 'co2e_factor' must be number, not string"
 
         # Test products (BOM quantities)
-        response = client.get("/api/v1/products/contract-prod-001")
+        response = authenticated_client.get("/api/v1/products/contract-prod-001")
         data = response.json()
 
         for bom_item in data.get("bill_of_materials", []):
@@ -759,7 +715,7 @@ class TestPaginationContract:
     Contract tests for pagination behavior.
     """
 
-    def test_pagination_limit_parameter_respected(self, client, db_session):
+    def test_pagination_limit_parameter_respected(self, authenticated_client, db_session):
         """
         Verify limit parameter is respected.
 
@@ -777,7 +733,7 @@ class TestPaginationContract:
             db_session.add(product)
         db_session.commit()
 
-        response = client.get("/api/v1/products?limit=2")
+        response = authenticated_client.get("/api/v1/products?limit=2")
         data = response.json()
 
         assert len(data["items"]) <= 2, \
@@ -785,7 +741,7 @@ class TestPaginationContract:
         assert data["limit"] == 2, \
             "Contract violation: Response 'limit' must match request"
 
-    def test_pagination_offset_parameter_respected(self, client, db_session):
+    def test_pagination_offset_parameter_respected(self, authenticated_client, db_session):
         """
         Verify offset parameter is respected.
 
@@ -803,13 +759,13 @@ class TestPaginationContract:
             db_session.add(product)
         db_session.commit()
 
-        response = client.get("/api/v1/products?offset=2")
+        response = authenticated_client.get("/api/v1/products?offset=2")
         data = response.json()
 
         assert data["offset"] == 2, \
             "Contract violation: Response 'offset' must match request"
 
-    def test_pagination_total_reflects_full_count(self, client, db_session):
+    def test_pagination_total_reflects_full_count(self, authenticated_client, db_session):
         """
         Verify total reflects full count regardless of pagination.
 
@@ -827,7 +783,7 @@ class TestPaginationContract:
             db_session.add(product)
         db_session.commit()
 
-        response = client.get("/api/v1/products?limit=3")
+        response = authenticated_client.get("/api/v1/products?limit=3")
         data = response.json()
 
         assert data["total"] >= 10, \

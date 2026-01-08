@@ -1,14 +1,17 @@
 """
 Emission Factors API Routes
 TASK-API-003: Implementation of emission factors REST endpoints
+TASK-BE-P7-018: Added JWT authentication and role-based access control
 
 Endpoints:
-- GET /api/v1/emission-factors - List emission factors with pagination and filtering
-- POST /api/v1/emission-factors - Create custom emission factor
+- GET /api/v1/emission-factors - List emission factors (user role)
+- POST /api/v1/emission-factors - Create emission factor (admin role)
+- PUT /api/v1/emission-factors/{id} - Update emission factor (admin role)
+- DELETE /api/v1/emission-factors/{id} - Delete emission factor (admin role)
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from pydantic import BaseModel, Field, field_validator
@@ -16,6 +19,8 @@ from decimal import Decimal
 
 from backend.database.connection import get_db
 from backend.models import EmissionFactor, DataSource
+from backend.models.user import User
+from backend.auth.dependencies import require_admin
 
 
 # ============================================================================
@@ -105,6 +110,11 @@ class EmissionFactorCreateRequest(BaseModel):
         description="Maximum uncertainty bound",
         examples=[3.1]
     )
+    data_source_id: Optional[str] = Field(
+        default=None,
+        description="Data source ID reference",
+        examples=["abc123"]
+    )
 
     @field_validator('co2e_factor')
     @classmethod
@@ -127,6 +137,51 @@ class EmissionFactorCreateRequest(BaseModel):
                 "data_quality_rating": 0.8
             }
         }
+
+
+class EmissionFactorUpdateRequest(BaseModel):
+    """Request body for updating emission factor"""
+    activity_name: Optional[str] = Field(
+        None,
+        min_length=1,
+        description="Activity or material name"
+    )
+    category: Optional[str] = Field(
+        None,
+        description="Category (material, energy, transport, other)"
+    )
+    co2e_factor: Optional[float] = Field(
+        None,
+        ge=0,
+        description="CO2e emission factor (kg CO2e per unit)"
+    )
+    unit: Optional[str] = Field(
+        None,
+        min_length=1,
+        description="Unit of measurement"
+    )
+    geography: Optional[str] = Field(
+        None,
+        description="Geographic scope"
+    )
+    reference_year: Optional[int] = Field(
+        None,
+        description="Reference year for data"
+    )
+    data_quality_rating: Optional[float] = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Data quality rating (0-1)"
+    )
+
+    @field_validator('co2e_factor')
+    @classmethod
+    def validate_co2e_factor(cls, v):
+        """Validate co2e_factor is non-negative if provided"""
+        if v is not None and v < 0:
+            raise ValueError('co2e_factor must be non-negative')
+        return v
 
 
 class EmissionFactorCreateResponse(BaseModel):
@@ -249,10 +304,13 @@ def list_emission_factors(
 )
 def create_emission_factor(
     emission_factor: EmissionFactorCreateRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
 ) -> EmissionFactorCreateResponse:
     """
     Create a new custom emission factor.
+
+    Requires admin role.
 
     Request Body:
     - activity_name: Activity or material name (required)
@@ -269,6 +327,7 @@ def create_emission_factor(
     - Created emission factor with generated ID
 
     Raises:
+    - 403: Insufficient permissions (user role)
     - 409: Emission factor with same composite key already exists
       (activity_name + data_source + geography + reference_year)
     - 422: Validation error (missing required fields, invalid values)
@@ -302,7 +361,8 @@ def create_emission_factor(
         reference_year=emission_factor.reference_year,
         data_quality_rating=Decimal(str(emission_factor.data_quality_rating)) if emission_factor.data_quality_rating else None,
         uncertainty_min=Decimal(str(emission_factor.uncertainty_min)) if emission_factor.uncertainty_min else None,
-        uncertainty_max=Decimal(str(emission_factor.uncertainty_max)) if emission_factor.uncertainty_max else None
+        uncertainty_max=Decimal(str(emission_factor.uncertainty_max)) if emission_factor.uncertainty_max else None,
+        data_source_id=emission_factor.data_source_id
     )
 
     db.add(new_emission_factor)
@@ -321,6 +381,121 @@ def create_emission_factor(
         data_quality_rating=float(new_emission_factor.data_quality_rating) if new_emission_factor.data_quality_rating else None,
         created_at=new_emission_factor.created_at.isoformat() if new_emission_factor.created_at else ""
     )
+
+
+@router.put(
+    "/emission-factors/{factor_id}",
+    response_model=EmissionFactorCreateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update emission factor",
+    description="Update an existing emission factor"
+)
+def update_emission_factor(
+    factor_id: str = Path(..., description="Emission factor ID"),
+    updates: EmissionFactorUpdateRequest = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+) -> EmissionFactorCreateResponse:
+    """
+    Update an existing emission factor.
+
+    Requires admin role.
+
+    Path Parameters:
+    - factor_id: Emission factor ID
+
+    Request Body:
+    - Any fields to update (only provided fields are updated)
+
+    Returns:
+    - Updated emission factor
+
+    Raises:
+    - 403: Insufficient permissions (user role)
+    - 404: Emission factor not found
+    - 422: Validation error
+    """
+    # Find the emission factor
+    emission_factor = db.query(EmissionFactor).filter(
+        EmissionFactor.id == factor_id
+    ).first()
+
+    if not emission_factor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Emission factor not found"
+        )
+
+    # Update provided fields
+    if updates:
+        update_data = updates.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            if value is not None:
+                if field == 'co2e_factor':
+                    setattr(emission_factor, field, Decimal(str(value)))
+                elif field == 'data_quality_rating':
+                    setattr(emission_factor, field, Decimal(str(value)) if value else None)
+                else:
+                    setattr(emission_factor, field, value)
+
+    db.commit()
+    db.refresh(emission_factor)
+
+    return EmissionFactorCreateResponse(
+        id=emission_factor.id,
+        activity_name=emission_factor.activity_name,
+        category=emission_factor.category,
+        co2e_factor=float(emission_factor.co2e_factor),
+        unit=emission_factor.unit,
+        data_source=emission_factor.data_source,
+        geography=emission_factor.geography,
+        reference_year=emission_factor.reference_year,
+        data_quality_rating=float(emission_factor.data_quality_rating) if emission_factor.data_quality_rating else None,
+        created_at=emission_factor.created_at.isoformat() if emission_factor.created_at else ""
+    )
+
+
+@router.delete(
+    "/emission-factors/{factor_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete emission factor",
+    description="Delete an emission factor"
+)
+def delete_emission_factor(
+    factor_id: str = Path(..., description="Emission factor ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Delete an emission factor.
+
+    Requires admin role.
+
+    Path Parameters:
+    - factor_id: Emission factor ID
+
+    Returns:
+    - 204 No Content on success
+
+    Raises:
+    - 403: Insufficient permissions (user role)
+    - 404: Emission factor not found
+    """
+    # Find the emission factor
+    emission_factor = db.query(EmissionFactor).filter(
+        EmissionFactor.id == factor_id
+    ).first()
+
+    if not emission_factor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Emission factor not found"
+        )
+
+    db.delete(emission_factor)
+    db.commit()
+
+    return None
 
 
 # ============================================================================

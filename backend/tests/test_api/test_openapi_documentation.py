@@ -12,13 +12,13 @@ Test Coverage:
 4. Request/response schemas are documented
 5. Example payloads are provided
 6. API metadata is complete
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.models import Base
 from backend.main import app
@@ -28,55 +28,6 @@ from backend.database.connection import get_db
 # ============================================================================
 # Test Fixtures
 # ============================================================================
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing"""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing"""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """
-    Create FastAPI TestClient with database dependency override
-    """
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    test_client = TestClient(app)
-
-    yield test_client
-
-    # Clean up dependency override
-    app.dependency_overrides.clear()
-
 
 # ============================================================================
 # OpenAPI Documentation Tests
@@ -89,7 +40,7 @@ def test_swagger_ui_accessible(client: TestClient):
     WHEN: GET /docs
     THEN: Returns 200 and HTML contains "swagger"
     """
-    response = client.get("/docs")
+    response = authenticated_client.get("/docs")
 
     assert response.status_code == 200
     assert "swagger" in response.text.lower(), "Swagger UI should be accessible"
@@ -103,7 +54,7 @@ def test_openapi_json_accessible(client: TestClient):
     WHEN: GET /openapi.json
     THEN: Returns 200 and valid JSON structure with all endpoints
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
 
     assert response.status_code == 200
 
@@ -138,7 +89,7 @@ def test_api_metadata_complete(client: TestClient):
     WHEN: Checking info section
     THEN: Contains title, version, description, and contact info
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     info = openapi_spec["info"]
@@ -166,7 +117,7 @@ def test_products_endpoints_documented(client: TestClient):
     WHEN: Checking products endpoints
     THEN: Each endpoint has summary, description, and tags
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]
@@ -194,7 +145,7 @@ def test_calculations_endpoints_documented(client: TestClient):
     WHEN: Checking calculations endpoints
     THEN: Each endpoint has summary, description, and tags
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]
@@ -219,7 +170,7 @@ def test_emission_factors_endpoints_documented(client: TestClient):
     WHEN: Checking emission factors endpoints
     THEN: Each endpoint has summary, description, and tags
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]
@@ -244,7 +195,7 @@ def test_request_body_schemas_documented(client: TestClient):
     WHEN: Checking endpoints with request bodies
     THEN: Request body schema is defined with proper references
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]
@@ -282,7 +233,7 @@ def test_response_schemas_documented(client: TestClient):
     WHEN: Checking endpoint responses
     THEN: Response schemas are defined for all status codes
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]
@@ -320,7 +271,7 @@ def test_schema_components_present(client: TestClient):
     WHEN: Checking components section
     THEN: All Pydantic models are documented as schemas
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     assert "components" in openapi_spec, "Should have components section"
@@ -363,7 +314,7 @@ def test_examples_provided_in_schemas(client: TestClient):
     WHEN: Checking schema definitions
     THEN: Key schemas have example data
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     schemas = openapi_spec["components"]["schemas"]
@@ -404,7 +355,7 @@ def test_query_parameters_documented(client: TestClient):
     WHEN: Checking endpoints with query parameters
     THEN: All query parameters have descriptions and schemas
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]
@@ -439,7 +390,7 @@ def test_path_parameters_documented(client: TestClient):
     WHEN: Checking endpoints with path parameters
     THEN: Path parameters have descriptions and schemas
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]
@@ -465,7 +416,7 @@ def test_error_responses_documented(client: TestClient):
     WHEN: Checking endpoint error responses
     THEN: Common error codes (404, 422, 500) are documented
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]
@@ -487,7 +438,7 @@ def test_tags_defined(client: TestClient):
     WHEN: Checking tags section
     THEN: All used tags are defined with descriptions
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     # Tags should be defined (optional but recommended)
@@ -510,7 +461,7 @@ def test_http_methods_documented(client: TestClient):
     WHEN: Checking supported HTTP methods
     THEN: GET, POST methods are properly documented
     """
-    response = client.get("/openapi.json")
+    response = authenticated_client.get("/openapi.json")
     openapi_spec = response.json()
 
     paths = openapi_spec["paths"]

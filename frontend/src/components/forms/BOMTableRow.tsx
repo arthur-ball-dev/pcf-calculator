@@ -10,14 +10,16 @@
  * - Accessibility with ARIA labels
  *
  * Props:
- * - field: Field object from useFieldArray
+ * - field: Field object from useFieldArray (properly typed)
  * - index: Row index
  * - form: React Hook Form instance
  * - onRemove: Callback for delete action
  * - canRemove: Whether delete is allowed (based on minimum constraint)
+ *
+ * TASK-FE-P7-026: Eliminated TypeScript any usages - field is now properly typed
  */
 
-import type { UseFormReturn } from 'react-hook-form';
+import type { UseFormReturn, FieldArrayWithId } from 'react-hook-form';
 import { Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -71,11 +73,22 @@ const CATEGORIES = [
   { value: 'other', label: 'Processing/Other' },
 ] as const;
 
+/**
+ * Type for field from useFieldArray<BOMFormData, 'items'>
+ * This is the properly typed field object returned by useFieldArray
+ */
+type BOMFieldArrayItem = FieldArrayWithId<BOMFormData, 'items', 'id'>;
+
 interface BOMTableRowProps {
-  field: any; // Field from useFieldArray
+  /** Field object from useFieldArray - properly typed for BOMFormData */
+  field: BOMFieldArrayItem;
+  /** Row index */
   index: number;
+  /** React Hook Form instance */
   form: UseFormReturn<BOMFormData>;
+  /** Callback for delete action */
   onRemove: () => void;
+  /** Whether delete is allowed (based on minimum constraint) */
   canRemove: boolean;
 }
 

@@ -7,12 +7,13 @@ Tests for:
 - GET /api/v1/calculations/{id} - Poll for results
 
 Following TDD methodology: Tests written FIRST before implementation
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, StaticPool
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import StaticPool
 import time
 
 from backend.main import app
@@ -44,34 +45,6 @@ def test_db():
 
     # Cleanup
     Base.metadata.drop_all(bind=engine)
-
-
-@pytest.fixture(scope="function")
-def client(test_db):
-    """Create test client with test database"""
-    def override_get_db():
-        db = test_db()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    with TestClient(app) as test_client:
-        yield test_client
-
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture(scope="function")
-def db_session(test_db):
-    """Create database session for test setup"""
-    session = test_db()
-    try:
-        yield session
-    finally:
-        session.close()
 
 
 @pytest.fixture
@@ -160,7 +133,7 @@ def sample_product_with_bom(db_session):
 class TestStartCalculation:
     """Test suite for POST /api/v1/calculate endpoint"""
 
-    def test_start_calculation_returns_202_accepted(self, client, sample_product):
+    def test_start_calculation_returns_202_accepted(self, authenticated_client, sample_product):
         """
         SCENARIO 1: Start calculation successfully
         Should return 202 Accepted with calculation_id and status="processing"
@@ -171,7 +144,7 @@ class TestStartCalculation:
         }
 
         # Act
-        response = client.post("/api/v1/calculate", json=payload)
+        response = authenticated_client.post("/api/v1/calculate", json=payload)
 
         # Assert
         assert response.status_code == 202, f"Expected 202 Accepted, got {response.status_code}"
@@ -185,7 +158,7 @@ class TestStartCalculation:
         calc_id = data["calculation_id"]
         assert len(calc_id) == 32, f"calculation_id should be 32 chars, got {len(calc_id)}"
 
-    def test_start_calculation_creates_database_record(self, client, sample_product, db_session):
+    def test_start_calculation_creates_database_record(self, authenticated_client, sample_product, db_session):
         """
         Should create PCFCalculation record in database with status="pending"
         """
@@ -193,7 +166,7 @@ class TestStartCalculation:
         payload = {"product_id": sample_product.id}
 
         # Act
-        response = client.post("/api/v1/calculate", json=payload)
+        response = authenticated_client.post("/api/v1/calculate", json=payload)
         calc_id = response.json()["calculation_id"]
 
         # Assert - check database record was created
@@ -203,7 +176,7 @@ class TestStartCalculation:
         assert calculation.status in ["pending", "running", "completed"], \
             f"Status should be pending/running/completed, got {calculation.status}"
 
-    def test_start_calculation_missing_product_id(self, client):
+    def test_start_calculation_missing_product_id(self, authenticated_client):
         """
         SCENARIO 4: Validation error - missing product_id
         Should return 422 Unprocessable Entity
@@ -212,7 +185,7 @@ class TestStartCalculation:
         payload = {}  # Missing product_id
 
         # Act
-        response = client.post("/api/v1/calculate", json=payload)
+        response = authenticated_client.post("/api/v1/calculate", json=payload)
 
         # Assert
         assert response.status_code == 422, \
@@ -221,7 +194,7 @@ class TestStartCalculation:
         data = response.json()
         assert "detail" in data, "Error response should include detail"
 
-    def test_start_calculation_invalid_product_id(self, client):
+    def test_start_calculation_invalid_product_id(self, authenticated_client):
         """
         Should handle invalid product_id (product not found)
         Returns 202 but calculation will fail with appropriate error
@@ -230,7 +203,7 @@ class TestStartCalculation:
         payload = {"product_id": "nonexistent-product-id"}
 
         # Act
-        response = client.post("/api/v1/calculate", json=payload)
+        response = authenticated_client.post("/api/v1/calculate", json=payload)
 
         # Assert
         # API returns 202 immediately (async pattern)
@@ -238,7 +211,7 @@ class TestStartCalculation:
         assert response.status_code == 202, \
             f"Should return 202 for async processing, got {response.status_code}"
 
-    def test_start_calculation_with_bom_product(self, client, sample_product_with_bom):
+    def test_start_calculation_with_bom_product(self, authenticated_client, sample_product_with_bom):
         """
         Should start calculation for product with BOM structure
         """
@@ -246,7 +219,7 @@ class TestStartCalculation:
         payload = {"product_id": sample_product_with_bom.id}
 
         # Act
-        response = client.post("/api/v1/calculate", json=payload)
+        response = authenticated_client.post("/api/v1/calculate", json=payload)
 
         # Assert
         assert response.status_code == 202
@@ -262,7 +235,7 @@ class TestStartCalculation:
 class TestGetCalculationStatus:
     """Test suite for GET /api/v1/calculations/{id} endpoint"""
 
-    def test_get_calculation_processing_status(self, client, sample_product, db_session):
+    def test_get_calculation_processing_status(self, authenticated_client, sample_product, db_session):
         """
         SCENARIO 2: Poll status while processing
         Should return 200 with status="processing" (no result yet)
@@ -280,7 +253,7 @@ class TestGetCalculationStatus:
         db_session.commit()
 
         # Act
-        response = client.get(f"/api/v1/calculations/{calc_id}")
+        response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
 
         # Assert
         assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
@@ -294,7 +267,7 @@ class TestGetCalculationStatus:
         assert "result" not in data or data.get("result") is None, \
             "Should not include result while processing"
 
-    def test_get_calculation_completed_status(self, client, sample_product, db_session):
+    def test_get_calculation_completed_status(self, authenticated_client, sample_product, db_session):
         """
         SCENARIO 3: Poll status when completed
         Should return 200 with status="completed" and full results
@@ -316,7 +289,7 @@ class TestGetCalculationStatus:
         db_session.commit()
 
         # Act
-        response = client.get(f"/api/v1/calculations/{calc_id}")
+        response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
 
         # Assert
         assert response.status_code == 200
@@ -333,7 +306,7 @@ class TestGetCalculationStatus:
         assert "materials_co2e" in data
         assert data["materials_co2e"] == 1.80
 
-    def test_get_calculation_not_found(self, client):
+    def test_get_calculation_not_found(self, authenticated_client):
         """
         SCENARIO 5: Get calculation - 404 for missing calculation
         Should return 404 Not Found for nonexistent calculation_id
@@ -342,7 +315,7 @@ class TestGetCalculationStatus:
         nonexistent_id = "nonexistent-calc-id-12345678"
 
         # Act
-        response = client.get(f"/api/v1/calculations/{nonexistent_id}")
+        response = authenticated_client.get(f"/api/v1/calculations/{nonexistent_id}")
 
         # Assert
         assert response.status_code == 404, \
@@ -351,7 +324,7 @@ class TestGetCalculationStatus:
         data = response.json()
         assert "detail" in data, "404 response should include detail message"
 
-    def test_get_calculation_failed_status(self, client, sample_product, db_session):
+    def test_get_calculation_failed_status(self, authenticated_client, sample_product, db_session):
         """
         Should return failed status with error message when calculation fails
         """
@@ -369,7 +342,7 @@ class TestGetCalculationStatus:
         db_session.commit()
 
         # Act
-        response = client.get(f"/api/v1/calculations/{calc_id}")
+        response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
 
         # Assert
         assert response.status_code == 200  # Still returns 200, but with failed status
@@ -388,13 +361,13 @@ class TestCalculationIntegration:
     """Integration tests for complete calculation workflow"""
 
     @pytest.mark.asyncio
-    async def test_full_calculation_workflow(self, client, sample_product):
+    async def test_full_calculation_workflow(self, authenticated_client, sample_product):
         """
         Integration test: Start calculation and poll until completion
         Tests the full async workflow
         """
         # Step 1: Start calculation
-        response = client.post("/api/v1/calculate", json={"product_id": sample_product.id})
+        response = authenticated_client.post("/api/v1/calculate", json={"product_id": sample_product.id})
         assert response.status_code == 202
 
         calc_id = response.json()["calculation_id"]
@@ -404,7 +377,7 @@ class TestCalculationIntegration:
         poll_interval = 0.1  # 100ms
 
         for i in range(max_polls):
-            response = client.get(f"/api/v1/calculations/{calc_id}")
+            response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
             assert response.status_code == 200
 
             data = response.json()
@@ -424,14 +397,14 @@ class TestCalculationIntegration:
             # Timeout - calculation didn't complete
             pytest.fail(f"Calculation did not complete within {max_polls * poll_interval}s")
 
-    def test_multiple_concurrent_calculations(self, client, sample_product):
+    def test_multiple_concurrent_calculations(self, authenticated_client, sample_product):
         """
         Should handle multiple concurrent calculations for same product
         """
         # Arrange - start multiple calculations
         calc_ids = []
         for i in range(3):
-            response = client.post("/api/v1/calculate", json={"product_id": sample_product.id})
+            response = authenticated_client.post("/api/v1/calculate", json={"product_id": sample_product.id})
             assert response.status_code == 202
             calc_ids.append(response.json()["calculation_id"])
 
@@ -440,7 +413,7 @@ class TestCalculationIntegration:
 
         # Assert - all calculations should be queryable
         for calc_id in calc_ids:
-            response = client.get(f"/api/v1/calculations/{calc_id}")
+            response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
             assert response.status_code == 200
 
 
@@ -451,7 +424,7 @@ class TestCalculationIntegration:
 class TestCalculationEdgeCases:
     """Test edge cases and error conditions"""
 
-    def test_calculate_product_without_bom(self, client, sample_product):
+    def test_calculate_product_without_bom(self, authenticated_client, sample_product):
         """
         Should handle product with no BOM (empty bill of materials)
         Returns 0.0 emissions
@@ -460,7 +433,7 @@ class TestCalculationEdgeCases:
         payload = {"product_id": sample_product.id}
 
         # Act
-        response = client.post("/api/v1/calculate", json=payload)
+        response = authenticated_client.post("/api/v1/calculate", json=payload)
         assert response.status_code == 202
 
         calc_id = response.json()["calculation_id"]
@@ -468,19 +441,19 @@ class TestCalculationEdgeCases:
         # Poll until complete
         time.sleep(0.2)  # Give it time to process
 
-        response = client.get(f"/api/v1/calculations/{calc_id}")
+        response = authenticated_client.get(f"/api/v1/calculations/{calc_id}")
         data = response.json()
 
         # Assert - should complete with 0.0 emissions
         if data["status"] == "completed":
             assert data["total_co2e_kg"] == 0.0, "Product without BOM should have 0.0 emissions"
 
-    def test_calculate_with_malformed_json(self, client):
+    def test_calculate_with_malformed_json(self, authenticated_client):
         """
         Should return 422 for malformed JSON payload
         """
         # Act - send invalid JSON
-        response = client.post(
+        response = authenticated_client.post(
             "/api/v1/calculate",
             data="not valid json",
             headers={"Content-Type": "application/json"}
@@ -490,12 +463,12 @@ class TestCalculationEdgeCases:
         assert response.status_code == 422, \
             f"Should return 422 for malformed JSON, got {response.status_code}"
 
-    def test_get_calculation_with_invalid_id_format(self, client):
+    def test_get_calculation_with_invalid_id_format(self, authenticated_client):
         """
         Should return 404 for invalid calculation_id format
         """
         # Act
-        response = client.get("/api/v1/calculations/invalid-format")
+        response = authenticated_client.get("/api/v1/calculations/invalid-format")
 
         # Assert
         assert response.status_code == 404, \

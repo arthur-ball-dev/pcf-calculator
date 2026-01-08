@@ -6,6 +6,8 @@ All models match the schema defined in backend/database/schema.sql
 
 TASK-DB-P5-002: Extended with DataSource, ProductCategory, DataSyncLog
 and additional columns for full-text search and data lineage.
+
+TASK-BE-P7-018: Added User model for authentication and authorization.
 """
 
 from sqlalchemy import (
@@ -165,6 +167,9 @@ class EmissionFactor(Base):
     - is_active: Soft delete / active flag
     - scope: GHG Protocol scope (Scope 1, Scope 2, Scope 3)
     - search_vector: Full-text search (TSVECTOR in PostgreSQL)
+
+    Phase 7 Extensions (TASK-DB-P7-023):
+    - Added index on category column for improved query performance
     """
     __tablename__ = "emission_factors"
 
@@ -175,7 +180,9 @@ class EmissionFactor(Base):
     activity_name = Column(String(255), nullable=False)
 
     # Category for filtering (material, energy, transport, other)
-    category = Column(String(50), nullable=True)
+    # TASK-DB-P7-023: Added index=True for improved query performance
+    # SQLAlchemy will auto-generate index name: ix_emission_factors_category
+    category = Column(String(50), nullable=True, index=True)
 
     # CO2e emission factor (kg CO2e per unit)
     co2e_factor = Column(DECIMAL(15, 8), nullable=False)
@@ -260,6 +267,8 @@ class EmissionFactor(Base):
             object.__setattr__(self, name, value)
 
     # Table constraints and indexes
+    # Note: category index is defined via index=True on the column above (TASK-DB-P7-023)
+    # SQLAlchemy auto-generates name: ix_emission_factors_category
     __table_args__ = (
         UniqueConstraint(
             'activity_name', 'data_source', 'geography', 'reference_year',
@@ -518,6 +527,9 @@ from backend.models.data_source import DataSource
 from backend.models.product_category import ProductCategory
 from backend.models.data_sync_log import DataSyncLog
 
+# Import Phase 7 User model for authentication (TASK-BE-P7-018)
+from backend.models.user import User
+
 # Export all models
 __all__ = [
     'Base',
@@ -531,4 +543,6 @@ __all__ = [
     'DataSource',
     'ProductCategory',
     'DataSyncLog',
+    # Phase 7 models (TASK-BE-P7-018)
+    'User',
 ]

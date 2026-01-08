@@ -63,6 +63,77 @@ export default defineConfig({
       },
     }),
   ],
+  // =============================================================================
+  // Build Configuration - TASK-FE-P7-024: Bundle Optimization
+  // =============================================================================
+  build: {
+    rollupOptions: {
+      output: {
+        // Manual chunk splitting for optimal bundle sizes
+        manualChunks: (id: string) => {
+          // Vendor chunk: React and React DOM
+          if (id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/scheduler')) {
+            return 'vendor-react';
+          }
+
+          // React Router chunk
+          if (id.includes('node_modules/react-router') ||
+              id.includes('node_modules/@remix-run/router')) {
+            return 'vendor-router';
+          }
+
+          // Charts chunk: Nivo and D3 dependencies
+          if (id.includes('node_modules/@nivo') ||
+              id.includes('node_modules/d3-') ||
+              id.includes('node_modules/internmap') ||
+              id.includes('node_modules/robust-predicates') ||
+              id.includes('node_modules/delaunator')) {
+            return 'charts';
+          }
+
+          // Export chunk: xlsx library (loaded on demand)
+          if (id.includes('node_modules/xlsx') ||
+              id.includes('node_modules/cfb') ||
+              id.includes('node_modules/codepage') ||
+              id.includes('node_modules/frac') ||
+              id.includes('node_modules/ssf') ||
+              id.includes('node_modules/wmf') ||
+              id.includes('node_modules/adler-32') ||
+              id.includes('node_modules/crc-32')) {
+            return 'export';
+          }
+
+          // State management chunk
+          if (id.includes('node_modules/zustand') ||
+              id.includes('node_modules/immer') ||
+              id.includes('node_modules/@tanstack/react-query')) {
+            return 'state';
+          }
+
+          // UI components chunk: Radix UI primitives
+          if (id.includes('node_modules/@radix-ui')) {
+            return 'vendor-ui';
+          }
+
+          // Forms chunk: react-hook-form and related
+          if (id.includes('node_modules/react-hook-form') ||
+              id.includes('node_modules/@hookform') ||
+              id.includes('node_modules/zod')) {
+            return 'forms';
+          }
+
+          // Icons chunk
+          if (id.includes('node_modules/lucide-react')) {
+            return 'icons';
+          }
+        },
+      },
+    },
+    // Set chunk size warning threshold (250KB for gzipped)
+    chunkSizeWarningLimit: 500, // 500KB minified (roughly 150KB gzipped)
+  },
   test: {
     globals: true,
     environment: 'jsdom',

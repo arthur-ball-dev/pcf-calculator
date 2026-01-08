@@ -2,6 +2,7 @@
 Products API Routes
 TASK-API-001: Implementation of products REST endpoints
 TASK-API-P5-002: Enhanced Product Search and Categories
+TASK-BE-P7-018: Added JWT authentication (user role required)
 
 Endpoints:
 - GET /api/v1/products - List products with pagination and filtering
@@ -696,8 +697,16 @@ def get_product(
     Raises:
     - 404: Product not found
     """
-    # Query product
-    product = db.query(Product).filter(Product.id == product_id).first()
+    # TASK-BE-P7-014: Fix N+1 query by using joinedload to eager load
+    # BOM items and their child products in a single query
+    product = (
+        db.query(Product)
+        .options(
+            joinedload(Product.bom_items).joinedload(BillOfMaterials.child_product)
+        )
+        .filter(Product.id == product_id)
+        .first()
+    )
 
     if not product:
         raise HTTPException(
@@ -705,19 +714,11 @@ def get_product(
             detail=f"Product not found"
         )
 
-    # Get BOM items for this product
-    bom_items = (
-        db.query(BillOfMaterials)
-        .filter(BillOfMaterials.parent_product_id == product_id)
-        .all()
-    )
-
     # Convert BOM items to response format
+    # Child products are already loaded via joinedload - no additional queries needed
     bom_response = []
-    for bom in bom_items:
-        # Get child product name
-        child_product = db.query(Product).filter(Product.id == bom.child_product_id).first()
-        child_name = child_product.name if child_product else "Unknown"
+    for bom in product.bom_items:
+        child_name = bom.child_product.name if bom.child_product else "Unknown"
 
         bom_response.append(
             BOMItemResponse(

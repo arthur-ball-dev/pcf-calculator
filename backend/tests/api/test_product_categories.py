@@ -15,13 +15,13 @@ Test-Driven Development Protocol:
 - These tests MUST be committed BEFORE implementation
 - Tests should FAIL initially (endpoint does not exist yet)
 - Implementation must make tests PASS without modifying tests
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.models import (
     Base,
@@ -30,51 +30,6 @@ from backend.models import (
 )
 from backend.main import app
 from backend.database.connection import get_db
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing with threading support."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create FastAPI TestClient with database dependency override."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-
-    yield test_client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -374,16 +329,16 @@ def seed_products_in_categories(db_session, seed_category_tree):
 class TestGetCategoryTree:
     """Test GET /api/v1/products/categories for full tree."""
 
-    def test_categories_returns_200(self, client, seed_category_tree):
+    def test_categories_returns_200(self, authenticated_client, seed_category_tree):
         """Test that categories endpoint returns 200 OK."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
 
         assert response.status_code == 200, \
             f"Expected status 200, got {response.status_code}"
 
-    def test_categories_returns_required_fields(self, client, seed_category_tree):
+    def test_categories_returns_required_fields(self, authenticated_client, seed_category_tree):
         """Test that response has required top-level fields."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         required_fields = ["categories", "total_categories", "max_depth"]
@@ -391,17 +346,17 @@ class TestGetCategoryTree:
             assert field in data, \
                 f"Response should include '{field}' field"
 
-    def test_categories_array_is_list(self, client, seed_category_tree):
+    def test_categories_array_is_list(self, authenticated_client, seed_category_tree):
         """Test that categories field is an array."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert isinstance(data["categories"], list), \
             "Categories should be a list"
 
-    def test_root_categories_have_level_zero(self, client, seed_category_tree):
+    def test_root_categories_have_level_zero(self, authenticated_client, seed_category_tree):
         """Test that root-level categories have level=0."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # All top-level categories should have level 0
@@ -409,9 +364,9 @@ class TestGetCategoryTree:
             assert category["level"] == 0, \
                 f"Root category {category['code']} should have level=0"
 
-    def test_root_categories_count(self, client, seed_category_tree):
+    def test_root_categories_count(self, authenticated_client, seed_category_tree):
         """Test that correct number of root categories returned."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # Only root categories at top level
@@ -427,11 +382,11 @@ class TestGetCategoryTree:
 class TestGetChildCategories:
     """Test GET /api/v1/products/categories?parent_id=X."""
 
-    def test_get_children_of_parent(self, client, seed_category_tree):
+    def test_get_children_of_parent(self, authenticated_client, seed_category_tree):
         """Test getting children of specific parent category."""
         parent_id = seed_category_tree["categories"]["electronics"].id
 
-        response = client.get(f"/api/v1/products/categories?parent_id={parent_id}")
+        response = authenticated_client.get(f"/api/v1/products/categories?parent_id={parent_id}")
         data = response.json()
 
         assert response.status_code == 200
@@ -441,23 +396,23 @@ class TestGetChildCategories:
             assert category["level"] == 1, \
                 "Children of electronics should have level=1"
 
-    def test_children_count_correct(self, client, seed_category_tree):
+    def test_children_count_correct(self, authenticated_client, seed_category_tree):
         """Test that correct number of children returned."""
         parent_id = seed_category_tree["categories"]["electronics"].id
 
-        response = client.get(f"/api/v1/products/categories?parent_id={parent_id}")
+        response = authenticated_client.get(f"/api/v1/products/categories?parent_id={parent_id}")
         data = response.json()
 
         # Electronics has 2 children: Computers and Mobile Devices
         assert len(data["categories"]) == 2, \
             "Electronics should have 2 children"
 
-    def test_children_of_leaf_category(self, client, seed_category_tree):
+    def test_children_of_leaf_category(self, authenticated_client, seed_category_tree):
         """Test getting children of a leaf category (no children)."""
         # Gaming Laptops is a leaf (no children)
         parent_id = seed_category_tree["categories"]["gaming_laptops"].id
 
-        response = client.get(f"/api/v1/products/categories?parent_id={parent_id}")
+        response = authenticated_client.get(f"/api/v1/products/categories?parent_id={parent_id}")
         data = response.json()
 
         assert response.status_code == 200
@@ -465,28 +420,28 @@ class TestGetChildCategories:
             "Leaf category should have no children"
         assert data["total_categories"] == 0
 
-    def test_invalid_parent_id_returns_404(self, client, seed_category_tree):
+    def test_invalid_parent_id_returns_404(self, authenticated_client, seed_category_tree):
         """Test that non-existent parent_id returns 404."""
         fake_id = "00000000000000000000000000000000"
 
-        response = client.get(f"/api/v1/products/categories?parent_id={fake_id}")
+        response = authenticated_client.get(f"/api/v1/products/categories?parent_id={fake_id}")
 
         assert response.status_code == 404, \
             f"Expected 404 for invalid parent_id, got {response.status_code}"
 
-    def test_invalid_parent_id_error_format(self, client, seed_category_tree):
+    def test_invalid_parent_id_error_format(self, authenticated_client, seed_category_tree):
         """Test that 404 response follows error format."""
         fake_id = "00000000000000000000000000000000"
 
-        response = client.get(f"/api/v1/products/categories?parent_id={fake_id}")
+        response = authenticated_client.get(f"/api/v1/products/categories?parent_id={fake_id}")
         data = response.json()
 
         assert "error" in data or "detail" in data, \
             "404 response should include error details"
 
-    def test_malformed_parent_id_returns_400(self, client, seed_category_tree):
+    def test_malformed_parent_id_returns_400(self, authenticated_client, seed_category_tree):
         """Test that malformed parent_id returns 400."""
-        response = client.get("/api/v1/products/categories?parent_id=not-a-uuid")
+        response = authenticated_client.get("/api/v1/products/categories?parent_id=not-a-uuid")
 
         assert response.status_code in [400, 422], \
             f"Expected 400/422 for malformed UUID, got {response.status_code}"
@@ -499,9 +454,9 @@ class TestGetChildCategories:
 class TestDepthParameter:
     """Test depth parameter limits tree traversal."""
 
-    def test_depth_one_returns_children_only(self, client, seed_category_tree):
+    def test_depth_one_returns_children_only(self, authenticated_client, seed_category_tree):
         """Test depth=1 returns direct children only."""
-        response = client.get("/api/v1/products/categories?depth=1")
+        response = authenticated_client.get("/api/v1/products/categories?depth=1")
         data = response.json()
 
         assert response.status_code == 200
@@ -516,9 +471,9 @@ class TestDepthParameter:
                 assert len(category["children"]) == 0 or \
                     all(c.get("children", []) == [] for c in category["children"])
 
-    def test_depth_two_includes_grandchildren(self, client, seed_category_tree):
+    def test_depth_two_includes_grandchildren(self, authenticated_client, seed_category_tree):
         """Test depth=2 includes grandchildren."""
-        response = client.get("/api/v1/products/categories?depth=2")
+        response = authenticated_client.get("/api/v1/products/categories?depth=2")
         data = response.json()
 
         assert response.status_code == 200
@@ -543,33 +498,33 @@ class TestDepthParameter:
                 # With depth=2, we should see level 2 categories
                 assert "children" in computers
 
-    def test_depth_default_is_three(self, client, seed_category_tree):
+    def test_depth_default_is_three(self, authenticated_client, seed_category_tree):
         """Test that default depth is 3."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # Per contract: default depth is 3
         # We should see categories up to level 3
         assert data["max_depth"] <= 3
 
-    def test_depth_max_is_five(self, client, seed_category_tree):
+    def test_depth_max_is_five(self, authenticated_client, seed_category_tree):
         """Test that max depth is 5."""
-        response = client.get("/api/v1/products/categories?depth=5")
+        response = authenticated_client.get("/api/v1/products/categories?depth=5")
         data = response.json()
 
         assert response.status_code == 200
         # Should work without error
 
-    def test_depth_invalid_returns_400(self, client, seed_category_tree):
+    def test_depth_invalid_returns_400(self, authenticated_client, seed_category_tree):
         """Test that invalid depth (>5) returns 400."""
-        response = client.get("/api/v1/products/categories?depth=10")
+        response = authenticated_client.get("/api/v1/products/categories?depth=10")
 
         assert response.status_code in [400, 422], \
             f"Expected 400/422 for depth>5, got {response.status_code}"
 
-    def test_depth_minimum_is_one(self, client, seed_category_tree):
+    def test_depth_minimum_is_one(self, authenticated_client, seed_category_tree):
         """Test that depth minimum is 1."""
-        response = client.get("/api/v1/products/categories?depth=0")
+        response = authenticated_client.get("/api/v1/products/categories?depth=0")
 
         assert response.status_code in [400, 422], \
             f"Expected 400/422 for depth=0, got {response.status_code}"
@@ -583,10 +538,10 @@ class TestProductCountOption:
     """Test include_product_count parameter."""
 
     def test_product_count_included_when_requested(
-        self, client, seed_products_in_categories
+        self, authenticated_client, seed_products_in_categories
     ):
         """Test product_count included when include_product_count=true."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/categories?include_product_count=true"
         )
         data = response.json()
@@ -608,10 +563,10 @@ class TestProductCountOption:
         check_product_count(data["categories"])
 
     def test_product_count_not_included_by_default(
-        self, client, seed_products_in_categories
+        self, authenticated_client, seed_products_in_categories
     ):
         """Test product_count not included when not requested."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert response.status_code == 200
@@ -623,10 +578,10 @@ class TestProductCountOption:
                     "product_count should be null when not requested"
 
     def test_product_count_values_correct(
-        self, client, seed_products_in_categories
+        self, authenticated_client, seed_products_in_categories
     ):
         """Test that product_count values are correct."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/categories?include_product_count=true&depth=5"
         )
         data = response.json()
@@ -658,9 +613,9 @@ class TestProductCountOption:
 class TestFilterByIndustry:
     """Test industry filter parameter."""
 
-    def test_filter_by_electronics_industry(self, client, seed_category_tree):
+    def test_filter_by_electronics_industry(self, authenticated_client, seed_category_tree):
         """Test filtering categories by electronics industry."""
-        response = client.get("/api/v1/products/categories?industry=electronics")
+        response = authenticated_client.get("/api/v1/products/categories?industry=electronics")
         data = response.json()
 
         assert response.status_code == 200
@@ -675,9 +630,9 @@ class TestFilterByIndustry:
 
         check_industry(data["categories"], "electronics")
 
-    def test_filter_by_apparel_industry(self, client, seed_category_tree):
+    def test_filter_by_apparel_industry(self, authenticated_client, seed_category_tree):
         """Test filtering categories by apparel industry."""
-        response = client.get("/api/v1/products/categories?industry=apparel")
+        response = authenticated_client.get("/api/v1/products/categories?industry=apparel")
         data = response.json()
 
         assert response.status_code == 200
@@ -686,16 +641,16 @@ class TestFilterByIndustry:
         for cat in data["categories"]:
             assert cat["industry_sector"] == "apparel"
 
-    def test_filter_invalid_industry(self, client, seed_category_tree):
+    def test_filter_invalid_industry(self, authenticated_client, seed_category_tree):
         """Test that invalid industry returns 400."""
-        response = client.get("/api/v1/products/categories?industry=invalid")
+        response = authenticated_client.get("/api/v1/products/categories?industry=invalid")
 
         assert response.status_code in [400, 422], \
             f"Expected 400/422 for invalid industry, got {response.status_code}"
 
-    def test_filter_industry_with_depth(self, client, seed_category_tree):
+    def test_filter_industry_with_depth(self, authenticated_client, seed_category_tree):
         """Test combining industry filter with depth."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/categories?industry=electronics&depth=2"
         )
         data = response.json()
@@ -715,9 +670,9 @@ class TestFilterByIndustry:
 class TestCategoryTreeStructure:
     """Test that tree structure is built correctly."""
 
-    def test_category_has_required_fields(self, client, seed_category_tree):
+    def test_category_has_required_fields(self, authenticated_client, seed_category_tree):
         """Test that each category has required fields."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         required_fields = ["id", "code", "name", "level", "children"]
@@ -732,9 +687,9 @@ class TestCategoryTreeStructure:
 
         check_fields(data["categories"])
 
-    def test_children_array_is_list(self, client, seed_category_tree):
+    def test_children_array_is_list(self, authenticated_client, seed_category_tree):
         """Test that children field is always a list."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         def check_children(categories):
@@ -746,9 +701,9 @@ class TestCategoryTreeStructure:
 
         check_children(data["categories"])
 
-    def test_level_increments_correctly(self, client, seed_category_tree):
+    def test_level_increments_correctly(self, authenticated_client, seed_category_tree):
         """Test that level increments by 1 for each depth."""
-        response = client.get("/api/v1/products/categories?depth=5")
+        response = authenticated_client.get("/api/v1/products/categories?depth=5")
         data = response.json()
 
         def check_levels(categories, expected_level):
@@ -760,9 +715,9 @@ class TestCategoryTreeStructure:
 
         check_levels(data["categories"], 0)
 
-    def test_total_categories_count_accurate(self, client, seed_category_tree):
+    def test_total_categories_count_accurate(self, authenticated_client, seed_category_tree):
         """Test that total_categories reflects all nested categories."""
-        response = client.get("/api/v1/products/categories?depth=5")
+        response = authenticated_client.get("/api/v1/products/categories?depth=5")
         data = response.json()
 
         def count_categories(categories):
@@ -776,9 +731,9 @@ class TestCategoryTreeStructure:
         assert data["total_categories"] == actual_count, \
             f"total_categories should be {actual_count}"
 
-    def test_max_depth_reflects_actual_depth(self, client, seed_category_tree):
+    def test_max_depth_reflects_actual_depth(self, authenticated_client, seed_category_tree):
         """Test that max_depth reflects actual tree depth."""
-        response = client.get("/api/v1/products/categories?depth=5")
+        response = authenticated_client.get("/api/v1/products/categories?depth=5")
         data = response.json()
 
         def find_max_depth(categories, current_depth=0):
@@ -801,9 +756,9 @@ class TestCategoryTreeStructure:
 class TestIndustrySectorField:
     """Test industry_sector field in category responses."""
 
-    def test_industry_sector_present(self, client, seed_category_tree):
+    def test_industry_sector_present(self, authenticated_client, seed_category_tree):
         """Test that industry_sector is present in response."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         def check_industry_sector(categories):
@@ -815,7 +770,7 @@ class TestIndustrySectorField:
 
         check_industry_sector(data["categories"])
 
-    def test_industry_sector_nullable(self, client, db_session):
+    def test_industry_sector_nullable(self, authenticated_client, db_session):
         """Test that industry_sector can be null."""
         # Create category without industry_sector
         category = ProductCategory(
@@ -828,7 +783,7 @@ class TestIndustrySectorField:
         db_session.add(category)
         db_session.commit()
 
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         # Find our test category
@@ -847,9 +802,9 @@ class TestIndustrySectorField:
 class TestEmptyDatabase:
     """Test behavior with no categories."""
 
-    def test_empty_categories_returns_200(self, client):
+    def test_empty_categories_returns_200(self, authenticated_client):
         """Test that empty categories returns 200 with empty array."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert response.status_code == 200
@@ -866,35 +821,35 @@ class TestEmptyDatabase:
 class TestResponseTypes:
     """Test that response field types are correct."""
 
-    def test_id_is_string(self, client, seed_category_tree):
+    def test_id_is_string(self, authenticated_client, seed_category_tree):
         """Test that category id is a string."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert isinstance(cat["id"], str), \
                 "Category id should be a string"
 
-    def test_level_is_integer(self, client, seed_category_tree):
+    def test_level_is_integer(self, authenticated_client, seed_category_tree):
         """Test that level is an integer."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         for cat in data["categories"]:
             assert isinstance(cat["level"], int), \
                 "Category level should be an integer"
 
-    def test_total_categories_is_integer(self, client, seed_category_tree):
+    def test_total_categories_is_integer(self, authenticated_client, seed_category_tree):
         """Test that total_categories is an integer."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert isinstance(data["total_categories"], int), \
             "total_categories should be an integer"
 
-    def test_max_depth_is_integer(self, client, seed_category_tree):
+    def test_max_depth_is_integer(self, authenticated_client, seed_category_tree):
         """Test that max_depth is an integer."""
-        response = client.get("/api/v1/products/categories")
+        response = authenticated_client.get("/api/v1/products/categories")
         data = response.json()
 
         assert isinstance(data["max_depth"], int), \

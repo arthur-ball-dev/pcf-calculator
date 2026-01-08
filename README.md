@@ -19,7 +19,7 @@ Calculate cradle-to-gate carbon emissions for products using Bill of Materials (
 - **Phase 4 (Complete):** Integration testing and MVP core
 - **Phase 5 (Complete):** MVP feature completion and polish
 - **Phase 6 (Complete):** Deployment and CI/CD pipeline
-- **Phase 7 (In Progress):** Production hardening, data quality, and documentation
+- **Phase 7 (Complete):** Production hardening, data quality, and documentation
 
 ## Quick Start
 
@@ -165,4 +165,11 @@ CORS_ORIGINS=http://localhost:5173
 
 ## Contributing
 
-[Add contributing guidelines here]
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Follow TDD: Write tests first, then implementation
+4. Ensure all tests pass (`pytest` for backend, `npm test` for frontend)
+5. Commit with conventional format (`feat:`, `fix:`, `test:`, etc.)
+6. Open a Pull Request
+
+See `CLAUDE.md` for detailed development guidelines.

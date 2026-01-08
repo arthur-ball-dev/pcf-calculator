@@ -1,6 +1,7 @@
 """
 API Schemas Module
 TASK-API-004: Consolidated Pydantic request/response models for all API endpoints
+TASK-API-P7-027: Align API contract types - status uses 'in_progress' (not 'processing')
 
 This module provides centralized validation models for:
 - Products API (list, detail, create)
@@ -110,13 +111,13 @@ class CalculationRequest(BaseModel):
 class CalculationStartResponse(BaseModel):
     """Response model for POST /calculate (202 Accepted)"""
     calculation_id: str = Field(..., description="UUID for tracking calculation status")
-    status: str = Field(..., description="Initial status (always 'processing')")
+    status: str = Field(..., description="Initial status (always 'in_progress')")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "calculation_id": "calc123abc456def789ghi012jkl345mno",
-                "status": "processing"
+                "status": "in_progress"
             }
         }
     )
@@ -125,7 +126,7 @@ class CalculationStartResponse(BaseModel):
 class CalculationStatusResponse(BaseModel):
     """Response model for GET /calculations/{id}"""
     calculation_id: str = Field(..., description="Calculation UUID")
-    status: str = Field(..., description="Current status: processing, completed, failed")
+    status: str = Field(..., description="Current status: pending, in_progress, completed, failed")
     product_id: Optional[str] = Field(None, description="Product UUID")
     created_at: Optional[str] = Field(None, description="Calculation start time (ISO 8601)")
 

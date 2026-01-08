@@ -6,6 +6,9 @@ Supports both SQLite (development) and PostgreSQL (production) databases.
 
 TASK-BE-P5-001: Added Celery and Redis configuration settings.
 TASK-BE-P7-003: Fixed database path resolution to use absolute path from project root.
+TASK-BE-P7-018: Added JWT authentication configuration settings.
+TASK-BE-P7-020: Added rate limiting configuration settings.
+TASK-CALC-P7-022: Added emission factor cache TTL configuration.
 """
 
 import os
@@ -60,6 +63,67 @@ def get_default_database_url() -> str:
     return f"sqlite:///{db_path}"
 
 
+def load_secret_from_file(key_name: str, file_path: str = "/etc/environment.txt") -> Optional[str]:
+    """
+    Load a secret from a file containing KEY=VALUE pairs.
+
+    This function provides a secure alternative to environment variables
+    for storing secrets, by reading from a protected file.
+
+    Args:
+        key_name: The name of the key to look for (e.g., 'PCF_CALC_JWT_SECRET_KEY')
+        file_path: Path to the file containing secrets (default: /etc/environment.txt)
+
+    Returns:
+        The secret value if found, None otherwise
+
+    Security Note:
+        The file should be readable only by the application user (chmod 600).
+    """
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith(f'{key_name}='):
+                    return line.split('=', 1)[1].strip().strip('"\'')
+    except (FileNotFoundError, PermissionError):
+        pass
+    return None
+
+
+def get_jwt_secret_key() -> str:
+    """
+    Get the JWT secret key from file or environment variable.
+
+    Checks in order:
+    1. /etc/environment.txt file (PCF_CALC_JWT_SECRET_KEY=...)
+    2. Environment variable PCF_CALC_JWT_SECRET_KEY
+
+    Raises:
+        ValueError: If the secret key is not configured in either location
+
+    Security Note:
+        This function intentionally has no default fallback to prevent
+        accidental deployment with a known/weak secret key.
+    """
+    # Try file-based secret first
+    secret = load_secret_from_file('PCF_CALC_JWT_SECRET_KEY')
+    if secret:
+        return secret
+
+    # Fall back to environment variable
+    secret = os.getenv('PCF_CALC_JWT_SECRET_KEY')
+    if secret:
+        return secret
+
+    # No default - fail fast in production
+    raise ValueError(
+        "PCF_CALC_JWT_SECRET_KEY not configured. "
+        "Set it in /etc/environment.txt or as an environment variable. "
+        "The key must be at least 32 characters for security."
+    )
+
+
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables
@@ -79,6 +143,14 @@ class Settings(BaseSettings):
         REDIS_HOST: Redis host
         REDIS_PORT: Redis port
         REDIS_DB: Redis database number
+        PCF_CALC_JWT_SECRET_KEY: Secret key for JWT token signing (from file/env)
+        ACCESS_TOKEN_EXPIRE_MINUTES: JWT token expiration time
+        emission_factor_cache_ttl: Emission factor cache TTL in seconds
+        RATE_LIMIT_GENERAL: General rate limit (requests/minute)
+        RATE_LIMIT_CALCULATION: Calculation rate limit (requests/minute)
+        RATE_LIMIT_AUTH_ATTEMPTS: Auth rate limit (attempts/5 minutes)
+        RATE_LIMIT_STORAGE: Storage backend for rate limiting
+        RATE_LIMIT_ADMIN_MULTIPLIER: Multiplier for admin rate limits
     """
 
     model_config = SettingsConfigDict(
@@ -169,6 +241,50 @@ class Settings(BaseSettings):
         description="Redis database number"
     )
 
+    # JWT Authentication settings (TASK-BE-P7-018)
+    # P0 Security Fix: Removed hardcoded default - key MUST be configured externally
+    # Reads from: 1) /etc/environment.txt, 2) PCF_CALC_JWT_SECRET_KEY env var
+    PCF_CALC_JWT_SECRET_KEY: str = Field(
+        default_factory=get_jwt_secret_key,
+        description="Secret key for JWT token signing (loaded from file or env var)"
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=60,
+        description="JWT access token expiration time in minutes"
+    )
+
+    # Emission factor cache settings (TASK-CALC-P7-022)
+    emission_factor_cache_ttl: int = Field(
+        default=300,
+        description="Emission factor cache TTL in seconds (default: 5 minutes)"
+    )
+
+    # Rate Limiting settings (TASK-BE-P7-020)
+    RATE_LIMIT_GENERAL: int = Field(
+        default=100,
+        description="General rate limit: requests per minute"
+    )
+    RATE_LIMIT_CALCULATION: int = Field(
+        default=10,
+        description="Calculation rate limit: requests per minute (expensive operations)"
+    )
+    RATE_LIMIT_AUTH_ATTEMPTS: int = Field(
+        default=5,
+        description="Auth rate limit: login attempts per 5 minutes"
+    )
+    RATE_LIMIT_STORAGE: str = Field(
+        default="memory",
+        description="Rate limit storage backend: 'memory' or 'redis'"
+    )
+    RATE_LIMIT_ADMIN_MULTIPLIER: int = Field(
+        default=10,
+        description="Rate limit multiplier for admin users"
+    )
+    RATE_LIMIT_REDIS_URL: Optional[str] = Field(
+        default=None,
+        description="Redis URL for distributed rate limiting (optional)"
+    )
+
     @property
     def is_postgresql(self) -> bool:
         """Check if the database is PostgreSQL."""
@@ -202,6 +318,15 @@ class Settings(BaseSettings):
                 return url.replace("sqlite:///", "sqlite+aiosqlite:///")
 
         return url
+
+    @property
+    def rate_limit_redis_url(self) -> Optional[str]:
+        """Get Redis URL for rate limiting if configured."""
+        if self.RATE_LIMIT_REDIS_URL:
+            return self.RATE_LIMIT_REDIS_URL
+        if self.RATE_LIMIT_STORAGE == "redis":
+            return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return None
 
     def model_post_init(self, __context) -> None:
         """Post-initialization hook to add Railway URL to CORS origins if set"""

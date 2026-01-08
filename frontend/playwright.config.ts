@@ -4,6 +4,8 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright E2E Test Configuration
  * Phase 4 - API Integration Validation
  *
+ * TASK-QA-P7-032: Added global setup for JWT authentication
+ *
  * Tests validate:
  * - API calls to real backend (http://localhost:8000)
  * - Product fetching and BOM loading
@@ -12,12 +14,20 @@ import { defineConfig, devices } from '@playwright/test';
  * - State management with async operations
  * - Request/response interceptors in browser
  *
+ * Authentication:
+ * - Global setup authenticates once at start of test run
+ * - Auth token is cached and reused across all tests
+ * - Avoids hitting rate limit (5 attempts per 5 minutes)
+ *
  * NOTE: Both servers must be running before tests:
  * - Backend: http://localhost:8000
  * - Frontend: http://localhost:5173
  */
 export default defineConfig({
   testDir: './tests/e2e',
+
+  // Global setup runs before all tests (authentication)
+  globalSetup: './tests/e2e/global-setup.ts',
 
   // Maximum time one test can run
   timeout: 30 * 1000,

@@ -3,9 +3,25 @@
  */
 import { test, expect } from '@playwright/test';
 
-test('Debug: Page rendering investigation', async ({ page }) => {
+test('Debug: Page rendering investigation', async ({ page, request }) => {
   const consoleMessages: string[] = [];
   const consoleErrors: string[] = [];
+  // TASK-QA-P7-032: Get auth token from API for JWT-protected endpoints
+  const authResponse = await request.post('http://localhost:8000/api/v1/auth/login', {
+    data: { username: 'e2e-test', password: 'E2ETestPassword123!' },
+  });
+
+  let authToken = '';
+  if (authResponse.ok()) {
+    const authData = await authResponse.json();
+    authToken = authData.access_token;
+  }
+
+  // Set up localStorage with auth token before navigating
+  await page.addInitScript((token) => {
+    window.localStorage.setItem('auth_token', token);
+    window.localStorage.setItem('pcf-calculator-tour-completed', 'true');
+  }, authToken);
 
   page.on('console', (msg) => {
     const text = msg.text();

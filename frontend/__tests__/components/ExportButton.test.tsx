@@ -3,17 +3,17 @@
  * TASK-FE-P5-005: Test export button UI and interactions
  *
  * Test Coverage:
- * 1. Renders dropdown with CSV and Excel options
- * 2. CSV option triggers exportToCSV
- * 3. Excel option triggers exportToExcel
+ * 1. Renders direct CSV and Excel buttons
+ * 2. CSV button triggers exportToCSV
+ * 3. Excel button triggers exportToExcel
  * 4. Shows loading spinner during export
  * 5. Disabled when no data
  * 6. Accessibility
- * 7. Direct button variants
+ * 7. Error display
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, userEvent } from '../testUtils';
+import { render, screen, waitFor, userEvent } from '../testUtils';
 import { ExportButton } from '@/components/ExportButton';
 import { useExport } from '@/hooks/useExport';
 import type { CalculationStatusResponse } from '@/types/api.types';
@@ -61,7 +61,7 @@ describe('ExportButton Component', () => {
   // ==========================================================================
 
   describe('Rendering', () => {
-    it('should render export button', () => {
+    it('should render export buttons container', () => {
       render(
         <ExportButton
           results={sampleResults}
@@ -70,10 +70,10 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-dropdown')).toBeInTheDocument();
+      expect(screen.getByTestId('export-buttons')).toBeInTheDocument();
     });
 
-    it('should render with "Export" text', () => {
+    it('should render with CSV and Excel button text', () => {
       render(
         <ExportButton
           results={sampleResults}
@@ -82,10 +82,11 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByText(/export/i)).toBeInTheDocument();
+      expect(screen.getByText(/csv/i)).toBeInTheDocument();
+      expect(screen.getByText(/excel/i)).toBeInTheDocument();
     });
 
-    it('should render dropdown trigger button', () => {
+    it('should render CSV and Excel as buttons', () => {
       render(
         <ExportButton
           results={sampleResults}
@@ -94,12 +95,15 @@ describe('ExportButton Component', () => {
         />
       );
 
-      const dropdownTrigger = screen.getByTestId('export-dropdown');
-      expect(dropdownTrigger).toBeInTheDocument();
-      expect(dropdownTrigger.tagName).toBe('BUTTON');
+      const csvButton = screen.getByTestId('export-csv-button');
+      const excelButton = screen.getByTestId('export-excel-button');
+      expect(csvButton).toBeInTheDocument();
+      expect(csvButton.tagName).toBe('BUTTON');
+      expect(excelButton).toBeInTheDocument();
+      expect(excelButton.tagName).toBe('BUTTON');
     });
 
-    it('should render direct CSV button on desktop', () => {
+    it('should render direct CSV button', () => {
       render(
         <ExportButton
           results={sampleResults}
@@ -111,7 +115,7 @@ describe('ExportButton Component', () => {
       expect(screen.getByTestId('export-csv-button')).toBeInTheDocument();
     });
 
-    it('should render direct Excel button on desktop', () => {
+    it('should render direct Excel button', () => {
       render(
         <ExportButton
           results={sampleResults}
@@ -125,72 +129,11 @@ describe('ExportButton Component', () => {
   });
 
   // ==========================================================================
-  // Test Suite 2: Dropdown Menu
-  // ==========================================================================
-
-  describe('Dropdown Menu', () => {
-    it('should open dropdown menu on click', async () => {
-      const user = userEvent.setup();
-
-      render(
-        <ExportButton
-          results={sampleResults}
-          productName={productInfo.name}
-          productCode={productInfo.code}
-        />
-      );
-
-      await user.click(screen.getByTestId('export-dropdown'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('export-csv-option')).toBeVisible();
-        expect(screen.getByTestId('export-excel-option')).toBeVisible();
-      });
-    });
-
-    it('should show CSV option in dropdown', async () => {
-      const user = userEvent.setup();
-
-      render(
-        <ExportButton
-          results={sampleResults}
-          productName={productInfo.name}
-          productCode={productInfo.code}
-        />
-      );
-
-      await user.click(screen.getByTestId('export-dropdown'));
-
-      await waitFor(() => {
-        expect(screen.getByText(/export as csv/i)).toBeInTheDocument();
-      });
-    });
-
-    it('should show Excel option in dropdown', async () => {
-      const user = userEvent.setup();
-
-      render(
-        <ExportButton
-          results={sampleResults}
-          productName={productInfo.name}
-          productCode={productInfo.code}
-        />
-      );
-
-      await user.click(screen.getByTestId('export-dropdown'));
-
-      await waitFor(() => {
-        expect(screen.getByText(/export as excel/i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  // ==========================================================================
-  // Test Suite 3: CSV Export
+  // Test Suite 2: CSV Export
   // ==========================================================================
 
   describe('CSV Export', () => {
-    it('should trigger exportToCSV when CSV option clicked', async () => {
+    it('should trigger exportToCSV when CSV button clicked', async () => {
       const user = userEvent.setup();
 
       render(
@@ -201,8 +144,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-dropdown'));
-      await user.click(screen.getByTestId('export-csv-option'));
+      await user.click(screen.getByTestId('export-csv-button'));
 
       expect(mockExportToCSV).toHaveBeenCalled();
     });
@@ -241,11 +183,11 @@ describe('ExportButton Component', () => {
   });
 
   // ==========================================================================
-  // Test Suite 4: Excel Export
+  // Test Suite 3: Excel Export
   // ==========================================================================
 
   describe('Excel Export', () => {
-    it('should trigger exportToExcel when Excel option clicked', async () => {
+    it('should trigger exportToExcel when Excel button clicked', async () => {
       const user = userEvent.setup();
 
       render(
@@ -256,8 +198,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-dropdown'));
-      await user.click(screen.getByTestId('export-excel-option'));
+      await user.click(screen.getByTestId('export-excel-button'));
 
       expect(mockExportToExcel).toHaveBeenCalled();
     });
@@ -296,7 +237,7 @@ describe('ExportButton Component', () => {
   });
 
   // ==========================================================================
-  // Test Suite 5: Loading State
+  // Test Suite 4: Loading State
   // ==========================================================================
 
   describe('Loading State', () => {
@@ -317,12 +258,13 @@ describe('ExportButton Component', () => {
         />
       );
 
-      // Should have loading indicator (spinner)
-      const dropdownButton = screen.getByTestId('export-dropdown');
-      expect(dropdownButton).toHaveAttribute('aria-busy', 'true');
+      // Should have loading indicator (spinner) - check for animate-spin class on SVG
+      const csvButton = screen.getByTestId('export-csv-button');
+      const spinner = csvButton.querySelector('.animate-spin');
+      expect(spinner).toBeInTheDocument();
     });
 
-    it('should disable dropdown during export', () => {
+    it('should disable buttons during export', () => {
       (useExport as ReturnType<typeof vi.fn>).mockReturnValue({
         exportToCSV: mockExportToCSV,
         exportToExcel: mockExportToExcel,
@@ -339,7 +281,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-dropdown')).toBeDisabled();
+      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
+      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
     });
 
     it('should disable direct buttons during export', () => {
@@ -363,7 +306,7 @@ describe('ExportButton Component', () => {
       expect(screen.getByTestId('export-excel-button')).toBeDisabled();
     });
 
-    it('should show "Exporting..." text during export', () => {
+    it('should show loading state via disabled buttons during export', () => {
       (useExport as ReturnType<typeof vi.fn>).mockReturnValue({
         exportToCSV: mockExportToCSV,
         exportToExcel: mockExportToExcel,
@@ -380,16 +323,18 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByText(/exporting/i)).toBeInTheDocument();
+      // Both buttons should be disabled during export
+      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
+      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
     });
   });
 
   // ==========================================================================
-  // Test Suite 6: Disabled State
+  // Test Suite 5: Disabled State
   // ==========================================================================
 
   describe('Disabled State', () => {
-    it('should disable button when disabled prop is true', () => {
+    it('should disable buttons when disabled prop is true', () => {
       render(
         <ExportButton
           results={sampleResults}
@@ -399,10 +344,11 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-dropdown')).toBeDisabled();
+      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
+      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
     });
 
-    it('should disable button when no results', () => {
+    it('should disable buttons when no results', () => {
       render(
         <ExportButton
           results={null as any}
@@ -411,7 +357,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-dropdown')).toBeDisabled();
+      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
+      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
     });
 
     it('should not call export when disabled', async () => {
@@ -434,7 +381,7 @@ describe('ExportButton Component', () => {
   });
 
   // ==========================================================================
-  // Test Suite 7: Error Display
+  // Test Suite 6: Error Display
   // ==========================================================================
 
   describe('Error Display', () => {
@@ -505,11 +452,11 @@ describe('ExportButton Component', () => {
   });
 
   // ==========================================================================
-  // Test Suite 8: Accessibility
+  // Test Suite 7: Accessibility
   // ==========================================================================
 
   describe('Accessibility', () => {
-    it('should have accessible name for dropdown button', () => {
+    it('should have accessible names for buttons', () => {
       render(
         <ExportButton
           results={sampleResults}
@@ -518,7 +465,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-dropdown')).toHaveAccessibleName();
+      expect(screen.getByTestId('export-csv-button')).toHaveAccessibleName();
+      expect(screen.getByTestId('export-excel-button')).toHaveAccessibleName();
     });
 
     it('should have accessible names for direct buttons', () => {
@@ -534,7 +482,7 @@ describe('ExportButton Component', () => {
       expect(screen.getByTestId('export-excel-button')).toHaveAccessibleName();
     });
 
-    it('should set aria-busy during export', () => {
+    it('should show loading via disabled state during export', () => {
       (useExport as ReturnType<typeof vi.fn>).mockReturnValue({
         exportToCSV: mockExportToCSV,
         exportToExcel: mockExportToExcel,
@@ -551,7 +499,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-dropdown')).toHaveAttribute('aria-busy', 'true');
+      // Buttons are disabled during export
+      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
     });
 
     it('should be keyboard accessible', async () => {
@@ -565,21 +514,21 @@ describe('ExportButton Component', () => {
         />
       );
 
-      const dropdownButton = screen.getByTestId('export-dropdown');
+      const csvButton = screen.getByTestId('export-csv-button');
 
       // Focus button
-      dropdownButton.focus();
-      expect(document.activeElement).toBe(dropdownButton);
+      csvButton.focus();
+      expect(document.activeElement).toBe(csvButton);
 
-      // Open with Enter key
+      // Activate with Enter key
       await user.keyboard('{Enter}');
 
       await waitFor(() => {
-        expect(screen.getByTestId('export-csv-option')).toBeVisible();
+        expect(mockExportToCSV).toHaveBeenCalled();
       });
     });
 
-    it('should have proper focus management in dropdown', async () => {
+    it('should have proper focus management', async () => {
       const user = userEvent.setup();
 
       render(
@@ -590,18 +539,21 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-dropdown'));
+      const csvButton = screen.getByTestId('export-csv-button');
+      const excelButton = screen.getByTestId('export-excel-button');
 
-      // First menu item should be focusable
-      await waitFor(() => {
-        const csvOption = screen.getByTestId('export-csv-option');
-        expect(csvOption).toBeVisible();
-      });
+      // Focus CSV button and verify
+      csvButton.focus();
+      expect(document.activeElement).toBe(csvButton);
+
+      // Tab to Excel button
+      await user.tab();
+      expect(document.activeElement).toBe(excelButton);
     });
   });
 
   // ==========================================================================
-  // Test Suite 9: Custom Class Names
+  // Test Suite 8: Custom Class Names
   // ==========================================================================
 
   describe('Custom Class Names', () => {
@@ -620,11 +572,11 @@ describe('ExportButton Component', () => {
   });
 
   // ==========================================================================
-  // Test Suite 10: Icon Display
+  // Test Suite 9: Icon Display
   // ==========================================================================
 
   describe('Icon Display', () => {
-    it('should show download icon on dropdown button', () => {
+    it('should show download icon on buttons', () => {
       render(
         <ExportButton
           results={sampleResults}
@@ -634,8 +586,8 @@ describe('ExportButton Component', () => {
       );
 
       // Check for icon (lucide-react renders SVG)
-      const button = screen.getByTestId('export-dropdown');
-      expect(button.querySelector('svg')).toBeInTheDocument();
+      const csvButton = screen.getByTestId('export-csv-button');
+      expect(csvButton.querySelector('svg')).toBeInTheDocument();
     });
 
     it('should show loading spinner icon when exporting', () => {
@@ -656,15 +608,15 @@ describe('ExportButton Component', () => {
       );
 
       // Should have spinning loader icon
-      const button = screen.getByTestId('export-dropdown');
-      const svg = button.querySelector('svg');
+      const csvButton = screen.getByTestId('export-csv-button');
+      const svg = csvButton.querySelector('svg');
       expect(svg).toBeInTheDocument();
       expect(svg).toHaveClass('animate-spin');
     });
   });
 
   // ==========================================================================
-  // Test Suite 11: Props Passing
+  // Test Suite 10: Props Passing
   // ==========================================================================
 
   describe('Props Passing', () => {

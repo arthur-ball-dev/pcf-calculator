@@ -2,13 +2,83 @@
  * Test Setup
  *
  * Configures testing environment with jest-dom matchers, MSW, and global utilities.
- * Includes polyfills for JSDOM limitations.
+ * Includes polyfills for JSDOM limitations and localStorage mock for Zustand persistence.
  */
 
-import '@testing-library/jest-dom';
-import { expect, afterEach, beforeAll, afterAll } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import { server } from '../__mocks__/server';
+// ============================================================================
+// localStorage Mock (MUST be defined before any store imports)
+// ============================================================================
+
+/**
+ * In-memory localStorage mock for Node.js test environment.
+ * Zustand persist middleware requires localStorage to be available.
+ *
+ * Note: jsdom provides localStorage, but this explicit mock ensures:
+ * - Consistent behavior across environments
+ * - Ability to clear storage between tests
+ * - Clear error messages if something goes wrong
+ */
+class LocalStorageMock implements Storage {
+  private store: Map<string, string>;
+
+  constructor() {
+    this.store = new Map();
+  }
+
+  get length(): number {
+    return this.store.size;
+  }
+
+  key(index: number): string | null {
+    const keys = Array.from(this.store.keys());
+    return keys[index] ?? null;
+  }
+
+  getItem(key: string): string | null {
+    return this.store.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+}
+
+// Install mock on globalThis if not already present (jsdom may provide it)
+if (typeof globalThis.localStorage === "undefined") {
+  const localStorageMock = new LocalStorageMock();
+  Object.defineProperty(globalThis, "localStorage", {
+    value: localStorageMock,
+    writable: true,
+    configurable: true,
+  });
+}
+
+// Also mock sessionStorage for completeness
+if (typeof globalThis.sessionStorage === "undefined") {
+  const sessionStorageMock = new LocalStorageMock();
+  Object.defineProperty(globalThis, "sessionStorage", {
+    value: sessionStorageMock,
+    writable: true,
+    configurable: true,
+  });
+}
+
+// ============================================================================
+// Rest of setup file
+// ============================================================================
+
+import "@testing-library/jest-dom";
+import { afterEach, beforeAll, afterAll, beforeEach } from "vitest";
+import { cleanup } from "@testing-library/react";
+import { server } from "../__mocks__/server";
 
 // ============================================================================
 // MSW Server Setup
@@ -16,7 +86,7 @@ import { server } from '../__mocks__/server';
 
 // Start MSW server before all tests
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'warn' });
+  server.listen({ onUnhandledRequest: "warn" });
 });
 
 // Reset handlers after each test to ensure test isolation
@@ -27,6 +97,12 @@ afterEach(() => {
 // Cleanup React components after each test
 afterEach(() => {
   cleanup();
+});
+
+// Clear localStorage and sessionStorage between tests
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
 });
 
 // Stop MSW server after all tests

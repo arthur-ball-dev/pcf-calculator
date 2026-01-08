@@ -13,13 +13,13 @@ Test-Driven Development Protocol:
 - These tests MUST be committed BEFORE implementation
 - Tests should FAIL initially (parameter does not exist yet)
 - Implementation must make tests PASS without modifying tests
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 from decimal import Decimal
 
 from backend.models import (
@@ -30,51 +30,6 @@ from backend.models import (
 )
 from backend.main import app
 from backend.database.connection import get_db
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing with threading support."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create FastAPI TestClient with database dependency override."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-
-    yield test_client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -330,10 +285,10 @@ class TestFilterByHasBom:
     """
 
     def test_has_bom_true_returns_only_products_with_bom(
-        self, client, seed_products, seed_bom_entries
+        self, authenticated_client, seed_products, seed_bom_entries
     ):
         """Test that has_bom=true returns only products with BOM entries."""
-        response = client.get("/api/v1/products/search?has_bom=true")
+        response = authenticated_client.get("/api/v1/products/search?has_bom=true")
         data = response.json()
 
         assert response.status_code == 200, \
@@ -348,10 +303,10 @@ class TestFilterByHasBom:
                 f"Product {product_id} should have BOM entries"
 
     def test_has_bom_false_returns_all_products(
-        self, client, seed_products, seed_bom_entries
+        self, authenticated_client, seed_products, seed_bom_entries
     ):
         """Test that has_bom=false returns all products (existing behavior)."""
-        response = client.get("/api/v1/products/search?has_bom=false")
+        response = authenticated_client.get("/api/v1/products/search?has_bom=false")
         data = response.json()
 
         assert response.status_code == 200
@@ -359,10 +314,10 @@ class TestFilterByHasBom:
             f"Expected {seed_products['total_count']} products, got {data['total']}"
 
     def test_has_bom_not_provided_returns_all_products(
-        self, client, seed_products, seed_bom_entries
+        self, authenticated_client, seed_products, seed_bom_entries
     ):
         """Test that omitting has_bom returns all products (existing behavior)."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert response.status_code == 200
@@ -370,12 +325,12 @@ class TestFilterByHasBom:
             f"Expected {seed_products['total_count']} products, got {data['total']}"
 
     def test_has_bom_with_query_filter(
-        self, client, seed_products, seed_bom_entries
+        self, authenticated_client, seed_products, seed_bom_entries
     ):
         """Test combining has_bom=true with search query."""
         # Search for 'laptop' with has_bom=true
         # Should return laptop_1 and laptop_2 (both have BOM and match 'laptop')
-        response = client.get("/api/v1/products/search?query=laptop&has_bom=true")
+        response = authenticated_client.get("/api/v1/products/search?query=laptop&has_bom=true")
         data = response.json()
 
         assert response.status_code == 200
@@ -392,10 +347,10 @@ class TestFilterByHasBom:
                 f"Product {item['id']} should have BOM entries"
 
     def test_has_bom_with_is_finished_product_filter(
-        self, client, seed_products, seed_bom_entries
+        self, authenticated_client, seed_products, seed_bom_entries
     ):
         """Test combining has_bom=true with is_finished_product filter."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?has_bom=true&is_finished_product=true"
         )
         data = response.json()
@@ -408,10 +363,10 @@ class TestFilterByHasBom:
             assert item["id"] in seed_bom_entries["products_with_bom_ids"]
 
     def test_has_bom_with_industry_filter(
-        self, client, seed_products, seed_bom_entries, seed_categories
+        self, authenticated_client, seed_products, seed_bom_entries, seed_categories
     ):
         """Test combining has_bom=true with industry filter."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?has_bom=true&industry=electronics"
         )
         data = response.json()
@@ -425,10 +380,10 @@ class TestFilterByHasBom:
                 assert item["category"]["industry_sector"] == "electronics"
 
     def test_has_bom_with_pagination(
-        self, client, seed_products, seed_bom_entries
+        self, authenticated_client, seed_products, seed_bom_entries
     ):
         """Test has_bom=true respects pagination."""
-        response = client.get("/api/v1/products/search?has_bom=true&limit=2&offset=0")
+        response = authenticated_client.get("/api/v1/products/search?has_bom=true&limit=2&offset=0")
         data = response.json()
 
         assert response.status_code == 200
@@ -437,7 +392,7 @@ class TestFilterByHasBom:
             "Total should reflect all products with BOM"
 
         # Test offset
-        response2 = client.get("/api/v1/products/search?has_bom=true&limit=2&offset=2")
+        response2 = authenticated_client.get("/api/v1/products/search?has_bom=true&limit=2&offset=2")
         data2 = response2.json()
 
         # IDs should not overlap between pages
@@ -446,10 +401,10 @@ class TestFilterByHasBom:
         assert first_ids.isdisjoint(second_ids), \
             "Pagination should not return duplicate items"
 
-    def test_has_bom_true_empty_when_no_bom_exists(self, client, seed_products):
+    def test_has_bom_true_empty_when_no_bom_exists(self, authenticated_client, seed_products):
         """Test has_bom=true returns empty when no BOM entries exist."""
         # This test uses seed_products without seed_bom_entries
-        response = client.get("/api/v1/products/search?has_bom=true")
+        response = authenticated_client.get("/api/v1/products/search?has_bom=true")
         data = response.json()
 
         assert response.status_code == 200
@@ -457,10 +412,10 @@ class TestFilterByHasBom:
         assert data["items"] == [], "Items should be empty array"
 
     def test_has_bom_combined_with_all_filters(
-        self, client, seed_products, seed_bom_entries, seed_categories
+        self, authenticated_client, seed_products, seed_bom_entries, seed_categories
     ):
         """Test has_bom with multiple other filters combined."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?"
             "has_bom=true&"
             "query=laptop&"

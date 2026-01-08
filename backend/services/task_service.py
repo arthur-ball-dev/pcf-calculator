@@ -1,10 +1,11 @@
 """
 Async Task Service
 TASK-BE-004: Background task processing for long-running calculations
+TASK-API-P7-027: Align API contract types - status uses 'in_progress' (not 'running'/'processing')
 
 This service provides:
 - Async task submission (non-blocking)
-- Task status tracking (pending → running → completed/failed)
+- Task status tracking (pending -> in_progress -> completed/failed)
 - Background execution using asyncio
 - Database persistence of task state
 
@@ -144,7 +145,7 @@ class TaskService:
         Returns:
             Status dict with fields:
                 - calculation_id: Task ID
-                - status: Current status (pending, running, completed, failed)
+                - status: Current status (pending, in_progress, completed, failed)
                 - product_id: Product being calculated (None if product not found)
                 - total_co2e_kg: Result (when completed)
                 - error_message: Error details (when failed)
@@ -169,10 +170,16 @@ class TaskService:
             if not calculation:
                 return None
 
+            # Map internal status values to frontend-compatible values
+            # TASK-API-P7-027: Ensure 'running' and 'processing' are mapped to 'in_progress'
+            status_value = calculation.status
+            if status_value in ("running", "processing"):
+                status_value = "in_progress"
+
             # Build status response
             status_dict = {
                 "calculation_id": calculation.id,
-                "status": calculation.status,
+                "status": status_value,
                 "product_id": calculation.product_id,
                 "created_at": calculation.created_at.isoformat() if calculation.created_at else None
             }
@@ -217,7 +224,7 @@ class TaskService:
         This method runs asynchronously and updates the database with progress.
 
         Lifecycle:
-        1. Update status to 'running'
+        1. Update status to 'in_progress'
         2. Verify product exists
         3. Perform calculation (placeholder for now)
         4. Update status to 'completed' with results
@@ -232,8 +239,8 @@ class TaskService:
         start_time = time.time()
 
         try:
-            # Update status to 'running'
-            await self._update_task_status(task_id, "running")
+            # Update status to 'in_progress'
+            await self._update_task_status(task_id, "in_progress")
 
             logger.info(f"Task {task_id}: Starting calculation for product {product_id}")
 
@@ -304,7 +311,7 @@ class TaskService:
 
         Args:
             task_id: Task identifier
-            status: New status (pending, running, completed, failed)
+            status: New status (pending, in_progress, completed, failed)
             error_message: Error message for failed tasks
         """
         try:
@@ -373,7 +380,7 @@ async def submit_task(
         @app.post("/calculate")
         async def calculate(product_id: str, db: Session = Depends(get_db)):
             task_id = await submit_task(db, product_id)
-            return {"calculation_id": task_id, "status": "processing"}
+            return {"calculation_id": task_id, "status": "in_progress"}
     """
     service = TaskService(db)
     return await service.submit_calculation_task(product_id, calculation_type, **kwargs)

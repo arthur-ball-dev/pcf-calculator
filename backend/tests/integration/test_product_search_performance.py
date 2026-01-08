@@ -17,14 +17,14 @@ Test-Driven Development Protocol:
 Performance Targets (from contract):
 - Search: p50=100ms, p95=500ms, p99=1000ms
 - Categories: p50=50ms, p95=200ms, p99=500ms
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 import time
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.models import (
     Base,
@@ -37,50 +37,6 @@ from backend.database.connection import get_db
 
 # Mark all tests in this module as performance tests
 pytestmark = [pytest.mark.performance, pytest.mark.slow]
-
-
-@pytest.fixture(scope="module")
-def db_engine():
-    """Create in-memory SQLite database for performance testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="module")
-def db_session(db_engine):
-    """Create database session for performance testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="module")
-def client(db_session):
-    """Create FastAPI TestClient with database dependency override."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-
-    yield test_client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="module")
@@ -288,7 +244,7 @@ class TestProductSearchPerformance:
     """Performance tests for /api/v1/products/search endpoint."""
 
     def test_search_1000_products_under_500ms(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """
         Performance: Search with 1000+ products MUST complete in <500ms.
@@ -296,7 +252,7 @@ class TestProductSearchPerformance:
         Target: p95 = 500ms
         """
         start_time = time.time()
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         elapsed_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200, \
@@ -311,7 +267,7 @@ class TestProductSearchPerformance:
             f"Performance violation: Search took {elapsed_ms:.2f}ms, expected <500ms"
 
     def test_search_with_query_under_500ms(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """
         Performance: Full-text search MUST complete in <500ms.
@@ -319,7 +275,7 @@ class TestProductSearchPerformance:
         Target: p95 = 500ms
         """
         start_time = time.time()
-        response = client.get("/api/v1/products/search?query=laptop")
+        response = authenticated_client.get("/api/v1/products/search?query=laptop")
         elapsed_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200
@@ -328,7 +284,7 @@ class TestProductSearchPerformance:
             f"Performance violation: Text search took {elapsed_ms:.2f}ms, expected <500ms"
 
     def test_search_with_filters_under_500ms(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """
         Performance: Search with multiple filters MUST complete in <500ms.
@@ -336,7 +292,7 @@ class TestProductSearchPerformance:
         Target: p95 = 500ms
         """
         start_time = time.time()
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?"
             "industry=electronics&"
             "manufacturer=Acme&"
@@ -350,7 +306,7 @@ class TestProductSearchPerformance:
             f"Performance violation: Filtered search took {elapsed_ms:.2f}ms"
 
     def test_search_combined_query_and_filters_under_1000ms(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """
         Performance: Complex search (query + filters) MUST complete in <1000ms.
@@ -358,7 +314,7 @@ class TestProductSearchPerformance:
         Target: p99 = 1000ms
         """
         start_time = time.time()
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?"
             "query=laptop&"
             "industry=electronics&"
@@ -375,7 +331,7 @@ class TestProductSearchPerformance:
             f"Performance violation: Complex search took {elapsed_ms:.2f}ms"
 
     def test_pagination_does_not_degrade_performance(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """
         Performance: Pagination should not significantly degrade performance.
@@ -384,14 +340,14 @@ class TestProductSearchPerformance:
         """
         # First page
         start_time = time.time()
-        response = client.get("/api/v1/products/search?limit=50&offset=0")
+        response = authenticated_client.get("/api/v1/products/search?limit=50&offset=0")
         first_page_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200
 
         # Last page (offset=1000)
         start_time = time.time()
-        response = client.get("/api/v1/products/search?limit=50&offset=1000")
+        response = authenticated_client.get("/api/v1/products/search?limit=50&offset=1000")
         last_page_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200
@@ -401,7 +357,7 @@ class TestProductSearchPerformance:
             f"Performance degradation: first={first_page_ms:.2f}ms, last={last_page_ms:.2f}ms"
 
     def test_average_response_time_p50(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """
         Performance: Average (p50) response time should be <100ms.
@@ -412,7 +368,7 @@ class TestProductSearchPerformance:
 
         for _ in range(10):
             start_time = time.time()
-            response = client.get("/api/v1/products/search?limit=50")
+            response = authenticated_client.get("/api/v1/products/search?limit=50")
             elapsed_ms = (time.time() - start_time) * 1000
             times.append(elapsed_ms)
 
@@ -435,7 +391,7 @@ class TestCategoryTreePerformance:
 
     @pytest.mark.skip(reason="Requires large seeded dataset for performance testing")
     def test_category_tree_400_categories_under_200ms(
-        self, client, seed_large_category_tree
+        self, authenticated_client, seed_large_category_tree
     ):
         """
         Performance: Category tree with 400+ categories MUST complete in <200ms.
@@ -443,7 +399,7 @@ class TestCategoryTreePerformance:
         Target: p95 = 200ms
         """
         start_time = time.time()
-        response = client.get("/api/v1/products/categories?depth=5")
+        response = authenticated_client.get("/api/v1/products/categories?depth=5")
         elapsed_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200, \
@@ -457,21 +413,21 @@ class TestCategoryTreePerformance:
             f"Performance violation: Categories took {elapsed_ms:.2f}ms, expected <200ms"
 
     def test_category_tree_with_depth_limit_faster(
-        self, client, seed_large_category_tree
+        self, authenticated_client, seed_large_category_tree
     ):
         """
         Performance: Limiting depth should improve performance.
         """
         # Full depth
         start_time = time.time()
-        response = client.get("/api/v1/products/categories?depth=5")
+        response = authenticated_client.get("/api/v1/products/categories?depth=5")
         full_depth_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200
 
         # Limited depth
         start_time = time.time()
-        response = client.get("/api/v1/products/categories?depth=1")
+        response = authenticated_client.get("/api/v1/products/categories?depth=1")
         limited_depth_ms = (time.time() - start_time) * 1000
 
         assert response.status_code == 200
@@ -482,7 +438,7 @@ class TestCategoryTreePerformance:
 
     @pytest.mark.skip(reason="Requires large seeded dataset for performance testing")
     def test_category_tree_p50_under_50ms(
-        self, client, seed_large_category_tree
+        self, authenticated_client, seed_large_category_tree
     ):
         """
         Performance: Average (p50) category tree response should be <50ms.
@@ -493,7 +449,7 @@ class TestCategoryTreePerformance:
 
         for _ in range(10):
             start_time = time.time()
-            response = client.get("/api/v1/products/categories?depth=3")
+            response = authenticated_client.get("/api/v1/products/categories?depth=3")
             elapsed_ms = (time.time() - start_time) * 1000
             times.append(elapsed_ms)
 
@@ -507,7 +463,7 @@ class TestCategoryTreePerformance:
 
     @pytest.mark.skip(reason="Requires large seeded dataset for performance testing")
     def test_category_tree_with_product_count_under_500ms(
-        self, client, seed_large_category_tree, seed_large_product_dataset
+        self, authenticated_client, seed_large_category_tree, seed_large_product_dataset
     ):
         """
         Performance: Category tree with product counts MUST complete in <500ms.
@@ -516,7 +472,7 @@ class TestCategoryTreePerformance:
         Target: p99 = 500ms
         """
         start_time = time.time()
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/categories?depth=3&include_product_count=true"
         )
         elapsed_ms = (time.time() - start_time) * 1000
@@ -527,13 +483,13 @@ class TestCategoryTreePerformance:
             f"Performance violation: Categories+counts took {elapsed_ms:.2f}ms"
 
     def test_category_filter_by_industry_under_200ms(
-        self, client, seed_large_category_tree
+        self, authenticated_client, seed_large_category_tree
     ):
         """
         Performance: Industry filter should maintain <200ms performance.
         """
         start_time = time.time()
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/categories?industry=electronics&depth=5"
         )
         elapsed_ms = (time.time() - start_time) * 1000
@@ -552,20 +508,20 @@ class TestCombinedPerformance:
     """Performance tests for combined search and category operations."""
 
     def test_search_by_category_under_500ms(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """
         Performance: Search by category_id should be <500ms.
         """
         # Get a category ID
-        cat_response = client.get("/api/v1/products/categories?depth=1")
+        cat_response = authenticated_client.get("/api/v1/products/categories?depth=1")
         cat_data = cat_response.json()
 
         if cat_data["total_categories"] > 0:
             category_id = cat_data["categories"][0]["id"]
 
             start_time = time.time()
-            response = client.get(
+            response = authenticated_client.get(
                 f"/api/v1/products/search?category_id={category_id}"
             )
             elapsed_ms = (time.time() - start_time) * 1000
@@ -576,7 +532,7 @@ class TestCombinedPerformance:
                 f"Performance violation: Category search took {elapsed_ms:.2f}ms"
 
     def test_concurrent_requests_stable(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """
         Performance: Multiple sequential requests should have stable response times.
@@ -585,7 +541,7 @@ class TestCombinedPerformance:
 
         for _ in range(20):
             start_time = time.time()
-            response = client.get("/api/v1/products/search?limit=50")
+            response = authenticated_client.get("/api/v1/products/search?limit=50")
             elapsed_ms = (time.time() - start_time) * 1000
             times.append(elapsed_ms)
 
@@ -613,14 +569,14 @@ class TestPerformanceBenchmarks:
     """
 
     def test_benchmark_search_no_filters(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """Benchmark: Search without filters."""
         times = []
 
         for _ in range(5):
             start_time = time.time()
-            client.get("/api/v1/products/search")
+            authenticated_client.get("/api/v1/products/search")
             elapsed_ms = (time.time() - start_time) * 1000
             times.append(elapsed_ms)
 
@@ -628,14 +584,14 @@ class TestPerformanceBenchmarks:
         print(f"\nSearch (no filters): p50={times[2]:.2f}ms, p95={times[4]:.2f}ms")
 
     def test_benchmark_search_with_query(
-        self, client, seed_large_product_dataset
+        self, authenticated_client, seed_large_product_dataset
     ):
         """Benchmark: Search with query."""
         times = []
 
         for _ in range(5):
             start_time = time.time()
-            client.get("/api/v1/products/search?query=laptop")
+            authenticated_client.get("/api/v1/products/search?query=laptop")
             elapsed_ms = (time.time() - start_time) * 1000
             times.append(elapsed_ms)
 
@@ -643,14 +599,14 @@ class TestPerformanceBenchmarks:
         print(f"\nSearch (query): p50={times[2]:.2f}ms, p95={times[4]:.2f}ms")
 
     def test_benchmark_category_tree(
-        self, client, seed_large_category_tree
+        self, authenticated_client, seed_large_category_tree
     ):
         """Benchmark: Category tree retrieval."""
         times = []
 
         for _ in range(5):
             start_time = time.time()
-            client.get("/api/v1/products/categories?depth=5")
+            authenticated_client.get("/api/v1/products/categories?depth=5")
             elapsed_ms = (time.time() - start_time) * 1000
             times.append(elapsed_ms)
 

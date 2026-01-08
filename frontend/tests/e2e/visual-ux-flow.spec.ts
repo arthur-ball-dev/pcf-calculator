@@ -34,14 +34,26 @@ test.describe('Visual & UX Flow Validation', () => {
    * - Navigate to application root
    * - Wait for initial load
    */
-  test.beforeEach(async ({ page }) => {
-    // Clear localStorage and set tour as completed to prevent it from blocking interactions
-    await page.goto('http://localhost:5173');
-    await page.evaluate(() => {
-      localStorage.clear();
-      localStorage.setItem('pcf-calculator-tour-completed', 'true');
+  test.beforeEach(async ({ page, request }) => {
+    // TASK-QA-P7-032: Get auth token from API for JWT-protected endpoints
+    const authResponse = await request.post('http://localhost:8000/api/v1/auth/login', {
+      data: { username: 'e2e-test', password: 'E2ETestPassword123!' },
     });
-    await page.reload();
+
+    let authToken = '';
+    if (authResponse.ok()) {
+      const authData = await authResponse.json();
+      authToken = authData.access_token;
+    }
+
+    // Set up localStorage with auth token and tour completion before navigating
+    await page.addInitScript((token) => {
+      window.localStorage.setItem('auth_token', token);
+      window.localStorage.setItem('pcf-calculator-tour-completed', 'true');
+    }, authToken);
+
+    // Navigate to the app
+    await page.goto('http://localhost:5173');
 
     // Wait for page to be fully loaded
     await page.waitForLoadState('networkidle');

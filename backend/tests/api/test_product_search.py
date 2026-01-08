@@ -1,6 +1,7 @@
 """
 Test Product Search API Endpoint
 TASK-API-P5-002: Enhanced Product Search - Phase A Tests
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 
 Test Scenarios (per products-search-contract.yaml):
 1. Search with query string (relevance ranking)
@@ -23,64 +24,10 @@ Test-Driven Development Protocol:
 """
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 from decimal import Decimal
 
-from backend.models import (
-    Base,
-    Product,
-    ProductCategory,
-)
-from backend.main import app
-from backend.database.connection import get_db
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing with threading support."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create FastAPI TestClient with database dependency override."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-
-    yield test_client
-
-    app.dependency_overrides.clear()
+from backend.models import Product, ProductCategory
 
 
 @pytest.fixture(scope="function")
@@ -335,16 +282,16 @@ def seed_products(db_session, seed_categories):
 class TestSearchWithQuery:
     """Test full-text search with query string."""
 
-    def test_search_returns_200(self, client, seed_products):
+    def test_search_returns_200(self, authenticated_client, seed_products):
         """Test that search endpoint returns 200 OK."""
-        response = client.get("/api/v1/products/search?query=laptop")
+        response = authenticated_client.get("/api/v1/products/search?query=laptop")
 
         assert response.status_code == 200, \
             f"Expected status 200, got {response.status_code}"
 
-    def test_search_returns_matching_products(self, client, seed_products):
+    def test_search_returns_matching_products(self, authenticated_client, seed_products):
         """Test that search returns products matching query."""
-        response = client.get("/api/v1/products/search?query=laptop")
+        response = authenticated_client.get("/api/v1/products/search?query=laptop")
         data = response.json()
 
         assert "items" in data, "Response should include 'items' field"
@@ -357,9 +304,9 @@ class TestSearchWithQuery:
             assert "laptop" in name_lower or "laptop" in desc_lower, \
                 f"Product {item['code']} should match 'laptop'"
 
-    def test_search_returns_relevance_score(self, client, seed_products):
+    def test_search_returns_relevance_score(self, authenticated_client, seed_products):
         """Test that search results include relevance_score when query provided."""
-        response = client.get("/api/v1/products/search?query=laptop")
+        response = authenticated_client.get("/api/v1/products/search?query=laptop")
         data = response.json()
 
         assert len(data["items"]) > 0, "Should have results"
@@ -370,11 +317,11 @@ class TestSearchWithQuery:
             assert isinstance(item["relevance_score"], (int, float, type(None))), \
                 "relevance_score should be numeric or null"
 
-    def test_search_case_insensitive(self, client, seed_products):
+    def test_search_case_insensitive(self, authenticated_client, seed_products):
         """Test that search is case-insensitive."""
-        response_lower = client.get("/api/v1/products/search?query=laptop")
-        response_upper = client.get("/api/v1/products/search?query=LAPTOP")
-        response_mixed = client.get("/api/v1/products/search?query=LaPtOp")
+        response_lower = authenticated_client.get("/api/v1/products/search?query=laptop")
+        response_upper = authenticated_client.get("/api/v1/products/search?query=LAPTOP")
+        response_mixed = authenticated_client.get("/api/v1/products/search?query=LaPtOp")
 
         data_lower = response_lower.json()
         data_upper = response_upper.json()
@@ -384,9 +331,9 @@ class TestSearchWithQuery:
         assert data_lower["total"] == data_upper["total"] == data_mixed["total"], \
             "Search should be case-insensitive"
 
-    def test_search_partial_match(self, client, seed_products):
+    def test_search_partial_match(self, authenticated_client, seed_products):
         """Test that search matches partial words."""
-        response = client.get("/api/v1/products/search?query=ultra")
+        response = authenticated_client.get("/api/v1/products/search?query=ultra")
         data = response.json()
 
         # Should match "Ultrabook Pro"
@@ -395,16 +342,16 @@ class TestSearchWithQuery:
         codes = [item["code"] for item in data["items"]]
         assert "LAPTOP-003" in codes, "Should find Ultrabook Pro"
 
-    def test_search_multiple_terms(self, client, seed_products):
+    def test_search_multiple_terms(self, authenticated_client, seed_products):
         """Test search with multiple terms."""
-        response = client.get("/api/v1/products/search?query=business%20laptop")
+        response = authenticated_client.get("/api/v1/products/search?query=business%20laptop")
         data = response.json()
 
         assert data["total"] >= 1, "Should find products matching 'business laptop'"
 
-    def test_search_description_match(self, client, seed_products):
+    def test_search_description_match(self, authenticated_client, seed_products):
         """Test that search matches content in description."""
-        response = client.get("/api/v1/products/search?query=aluminum")
+        response = authenticated_client.get("/api/v1/products/search?query=aluminum")
         data = response.json()
 
         # Should match Business Laptop (has "aluminum chassis" in description)
@@ -418,18 +365,18 @@ class TestSearchWithQuery:
 class TestSearchWithoutQuery:
     """Test search endpoint without query parameter."""
 
-    def test_search_without_query_returns_all(self, client, seed_products):
+    def test_search_without_query_returns_all(self, authenticated_client, seed_products):
         """Test that omitting query returns all products."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert response.status_code == 200
         assert data["total"] == seed_products["total_count"], \
             f"Expected {seed_products['total_count']} products, got {data['total']}"
 
-    def test_search_without_query_no_relevance_score(self, client, seed_products):
+    def test_search_without_query_no_relevance_score(self, authenticated_client, seed_products):
         """Test that relevance_score is null when no query provided."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert len(data["items"]) > 0, "Should have results"
@@ -448,11 +395,11 @@ class TestSearchWithoutQuery:
 class TestFilterByCategory:
     """Test filtering by category_id."""
 
-    def test_filter_by_category_id(self, client, seed_products, seed_categories):
+    def test_filter_by_category_id(self, authenticated_client, seed_products, seed_categories):
         """Test filtering products by category_id."""
         laptops_cat_id = seed_categories["laptops"].id
 
-        response = client.get(f"/api/v1/products/search?category_id={laptops_cat_id}")
+        response = authenticated_client.get(f"/api/v1/products/search?category_id={laptops_cat_id}")
         data = response.json()
 
         assert response.status_code == 200
@@ -463,11 +410,11 @@ class TestFilterByCategory:
                 assert item["category"]["id"] == laptops_cat_id, \
                     f"Product should be in laptops category"
 
-    def test_filter_category_with_search(self, client, seed_products, seed_categories):
+    def test_filter_category_with_search(self, authenticated_client, seed_products, seed_categories):
         """Test combining category filter with search query."""
         computers_cat_id = seed_categories["computers"].id
 
-        response = client.get(
+        response = authenticated_client.get(
             f"/api/v1/products/search?query=laptop&category_id={computers_cat_id}"
         )
         data = response.json()
@@ -480,20 +427,20 @@ class TestFilterByCategory:
             desc_lower = (item.get("description") or "").lower()
             assert "laptop" in name_lower or "laptop" in desc_lower
 
-    def test_filter_invalid_category_id(self, client, seed_products):
+    def test_filter_invalid_category_id(self, authenticated_client, seed_products):
         """Test that invalid category_id returns 422."""
         # Non-existent UUID
         fake_uuid = "00000000000000000000000000000000"
 
-        response = client.get(f"/api/v1/products/search?category_id={fake_uuid}")
+        response = authenticated_client.get(f"/api/v1/products/search?category_id={fake_uuid}")
 
         # Per contract: Invalid category returns 422 with INVALID_CATEGORY code
         assert response.status_code == 422, \
             f"Expected 422 for invalid category_id, got {response.status_code}"
 
-    def test_filter_malformed_category_id(self, client, seed_products):
+    def test_filter_malformed_category_id(self, authenticated_client, seed_products):
         """Test that malformed category_id returns 400/422."""
-        response = client.get("/api/v1/products/search?category_id=not-a-uuid")
+        response = authenticated_client.get("/api/v1/products/search?category_id=not-a-uuid")
 
         # Should return validation error (400 or 422)
         assert response.status_code in [400, 422], \
@@ -507,9 +454,9 @@ class TestFilterByCategory:
 class TestFilterByIndustry:
     """Test filtering by industry sector."""
 
-    def test_filter_by_industry_electronics(self, client, seed_products):
+    def test_filter_by_industry_electronics(self, authenticated_client, seed_products):
         """Test filtering by industry=electronics."""
-        response = client.get("/api/v1/products/search?industry=electronics")
+        response = authenticated_client.get("/api/v1/products/search?industry=electronics")
         data = response.json()
 
         assert response.status_code == 200
@@ -521,18 +468,18 @@ class TestFilterByIndustry:
             if item.get("category"):
                 assert item["category"]["industry_sector"] == "electronics"
 
-    def test_filter_by_industry_apparel(self, client, seed_products):
+    def test_filter_by_industry_apparel(self, authenticated_client, seed_products):
         """Test filtering by industry=apparel."""
-        response = client.get("/api/v1/products/search?industry=apparel")
+        response = authenticated_client.get("/api/v1/products/search?industry=apparel")
         data = response.json()
 
         assert response.status_code == 200
         assert data["total"] == seed_products["apparel_count"], \
             f"Expected {seed_products['apparel_count']} apparel products"
 
-    def test_filter_by_industry_with_query(self, client, seed_products):
+    def test_filter_by_industry_with_query(self, authenticated_client, seed_products):
         """Test combining industry filter with search query."""
-        response = client.get("/api/v1/products/search?query=cotton&industry=apparel")
+        response = authenticated_client.get("/api/v1/products/search?query=cotton&industry=apparel")
         data = response.json()
 
         assert response.status_code == 200
@@ -543,9 +490,9 @@ class TestFilterByIndustry:
             desc_lower = (item.get("description") or "").lower()
             assert "cotton" in name_lower or "cotton" in desc_lower
 
-    def test_filter_invalid_industry(self, client, seed_products):
+    def test_filter_invalid_industry(self, authenticated_client, seed_products):
         """Test that invalid industry returns 400."""
-        response = client.get("/api/v1/products/search?industry=invalid_industry")
+        response = authenticated_client.get("/api/v1/products/search?industry=invalid_industry")
 
         # Should return validation error (industry not in enum)
         assert response.status_code in [400, 422], \
@@ -559,9 +506,9 @@ class TestFilterByIndustry:
 class TestFilterByManufacturer:
     """Test filtering by manufacturer name."""
 
-    def test_filter_by_manufacturer_exact(self, client, seed_products):
+    def test_filter_by_manufacturer_exact(self, authenticated_client, seed_products):
         """Test filtering by exact manufacturer name."""
-        response = client.get("/api/v1/products/search?manufacturer=Acme%20Tech")
+        response = authenticated_client.get("/api/v1/products/search?manufacturer=Acme%20Tech")
         data = response.json()
 
         assert response.status_code == 200
@@ -570,9 +517,9 @@ class TestFilterByManufacturer:
         for item in data["items"]:
             assert item["manufacturer"] == "Acme Tech"
 
-    def test_filter_by_manufacturer_partial(self, client, seed_products):
+    def test_filter_by_manufacturer_partial(self, authenticated_client, seed_products):
         """Test filtering by partial manufacturer name."""
-        response = client.get("/api/v1/products/search?manufacturer=Acme")
+        response = authenticated_client.get("/api/v1/products/search?manufacturer=Acme")
         data = response.json()
 
         assert response.status_code == 200
@@ -581,10 +528,10 @@ class TestFilterByManufacturer:
         for item in data["items"]:
             assert "Acme" in item["manufacturer"]
 
-    def test_filter_manufacturer_case_insensitive(self, client, seed_products):
+    def test_filter_manufacturer_case_insensitive(self, authenticated_client, seed_products):
         """Test that manufacturer filter is case-insensitive."""
-        response_lower = client.get("/api/v1/products/search?manufacturer=acme")
-        response_upper = client.get("/api/v1/products/search?manufacturer=ACME")
+        response_lower = authenticated_client.get("/api/v1/products/search?manufacturer=acme")
+        response_upper = authenticated_client.get("/api/v1/products/search?manufacturer=ACME")
 
         data_lower = response_lower.json()
         data_upper = response_upper.json()
@@ -592,9 +539,9 @@ class TestFilterByManufacturer:
         assert data_lower["total"] == data_upper["total"], \
             "Manufacturer filter should be case-insensitive"
 
-    def test_filter_manufacturer_with_query(self, client, seed_products):
+    def test_filter_manufacturer_with_query(self, authenticated_client, seed_products):
         """Test combining manufacturer filter with search."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?query=laptop&manufacturer=Acme"
         )
         data = response.json()
@@ -616,9 +563,9 @@ class TestFilterByManufacturer:
 class TestFilterByCountryOfOrigin:
     """Test filtering by country of origin."""
 
-    def test_filter_by_country(self, client, seed_products):
+    def test_filter_by_country(self, authenticated_client, seed_products):
         """Test filtering by country_of_origin."""
-        response = client.get("/api/v1/products/search?country_of_origin=CN")
+        response = authenticated_client.get("/api/v1/products/search?country_of_origin=CN")
         data = response.json()
 
         assert response.status_code == 200
@@ -627,9 +574,9 @@ class TestFilterByCountryOfOrigin:
         for item in data["items"]:
             assert item["country_of_origin"] == "CN"
 
-    def test_filter_country_us(self, client, seed_products):
+    def test_filter_country_us(self, authenticated_client, seed_products):
         """Test filtering products from US."""
-        response = client.get("/api/v1/products/search?country_of_origin=US")
+        response = authenticated_client.get("/api/v1/products/search?country_of_origin=US")
         data = response.json()
 
         assert response.status_code == 200
@@ -637,10 +584,10 @@ class TestFilterByCountryOfOrigin:
         for item in data["items"]:
             assert item["country_of_origin"] == "US"
 
-    def test_filter_country_invalid_format(self, client, seed_products):
+    def test_filter_country_invalid_format(self, authenticated_client, seed_products):
         """Test that invalid country code format returns 400."""
         # Country code should be 2 uppercase letters
-        response = client.get("/api/v1/products/search?country_of_origin=USA")
+        response = authenticated_client.get("/api/v1/products/search?country_of_origin=USA")
 
         # Should fail validation (not ^[A-Z]{2}$)
         assert response.status_code in [400, 422], \
@@ -654,9 +601,9 @@ class TestFilterByCountryOfOrigin:
 class TestFilterByIsFinishedProduct:
     """Test filtering by is_finished_product flag."""
 
-    def test_filter_finished_products_only(self, client, seed_products):
+    def test_filter_finished_products_only(self, authenticated_client, seed_products):
         """Test filtering for finished products only."""
-        response = client.get("/api/v1/products/search?is_finished_product=true")
+        response = authenticated_client.get("/api/v1/products/search?is_finished_product=true")
         data = response.json()
 
         assert response.status_code == 200
@@ -666,9 +613,9 @@ class TestFilterByIsFinishedProduct:
         for item in data["items"]:
             assert item["is_finished_product"] is True
 
-    def test_filter_components_only(self, client, seed_products):
+    def test_filter_components_only(self, authenticated_client, seed_products):
         """Test filtering for components (not finished)."""
-        response = client.get("/api/v1/products/search?is_finished_product=false")
+        response = authenticated_client.get("/api/v1/products/search?is_finished_product=false")
         data = response.json()
 
         assert response.status_code == 200
@@ -687,10 +634,10 @@ class TestCombinedFilters:
     """Test combining multiple filters with search."""
 
     def test_query_plus_category_plus_manufacturer(
-        self, client, seed_products, seed_categories
+        self, authenticated_client, seed_products, seed_categories
     ):
         """Test search with query, category, and manufacturer filters."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?"
             "query=laptop&"
             f"category_id={seed_categories['laptops'].id}&"
@@ -707,9 +654,9 @@ class TestCombinedFilters:
             desc_lower = (item.get("description") or "").lower()
             assert "laptop" in name_lower or "laptop" in desc_lower
 
-    def test_industry_plus_country_plus_finished(self, client, seed_products):
+    def test_industry_plus_country_plus_finished(self, authenticated_client, seed_products):
         """Test filtering by industry, country, and is_finished_product."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?"
             "industry=electronics&"
             "country_of_origin=CN&"
@@ -724,10 +671,10 @@ class TestCombinedFilters:
             assert item["is_finished_product"] is True
 
     def test_all_filters_combined(
-        self, client, seed_products, seed_categories
+        self, authenticated_client, seed_products, seed_categories
     ):
         """Test using all filters together."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?"
             "query=laptop&"
             "industry=electronics&"
@@ -754,24 +701,24 @@ class TestCombinedFilters:
 class TestSearchPagination:
     """Test pagination parameters for search."""
 
-    def test_pagination_limit(self, client, seed_products):
+    def test_pagination_limit(self, authenticated_client, seed_products):
         """Test that limit parameter restricts results."""
-        response = client.get("/api/v1/products/search?limit=3")
+        response = authenticated_client.get("/api/v1/products/search?limit=3")
         data = response.json()
 
         assert response.status_code == 200
         assert len(data["items"]) <= 3, "Should return at most 3 items"
         assert data["limit"] == 3, "Response should include limit=3"
 
-    def test_pagination_offset(self, client, seed_products):
+    def test_pagination_offset(self, authenticated_client, seed_products):
         """Test that offset parameter skips results."""
         # Get first 3 products
-        response1 = client.get("/api/v1/products/search?limit=3&offset=0")
+        response1 = authenticated_client.get("/api/v1/products/search?limit=3&offset=0")
         data1 = response1.json()
         first_ids = [item["id"] for item in data1["items"]]
 
         # Get next 3 products
-        response2 = client.get("/api/v1/products/search?limit=3&offset=3")
+        response2 = authenticated_client.get("/api/v1/products/search?limit=3&offset=3")
         data2 = response2.json()
         next_ids = [item["id"] for item in data2["items"]]
 
@@ -780,9 +727,9 @@ class TestSearchPagination:
             "Offset should skip previous results"
         assert data2["offset"] == 3, "Response should include offset=3"
 
-    def test_pagination_has_more_true(self, client, seed_products):
+    def test_pagination_has_more_true(self, authenticated_client, seed_products):
         """Test has_more is true when more results exist."""
-        response = client.get("/api/v1/products/search?limit=3&offset=0")
+        response = authenticated_client.get("/api/v1/products/search?limit=3&offset=0")
         data = response.json()
 
         assert response.status_code == 200
@@ -792,12 +739,12 @@ class TestSearchPagination:
             assert data["has_more"] is True, \
                 "has_more should be true when more results exist"
 
-    def test_pagination_has_more_false(self, client, seed_products):
+    def test_pagination_has_more_false(self, authenticated_client, seed_products):
         """Test has_more is false on last page."""
         total = seed_products["total_count"]
         offset = total - 2 if total > 2 else 0
 
-        response = client.get(f"/api/v1/products/search?limit=100&offset={offset}")
+        response = authenticated_client.get(f"/api/v1/products/search?limit=100&offset={offset}")
         data = response.json()
 
         assert response.status_code == 200
@@ -807,9 +754,9 @@ class TestSearchPagination:
             assert data["has_more"] is False, \
                 "has_more should be false on last page"
 
-    def test_pagination_default_values(self, client, seed_products):
+    def test_pagination_default_values(self, authenticated_client, seed_products):
         """Test default pagination values."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert "limit" in data, "Response should include limit"
@@ -818,25 +765,25 @@ class TestSearchPagination:
         # Per contract: default limit is 50
         assert data["limit"] == 50, "Default limit should be 50"
 
-    def test_pagination_limit_max(self, client, seed_products):
+    def test_pagination_limit_max(self, authenticated_client, seed_products):
         """Test that limit has maximum value of 100."""
-        response = client.get("/api/v1/products/search?limit=200")
+        response = authenticated_client.get("/api/v1/products/search?limit=200")
 
         # Per contract: max limit is 100
         assert response.status_code in [400, 422], \
             f"Expected 400/422 for limit>100, got {response.status_code}"
 
-    def test_pagination_limit_min(self, client, seed_products):
+    def test_pagination_limit_min(self, authenticated_client, seed_products):
         """Test that limit has minimum value of 1."""
-        response = client.get("/api/v1/products/search?limit=0")
+        response = authenticated_client.get("/api/v1/products/search?limit=0")
 
         # Per contract: min limit is 1
         assert response.status_code == 422, \
             f"Expected 422 for limit=0, got {response.status_code}"
 
-    def test_pagination_offset_min(self, client, seed_products):
+    def test_pagination_offset_min(self, authenticated_client, seed_products):
         """Test that offset cannot be negative."""
-        response = client.get("/api/v1/products/search?offset=-1")
+        response = authenticated_client.get("/api/v1/products/search?offset=-1")
 
         assert response.status_code == 422, \
             f"Expected 422 for negative offset, got {response.status_code}"
@@ -849,9 +796,9 @@ class TestSearchPagination:
 class TestEmptyResults:
     """Test handling of empty search results."""
 
-    def test_empty_results_for_no_match(self, client, seed_products):
+    def test_empty_results_for_no_match(self, authenticated_client, seed_products):
         """Test empty results when no products match."""
-        response = client.get("/api/v1/products/search?query=xyz123nonexistent")
+        response = authenticated_client.get("/api/v1/products/search?query=xyz123nonexistent")
         data = response.json()
 
         assert response.status_code == 200, \
@@ -863,9 +810,9 @@ class TestEmptyResults:
         assert data["has_more"] is False, \
             "has_more should be false for empty results"
 
-    def test_empty_results_for_filter_no_match(self, client, seed_products):
+    def test_empty_results_for_filter_no_match(self, authenticated_client, seed_products):
         """Test empty results when filters match nothing."""
-        response = client.get(
+        response = authenticated_client.get(
             "/api/v1/products/search?"
             "industry=electronics&"
             "country_of_origin=XX"  # No products from XX
@@ -884,28 +831,28 @@ class TestEmptyResults:
 class TestQueryValidation:
     """Test query parameter validation."""
 
-    def test_query_too_short(self, client, seed_products):
+    def test_query_too_short(self, authenticated_client, seed_products):
         """Test that query <2 chars returns 400."""
-        response = client.get("/api/v1/products/search?query=a")
+        response = authenticated_client.get("/api/v1/products/search?query=a")
 
         # Per contract: min_length is 2
         assert response.status_code == 400, \
             f"Expected 400 for query<2 chars, got {response.status_code}"
 
-    def test_query_empty_string(self, client, seed_products):
+    def test_query_empty_string(self, authenticated_client, seed_products):
         """Test that empty query string is treated as no query."""
-        response = client.get("/api/v1/products/search?query=")
+        response = authenticated_client.get("/api/v1/products/search?query=")
         data = response.json()
 
         # Empty string should either return all or validation error
         assert response.status_code in [200, 400], \
             f"Empty query should return 200 (all) or 400 (validation)"
 
-    def test_query_max_length(self, client, seed_products):
+    def test_query_max_length(self, authenticated_client, seed_products):
         """Test that query respects max length (200 chars)."""
         long_query = "a" * 250
 
-        response = client.get(f"/api/v1/products/search?query={long_query}")
+        response = authenticated_client.get(f"/api/v1/products/search?query={long_query}")
 
         # Per contract: max_length is 200
         assert response.status_code in [400, 422], \
@@ -919,9 +866,9 @@ class TestQueryValidation:
 class TestResponseStructure:
     """Test that response structure matches contract."""
 
-    def test_response_has_required_fields(self, client, seed_products):
+    def test_response_has_required_fields(self, authenticated_client, seed_products):
         """Test that response has all required top-level fields."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         required_fields = ["items", "total", "limit", "offset", "has_more"]
@@ -929,9 +876,9 @@ class TestResponseStructure:
             assert field in data, \
                 f"Response should include '{field}' field"
 
-    def test_product_item_has_required_fields(self, client, seed_products):
+    def test_product_item_has_required_fields(self, authenticated_client, seed_products):
         """Test that each product item has required fields."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         assert len(data["items"]) > 0, "Should have results to test"
@@ -946,9 +893,9 @@ class TestResponseStructure:
                 assert field in item, \
                     f"Product item should have '{field}'"
 
-    def test_category_structure_in_response(self, client, seed_products):
+    def test_category_structure_in_response(self, authenticated_client, seed_products):
         """Test that category object has correct structure."""
-        response = client.get("/api/v1/products/search")
+        response = authenticated_client.get("/api/v1/products/search")
         data = response.json()
 
         # Find a product with category
@@ -965,9 +912,9 @@ class TestResponseStructure:
             assert "industry_sector" in category, \
                 "Category should have 'industry_sector'"
 
-    def test_total_reflects_all_matches(self, client, seed_products):
+    def test_total_reflects_all_matches(self, authenticated_client, seed_products):
         """Test that total reflects full count regardless of pagination."""
-        response = client.get("/api/v1/products/search?limit=2")
+        response = authenticated_client.get("/api/v1/products/search?limit=2")
         data = response.json()
 
         assert data["total"] == seed_products["total_count"], \

@@ -15,13 +15,13 @@ Test Scenarios (per specification):
 10. Response format validation with Pydantic
 11. HTTP status codes (200, 201, 400, 409, 422)
 12. Response structure matches API specification
+
+TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 from decimal import Decimal
 
 # Import models and base
@@ -31,58 +31,6 @@ from backend.models import (
 )
 from backend.main import app
 from backend.database.connection import get_db
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing with threading support"""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing"""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """
-    Create FastAPI TestClient with database dependency override
-
-    This fixture overrides the get_db dependency to use the test database
-    instead of the production database
-    """
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    test_client = TestClient(app)
-
-    yield test_client
-
-    # Clean up dependency override
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -223,16 +171,16 @@ def seed_test_emission_factors(db_session):
 class TestListEmissionFactors:
     """Test GET /api/v1/emission-factors endpoint"""
 
-    def test_list_emission_factors_returns_200(self, client, seed_test_emission_factors):
+    def test_list_emission_factors_returns_200(self, authenticated_client, seed_test_emission_factors):
         """Test that listing emission factors returns 200 OK"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
 
         assert response.status_code == 200, \
             f"Expected status 200, got {response.status_code}"
 
-    def test_list_emission_factors_returns_items(self, client, seed_test_emission_factors):
+    def test_list_emission_factors_returns_items(self, authenticated_client, seed_test_emission_factors):
         """Test that response includes items array"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         assert "items" in data, \
@@ -240,9 +188,9 @@ class TestListEmissionFactors:
         assert isinstance(data["items"], list), \
             "Items should be a list"
 
-    def test_list_emission_factors_returns_total(self, client, seed_test_emission_factors):
+    def test_list_emission_factors_returns_total(self, authenticated_client, seed_test_emission_factors):
         """Test that response includes total count"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         assert "total" in data, \
@@ -252,9 +200,9 @@ class TestListEmissionFactors:
         assert data["total"] == seed_test_emission_factors["total_count"], \
             f"Expected total={seed_test_emission_factors['total_count']}, got {data['total']}"
 
-    def test_list_emission_factors_includes_expected_items(self, client, seed_test_emission_factors):
+    def test_list_emission_factors_includes_expected_items(self, authenticated_client, seed_test_emission_factors):
         """Test that response includes known test emission factors"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         # Extract activity names
@@ -267,9 +215,9 @@ class TestListEmissionFactors:
         assert "Electricity Grid Mix" in activity_names, \
             "Response should include Electricity Grid Mix"
 
-    def test_list_emission_factors_item_structure(self, client, seed_test_emission_factors):
+    def test_list_emission_factors_item_structure(self, authenticated_client, seed_test_emission_factors):
         """Test that each item has required fields"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         assert len(data["items"]) > 0, \
@@ -294,9 +242,9 @@ class TestListEmissionFactors:
 class TestEmissionFactorsPagination:
     """Test pagination parameters (limit, offset)"""
 
-    def test_pagination_with_limit(self, client, seed_test_emission_factors):
+    def test_pagination_with_limit(self, authenticated_client, seed_test_emission_factors):
         """Test that limit parameter restricts results"""
-        response = client.get("/api/v1/emission-factors?limit=3")
+        response = authenticated_client.get("/api/v1/emission-factors?limit=3")
         data = response.json()
 
         assert response.status_code == 200
@@ -305,15 +253,15 @@ class TestEmissionFactorsPagination:
         assert data["limit"] == 3, \
             f"Response should include limit=3, got {data.get('limit')}"
 
-    def test_pagination_with_offset(self, client, seed_test_emission_factors):
+    def test_pagination_with_offset(self, authenticated_client, seed_test_emission_factors):
         """Test that offset parameter skips results"""
         # Get first 3 factors
-        response1 = client.get("/api/v1/emission-factors?limit=3&offset=0")
+        response1 = authenticated_client.get("/api/v1/emission-factors?limit=3&offset=0")
         data1 = response1.json()
         first_three_ids = [item["id"] for item in data1["items"]]
 
         # Get next 3 factors
-        response2 = client.get("/api/v1/emission-factors?limit=3&offset=3")
+        response2 = authenticated_client.get("/api/v1/emission-factors?limit=3&offset=3")
         data2 = response2.json()
         next_three_ids = [item["id"] for item in data2["items"]]
 
@@ -323,9 +271,9 @@ class TestEmissionFactorsPagination:
         assert data2["offset"] == 3, \
             f"Response should include offset=3, got {data2.get('offset')}"
 
-    def test_pagination_default_values(self, client, seed_test_emission_factors):
+    def test_pagination_default_values(self, authenticated_client, seed_test_emission_factors):
         """Test default pagination values"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         assert "limit" in data, "Response should include limit"
@@ -333,17 +281,17 @@ class TestEmissionFactorsPagination:
         assert data["offset"] == 0, \
             f"Default offset should be 0, got {data['offset']}"
 
-    def test_pagination_limit_validation(self, client, seed_test_emission_factors):
+    def test_pagination_limit_validation(self, authenticated_client, seed_test_emission_factors):
         """Test that limit has minimum value of 1"""
-        response = client.get("/api/v1/emission-factors?limit=0")
+        response = authenticated_client.get("/api/v1/emission-factors?limit=0")
 
         # Should return 422 for invalid parameter
         assert response.status_code == 422, \
             f"Expected 422 for limit=0, got {response.status_code}"
 
-    def test_pagination_offset_validation(self, client, seed_test_emission_factors):
+    def test_pagination_offset_validation(self, authenticated_client, seed_test_emission_factors):
         """Test that offset cannot be negative"""
-        response = client.get("/api/v1/emission-factors?offset=-1")
+        response = authenticated_client.get("/api/v1/emission-factors?offset=-1")
 
         # Should return 422 for invalid parameter
         assert response.status_code == 422, \
@@ -357,9 +305,9 @@ class TestEmissionFactorsPagination:
 class TestFilterByDataSource:
     """Test filtering by data_source parameter"""
 
-    def test_filter_by_epa_source(self, client, seed_test_emission_factors):
+    def test_filter_by_epa_source(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for EPA emission factors only"""
-        response = client.get("/api/v1/emission-factors?data_source=EPA")
+        response = authenticated_client.get("/api/v1/emission-factors?data_source=EPA")
         data = response.json()
 
         assert response.status_code == 200
@@ -373,9 +321,9 @@ class TestFilterByDataSource:
         assert len(data["items"]) == seed_test_emission_factors["epa_count"], \
             f"Expected {seed_test_emission_factors['epa_count']} EPA factors, got {len(data['items'])}"
 
-    def test_filter_by_defra_source(self, client, seed_test_emission_factors):
+    def test_filter_by_defra_source(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for DEFRA emission factors only"""
-        response = client.get("/api/v1/emission-factors?data_source=DEFRA")
+        response = authenticated_client.get("/api/v1/emission-factors?data_source=DEFRA")
         data = response.json()
 
         assert response.status_code == 200
@@ -389,9 +337,9 @@ class TestFilterByDataSource:
         assert len(data["items"]) == seed_test_emission_factors["defra_count"], \
             f"Expected {seed_test_emission_factors['defra_count']} DEFRA factors, got {len(data['items'])}"
 
-    def test_filter_by_ecoinvent_source(self, client, seed_test_emission_factors):
+    def test_filter_by_ecoinvent_source(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for Ecoinvent emission factors only"""
-        response = client.get("/api/v1/emission-factors?data_source=Ecoinvent")
+        response = authenticated_client.get("/api/v1/emission-factors?data_source=Ecoinvent")
         data = response.json()
 
         assert response.status_code == 200
@@ -413,9 +361,9 @@ class TestFilterByDataSource:
 class TestFilterByGeography:
     """Test filtering by geography parameter"""
 
-    def test_filter_by_global_geography(self, client, seed_test_emission_factors):
+    def test_filter_by_global_geography(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for global (GLO) emission factors"""
-        response = client.get("/api/v1/emission-factors?geography=GLO")
+        response = authenticated_client.get("/api/v1/emission-factors?geography=GLO")
         data = response.json()
 
         assert response.status_code == 200
@@ -429,9 +377,9 @@ class TestFilterByGeography:
         assert len(data["items"]) == seed_test_emission_factors["glo_count"], \
             f"Expected {seed_test_emission_factors['glo_count']} GLO factors, got {len(data['items'])}"
 
-    def test_filter_by_us_geography(self, client, seed_test_emission_factors):
+    def test_filter_by_us_geography(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for US emission factors"""
-        response = client.get("/api/v1/emission-factors?geography=US")
+        response = authenticated_client.get("/api/v1/emission-factors?geography=US")
         data = response.json()
 
         assert response.status_code == 200
@@ -445,9 +393,9 @@ class TestFilterByGeography:
         assert len(data["items"]) == seed_test_emission_factors["us_count"], \
             f"Expected {seed_test_emission_factors['us_count']} US factors, got {len(data['items'])}"
 
-    def test_filter_by_eu_geography(self, client, seed_test_emission_factors):
+    def test_filter_by_eu_geography(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for EU emission factors"""
-        response = client.get("/api/v1/emission-factors?geography=EU")
+        response = authenticated_client.get("/api/v1/emission-factors?geography=EU")
         data = response.json()
 
         assert response.status_code == 200
@@ -469,9 +417,9 @@ class TestFilterByGeography:
 class TestFilterByUnit:
     """Test filtering by unit parameter"""
 
-    def test_filter_by_kg_unit(self, client, seed_test_emission_factors):
+    def test_filter_by_kg_unit(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for kg unit emission factors"""
-        response = client.get("/api/v1/emission-factors?unit=kg")
+        response = authenticated_client.get("/api/v1/emission-factors?unit=kg")
         data = response.json()
 
         assert response.status_code == 200
@@ -485,9 +433,9 @@ class TestFilterByUnit:
         assert len(data["items"]) == seed_test_emission_factors["kg_unit_count"], \
             f"Expected {seed_test_emission_factors['kg_unit_count']} kg factors, got {len(data['items'])}"
 
-    def test_filter_by_kwh_unit(self, client, seed_test_emission_factors):
+    def test_filter_by_kwh_unit(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for kWh unit emission factors"""
-        response = client.get("/api/v1/emission-factors?unit=kWh")
+        response = authenticated_client.get("/api/v1/emission-factors?unit=kWh")
         data = response.json()
 
         assert response.status_code == 200
@@ -501,9 +449,9 @@ class TestFilterByUnit:
         assert len(data["items"]) == seed_test_emission_factors["kwh_unit_count"], \
             f"Expected {seed_test_emission_factors['kwh_unit_count']} kWh factors, got {len(data['items'])}"
 
-    def test_filter_by_l_unit(self, client, seed_test_emission_factors):
+    def test_filter_by_l_unit(self, authenticated_client, seed_test_emission_factors):
         """Test filtering for L unit emission factors"""
-        response = client.get("/api/v1/emission-factors?unit=L")
+        response = authenticated_client.get("/api/v1/emission-factors?unit=L")
         data = response.json()
 
         assert response.status_code == 200
@@ -525,9 +473,9 @@ class TestFilterByUnit:
 class TestFilterByActivityName:
     """Test filtering by activity_name parameter (search)"""
 
-    def test_filter_by_exact_activity_name(self, client, seed_test_emission_factors):
+    def test_filter_by_exact_activity_name(self, authenticated_client, seed_test_emission_factors):
         """Test filtering by exact activity name"""
-        response = client.get("/api/v1/emission-factors?activity_name=Cotton Fabric")
+        response = authenticated_client.get("/api/v1/emission-factors?activity_name=Cotton Fabric")
         data = response.json()
 
         assert response.status_code == 200
@@ -537,9 +485,9 @@ class TestFilterByActivityName:
         # First item should match
         assert data["items"][0]["activity_name"] == "Cotton Fabric"
 
-    def test_filter_by_partial_activity_name(self, client, seed_test_emission_factors):
+    def test_filter_by_partial_activity_name(self, authenticated_client, seed_test_emission_factors):
         """Test filtering by partial activity name (case-insensitive search)"""
-        response = client.get("/api/v1/emission-factors?activity_name=plastic")
+        response = authenticated_client.get("/api/v1/emission-factors?activity_name=plastic")
         data = response.json()
 
         assert response.status_code == 200
@@ -549,9 +497,9 @@ class TestFilterByActivityName:
         assert any("Plastic" in name for name in activity_names), \
             "Should find factors with 'Plastic' in name"
 
-    def test_filter_by_activity_name_no_results(self, client, seed_test_emission_factors):
+    def test_filter_by_activity_name_no_results(self, authenticated_client, seed_test_emission_factors):
         """Test filtering by activity name with no matches"""
-        response = client.get("/api/v1/emission-factors?activity_name=NonexistentMaterial")
+        response = authenticated_client.get("/api/v1/emission-factors?activity_name=NonexistentMaterial")
         data = response.json()
 
         assert response.status_code == 200
@@ -566,9 +514,9 @@ class TestFilterByActivityName:
 class TestCombinedFilters:
     """Test combining multiple filter parameters"""
 
-    def test_filter_by_source_and_geography(self, client, seed_test_emission_factors):
+    def test_filter_by_source_and_geography(self, authenticated_client, seed_test_emission_factors):
         """Test filtering by both data_source and geography"""
-        response = client.get("/api/v1/emission-factors?data_source=EPA&geography=GLO")
+        response = authenticated_client.get("/api/v1/emission-factors?data_source=EPA&geography=GLO")
         data = response.json()
 
         assert response.status_code == 200
@@ -580,9 +528,9 @@ class TestCombinedFilters:
             assert item["geography"] == "GLO", \
                 f"Factor {item['activity_name']} should be GLO"
 
-    def test_filter_by_unit_and_source(self, client, seed_test_emission_factors):
+    def test_filter_by_unit_and_source(self, authenticated_client, seed_test_emission_factors):
         """Test filtering by unit and data_source"""
-        response = client.get("/api/v1/emission-factors?unit=kg&data_source=EPA")
+        response = authenticated_client.get("/api/v1/emission-factors?unit=kg&data_source=EPA")
         data = response.json()
 
         assert response.status_code == 200
@@ -602,7 +550,7 @@ class TestCombinedFilters:
 class TestCreateEmissionFactor:
     """Test POST /api/v1/emission-factors endpoint"""
 
-    def test_create_emission_factor_returns_201(self, client):
+    def test_create_emission_factor_returns_201(self, authenticated_client):
         """Test that creating emission factor returns 201 Created"""
         new_factor = {
             "activity_name": "Custom Material",
@@ -613,12 +561,12 @@ class TestCreateEmissionFactor:
             "reference_year": 2024
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
 
         assert response.status_code == 201, \
             f"Expected status 201, got {response.status_code}"
 
-    def test_create_emission_factor_returns_id(self, client):
+    def test_create_emission_factor_returns_id(self, authenticated_client):
         """Test that created emission factor returns with ID"""
         new_factor = {
             "activity_name": "New Custom Material",
@@ -628,7 +576,7 @@ class TestCreateEmissionFactor:
             "geography": "GLO"
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
         data = response.json()
 
         assert "id" in data, \
@@ -636,7 +584,7 @@ class TestCreateEmissionFactor:
         assert isinstance(data["id"], str), \
             "ID should be a string"
 
-    def test_create_emission_factor_with_all_fields(self, client):
+    def test_create_emission_factor_with_all_fields(self, authenticated_client):
         """Test creating emission factor with all optional fields"""
         new_factor = {
             "activity_name": "Advanced Material",
@@ -650,7 +598,7 @@ class TestCreateEmissionFactor:
             "uncertainty_max": 9.1
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
         data = response.json()
 
         assert response.status_code == 201
@@ -661,7 +609,7 @@ class TestCreateEmissionFactor:
         assert data["geography"] == "US"
         assert data["reference_year"] == 2024
 
-    def test_create_emission_factor_with_minimal_fields(self, client):
+    def test_create_emission_factor_with_minimal_fields(self, authenticated_client):
         """Test creating emission factor with only required fields"""
         new_factor = {
             "activity_name": "Minimal Material",
@@ -670,7 +618,7 @@ class TestCreateEmissionFactor:
             "data_source": "Custom"
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
         data = response.json()
 
         assert response.status_code == 201
@@ -679,7 +627,7 @@ class TestCreateEmissionFactor:
         # Should have default geography
         assert data["geography"] == "GLO"
 
-    def test_created_factor_appears_in_list(self, client):
+    def test_created_factor_appears_in_list(self, authenticated_client):
         """Test that created emission factor appears in GET list"""
         new_factor = {
             "activity_name": "Unique Test Material",
@@ -689,11 +637,11 @@ class TestCreateEmissionFactor:
         }
 
         # Create factor
-        create_response = client.post("/api/v1/emission-factors", json=new_factor)
+        create_response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
         assert create_response.status_code == 201
 
         # List factors
-        list_response = client.get("/api/v1/emission-factors")
+        list_response = authenticated_client.get("/api/v1/emission-factors")
         list_data = list_response.json()
 
         # Should find our factor
@@ -709,7 +657,7 @@ class TestCreateEmissionFactor:
 class TestDuplicatePrevention:
     """Test duplicate emission factor prevention (409 conflict)"""
 
-    def test_create_duplicate_returns_409(self, client, seed_test_emission_factors):
+    def test_create_duplicate_returns_409(self, authenticated_client, seed_test_emission_factors):
         """Test that creating duplicate emission factor returns 409 Conflict"""
         # Try to create duplicate of existing Cotton Fabric (EPA, GLO, 2023)
         duplicate_factor = {
@@ -721,12 +669,12 @@ class TestDuplicatePrevention:
             "reference_year": 2023
         }
 
-        response = client.post("/api/v1/emission-factors", json=duplicate_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=duplicate_factor)
 
         assert response.status_code == 409, \
             f"Expected status 409 for duplicate, got {response.status_code}"
 
-    def test_duplicate_error_message(self, client, seed_test_emission_factors):
+    def test_duplicate_error_message(self, authenticated_client, seed_test_emission_factors):
         """Test that 409 response includes helpful error message"""
         duplicate_factor = {
             "activity_name": "Cotton Fabric",
@@ -737,7 +685,7 @@ class TestDuplicatePrevention:
             "reference_year": 2023
         }
 
-        response = client.post("/api/v1/emission-factors", json=duplicate_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=duplicate_factor)
         data = response.json()
 
         assert "detail" in data, \
@@ -745,7 +693,7 @@ class TestDuplicatePrevention:
         assert "already exists" in data["detail"].lower() or "duplicate" in data["detail"].lower(), \
             "Error message should indicate duplicate"
 
-    def test_same_activity_different_source_allowed(self, client, seed_test_emission_factors):
+    def test_same_activity_different_source_allowed(self, authenticated_client, seed_test_emission_factors):
         """Test that same activity with different data_source is allowed"""
         # Cotton Fabric exists with EPA, create with Custom source
         new_factor = {
@@ -757,12 +705,12 @@ class TestDuplicatePrevention:
             "reference_year": 2023
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
 
         assert response.status_code == 201, \
             "Same activity with different source should be allowed"
 
-    def test_same_activity_different_geography_allowed(self, client, seed_test_emission_factors):
+    def test_same_activity_different_geography_allowed(self, authenticated_client, seed_test_emission_factors):
         """Test that same activity with different geography is allowed"""
         # Cotton Fabric exists with GLO, create with US
         new_factor = {
@@ -774,12 +722,12 @@ class TestDuplicatePrevention:
             "reference_year": 2023
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
 
         assert response.status_code == 201, \
             "Same activity with different geography should be allowed"
 
-    def test_same_activity_different_year_allowed(self, client, seed_test_emission_factors):
+    def test_same_activity_different_year_allowed(self, authenticated_client, seed_test_emission_factors):
         """Test that same activity with different reference_year is allowed"""
         # Cotton Fabric exists with 2023, create with 2024
         new_factor = {
@@ -791,7 +739,7 @@ class TestDuplicatePrevention:
             "reference_year": 2024
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
 
         assert response.status_code == 201, \
             "Same activity with different reference_year should be allowed"
@@ -804,7 +752,7 @@ class TestDuplicatePrevention:
 class TestValidationErrors:
     """Test validation error handling (422)"""
 
-    def test_missing_required_activity_name(self, client):
+    def test_missing_required_activity_name(self, authenticated_client):
         """Test that missing activity_name returns 422"""
         invalid_factor = {
             "co2e_factor": 3.5,
@@ -812,12 +760,12 @@ class TestValidationErrors:
             "data_source": "EPA"
         }
 
-        response = client.post("/api/v1/emission-factors", json=invalid_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=invalid_factor)
 
         assert response.status_code == 422, \
             f"Expected 422 for missing activity_name, got {response.status_code}"
 
-    def test_missing_required_co2e_factor(self, client):
+    def test_missing_required_co2e_factor(self, authenticated_client):
         """Test that missing co2e_factor returns 422"""
         invalid_factor = {
             "activity_name": "Test Material",
@@ -825,12 +773,12 @@ class TestValidationErrors:
             "data_source": "EPA"
         }
 
-        response = client.post("/api/v1/emission-factors", json=invalid_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=invalid_factor)
 
         assert response.status_code == 422, \
             f"Expected 422 for missing co2e_factor, got {response.status_code}"
 
-    def test_missing_required_unit(self, client):
+    def test_missing_required_unit(self, authenticated_client):
         """Test that missing unit returns 422"""
         invalid_factor = {
             "activity_name": "Test Material",
@@ -838,12 +786,12 @@ class TestValidationErrors:
             "data_source": "EPA"
         }
 
-        response = client.post("/api/v1/emission-factors", json=invalid_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=invalid_factor)
 
         assert response.status_code == 422, \
             f"Expected 422 for missing unit, got {response.status_code}"
 
-    def test_missing_required_data_source(self, client):
+    def test_missing_required_data_source(self, authenticated_client):
         """Test that missing data_source returns 422"""
         invalid_factor = {
             "activity_name": "Test Material",
@@ -851,12 +799,12 @@ class TestValidationErrors:
             "unit": "kg"
         }
 
-        response = client.post("/api/v1/emission-factors", json=invalid_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=invalid_factor)
 
         assert response.status_code == 422, \
             f"Expected 422 for missing data_source, got {response.status_code}"
 
-    def test_negative_co2e_factor(self, client):
+    def test_negative_co2e_factor(self, authenticated_client):
         """Test that negative co2e_factor returns 422"""
         invalid_factor = {
             "activity_name": "Test Material",
@@ -865,12 +813,12 @@ class TestValidationErrors:
             "data_source": "EPA"
         }
 
-        response = client.post("/api/v1/emission-factors", json=invalid_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=invalid_factor)
 
         assert response.status_code == 422, \
             f"Expected 422 for negative co2e_factor, got {response.status_code}"
 
-    def test_invalid_data_type_co2e_factor(self, client):
+    def test_invalid_data_type_co2e_factor(self, authenticated_client):
         """Test that non-numeric co2e_factor returns 422"""
         invalid_factor = {
             "activity_name": "Test Material",
@@ -879,12 +827,12 @@ class TestValidationErrors:
             "data_source": "EPA"
         }
 
-        response = client.post("/api/v1/emission-factors", json=invalid_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=invalid_factor)
 
         assert response.status_code == 422, \
             f"Expected 422 for invalid co2e_factor type, got {response.status_code}"
 
-    def test_empty_activity_name(self, client):
+    def test_empty_activity_name(self, authenticated_client):
         """Test that empty activity_name returns 422"""
         invalid_factor = {
             "activity_name": "",
@@ -893,12 +841,12 @@ class TestValidationErrors:
             "data_source": "EPA"
         }
 
-        response = client.post("/api/v1/emission-factors", json=invalid_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=invalid_factor)
 
         assert response.status_code == 422, \
             f"Expected 422 for empty activity_name, got {response.status_code}"
 
-    def test_empty_unit(self, client):
+    def test_empty_unit(self, authenticated_client):
         """Test that empty unit returns 422"""
         invalid_factor = {
             "activity_name": "Test Material",
@@ -907,7 +855,7 @@ class TestValidationErrors:
             "data_source": "EPA"
         }
 
-        response = client.post("/api/v1/emission-factors", json=invalid_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=invalid_factor)
 
         assert response.status_code == 422, \
             f"Expected 422 for empty unit, got {response.status_code}"
@@ -920,9 +868,9 @@ class TestValidationErrors:
 class TestResponseFormat:
     """Test that responses match API specification format"""
 
-    def test_list_response_has_all_required_fields(self, client, seed_test_emission_factors):
+    def test_list_response_has_all_required_fields(self, authenticated_client, seed_test_emission_factors):
         """Test list response structure"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         # Per API spec: items, total, limit, offset
@@ -931,9 +879,9 @@ class TestResponseFormat:
             assert field in data, \
                 f"List response should include '{field}'"
 
-    def test_emission_factor_item_has_all_required_fields(self, client, seed_test_emission_factors):
+    def test_emission_factor_item_has_all_required_fields(self, authenticated_client, seed_test_emission_factors):
         """Test individual emission factor structure in list"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         item = data["items"][0]
@@ -947,7 +895,7 @@ class TestResponseFormat:
             assert field in item, \
                 f"Emission factor item should include '{field}'"
 
-    def test_created_emission_factor_response_structure(self, client):
+    def test_created_emission_factor_response_structure(self, authenticated_client):
         """Test created emission factor response structure"""
         new_factor = {
             "activity_name": "Response Test Material",
@@ -956,7 +904,7 @@ class TestResponseFormat:
             "data_source": "Test"
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
         data = response.json()
 
         # Should include all fields
@@ -976,18 +924,18 @@ class TestResponseFormat:
 class TestDataTypes:
     """Test that response data types are correct"""
 
-    def test_emission_factor_id_is_string(self, client, seed_test_emission_factors):
+    def test_emission_factor_id_is_string(self, authenticated_client, seed_test_emission_factors):
         """Test that emission factor ID is a string"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         item = data["items"][0]
         assert isinstance(item["id"], str), \
             f"Emission factor ID should be string, got {type(item['id'])}"
 
-    def test_co2e_factor_is_numeric(self, client, seed_test_emission_factors):
+    def test_co2e_factor_is_numeric(self, authenticated_client, seed_test_emission_factors):
         """Test that co2e_factor is numeric"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         item = data["items"][0]
@@ -996,17 +944,17 @@ class TestDataTypes:
         assert item["co2e_factor"] >= 0, \
             f"co2e_factor should be non-negative, got {item['co2e_factor']}"
 
-    def test_total_is_integer(self, client, seed_test_emission_factors):
+    def test_total_is_integer(self, authenticated_client, seed_test_emission_factors):
         """Test that total count is an integer"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         assert isinstance(data["total"], int), \
             f"Total should be integer, got {type(data['total'])}"
 
-    def test_reference_year_is_integer_or_null(self, client, seed_test_emission_factors):
+    def test_reference_year_is_integer_or_null(self, authenticated_client, seed_test_emission_factors):
         """Test that reference_year is integer or null"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         item = data["items"][0]
@@ -1021,9 +969,9 @@ class TestDataTypes:
 class TestEdgeCases:
     """Test edge cases and boundary conditions"""
 
-    def test_list_emission_factors_with_no_data(self, client):
+    def test_list_emission_factors_with_no_data(self, authenticated_client):
         """Test listing emission factors when database is empty"""
-        response = client.get("/api/v1/emission-factors")
+        response = authenticated_client.get("/api/v1/emission-factors")
         data = response.json()
 
         assert response.status_code == 200
@@ -1032,19 +980,19 @@ class TestEdgeCases:
         assert len(data["items"]) == 0, \
             "Empty database should return empty items list"
 
-    def test_pagination_offset_beyond_total(self, client, seed_test_emission_factors):
+    def test_pagination_offset_beyond_total(self, authenticated_client, seed_test_emission_factors):
         """Test offset beyond total count"""
         total_count = seed_test_emission_factors["total_count"]
-        response = client.get(f"/api/v1/emission-factors?offset={total_count + 10}")
+        response = authenticated_client.get(f"/api/v1/emission-factors?offset={total_count + 10}")
         data = response.json()
 
         assert response.status_code == 200
         assert len(data["items"]) == 0, \
             "Offset beyond total should return empty list"
 
-    def test_filter_with_no_matches(self, client, seed_test_emission_factors):
+    def test_filter_with_no_matches(self, authenticated_client, seed_test_emission_factors):
         """Test filter that matches no records"""
-        response = client.get("/api/v1/emission-factors?data_source=NonexistentSource")
+        response = authenticated_client.get("/api/v1/emission-factors?data_source=NonexistentSource")
         data = response.json()
 
         assert response.status_code == 200
@@ -1053,7 +1001,7 @@ class TestEdgeCases:
         assert data["total"] == 0, \
             "Non-matching filter should return total=0"
 
-    def test_create_with_very_large_co2e_factor(self, client):
+    def test_create_with_very_large_co2e_factor(self, authenticated_client):
         """Test creating emission factor with very large co2e value"""
         new_factor = {
             "activity_name": "High Emission Material",
@@ -1062,12 +1010,12 @@ class TestEdgeCases:
             "data_source": "Test"
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
 
         assert response.status_code == 201, \
             "Should accept large co2e_factor value"
 
-    def test_create_with_very_small_co2e_factor(self, client):
+    def test_create_with_very_small_co2e_factor(self, authenticated_client):
         """Test creating emission factor with very small co2e value"""
         new_factor = {
             "activity_name": "Low Emission Material",
@@ -1076,12 +1024,12 @@ class TestEdgeCases:
             "data_source": "Test"
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
 
         assert response.status_code == 201, \
             "Should accept small co2e_factor value"
 
-    def test_create_with_zero_co2e_factor(self, client):
+    def test_create_with_zero_co2e_factor(self, authenticated_client):
         """Test creating emission factor with zero co2e value"""
         new_factor = {
             "activity_name": "Zero Emission Material",
@@ -1090,7 +1038,7 @@ class TestEdgeCases:
             "data_source": "Test"
         }
 
-        response = client.post("/api/v1/emission-factors", json=new_factor)
+        response = authenticated_client.post("/api/v1/emission-factors", json=new_factor)
 
         assert response.status_code == 201, \
             "Should accept zero co2e_factor value"

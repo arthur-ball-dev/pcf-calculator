@@ -2,6 +2,7 @@
  * Playwright E2E Test Suite: API Integration
  *
  * TASK-FE-013: Validates API integration in real browser environment
+ * TASK-QA-P7-032: Updated to use authenticated fixture for JWT-protected endpoints
  *
  * Test Scenarios:
  * 1. Product fetching from API on page load
@@ -14,12 +15,13 @@
  * - Backend running at http://localhost:8000
  * - Frontend running at http://localhost:5173
  * - Database seeded with test data (6 products)
+ * - E2E test user seeded (see backend/database/seeds/e2e_test_user.py)
  *
  * NOTE: This is a VALIDATION task. Tests written to verify existing functionality.
  * If tests fail, bugs are documented for separate fix tasks.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/auth.fixture';
 
 /**
  * Helper function to select a product from dropdown
@@ -70,27 +72,11 @@ async function selectFirstProduct(page: any) {
 
 /**
  * Test Suite Setup
- * Clear localStorage before each test to ensure clean state
- * Mark tour as completed to prevent it from blocking interactions
+ * The authenticatedPage fixture handles:
+ * - Clearing localStorage and setting auth token
+ * - Marking tour as completed to prevent blocking
+ * - Navigating to the app
  */
-test.beforeEach(async ({ page }) => {
-  // Clear localStorage to reset Zustand state, but mark tour as completed
-  await page.goto('http://localhost:5173');
-  await page.evaluate(() => {
-    localStorage.clear();
-    // Prevent tour from starting - it blocks click interactions
-    localStorage.setItem('pcf-calculator-tour-completed', 'true');
-  });
-
-  // Reload page after setting storage
-  await page.reload();
-
-  // Wait for page to be ready
-  await page.waitForSelector('[data-testid="product-select-trigger"]', {
-    state: 'visible',
-    timeout: 10000
-  });
-});
 
 /**
  * Test 1: Product Fetching from API
@@ -101,20 +87,20 @@ test.beforeEach(async ({ page }) => {
  * - Products populate dropdown
  * - No CORS errors
  */
-test('fetches products from API when dropdown opens', async ({ page }) => {
+test('fetches products from API when dropdown opens', async ({ authenticatedPage }) => {
   // Verify product selector is ready
-  await expect(page.getByTestId('product-selector')).toBeVisible();
-  await expect(page.getByTestId('product-select-trigger')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('product-selector')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('product-select-trigger')).toBeVisible();
 
   // Setup response listener BEFORE opening dropdown
-  const responsePromise = page.waitForResponse(
+  const responsePromise = authenticatedPage.waitForResponse(
     (response) =>
       response.url().includes('/api/v1/products/search') &&
       response.request().method() === 'GET'
   );
 
   // Click to open dropdown - this triggers the API call
-  const trigger = page.getByTestId('product-select-trigger');
+  const trigger = authenticatedPage.getByTestId('product-select-trigger');
   await trigger.click();
 
   // Wait for API call to complete
@@ -129,24 +115,24 @@ test('fetches products from API when dropdown opens', async ({ page }) => {
   expect(responseData.items.length).toBeGreaterThan(0);
 
   // Verify products appear in dropdown
-  await page.waitForSelector('[role="option"]', { timeout: 5000 });
+  await authenticatedPage.waitForSelector('[role="option"]', { timeout: 5000 });
 
   // Screenshot proof
-  await page.screenshot({
+  await authenticatedPage.screenshot({
     path: 'screenshots/01-products-loaded.png',
     fullPage: true,
   });
 
   // Verify no console errors (CORS or otherwise)
   const consoleErrors: string[] = [];
-  page.on('console', (msg) => {
+  authenticatedPage.on('console', (msg) => {
     if (msg.type() === 'error') {
       consoleErrors.push(msg.text());
     }
   });
 
   // Small wait to catch any async errors
-  await page.waitForTimeout(1000);
+  await authenticatedPage.waitForTimeout(1000);
 
   // Should have no CORS or network errors
   expect(
@@ -163,24 +149,22 @@ test('fetches products from API when dropdown opens', async ({ page }) => {
  * - BOM data loads successfully
  * - Next button becomes enabled
  */
-test('selecting product loads BOM from API', async ({ page }) => {
-  await page.goto('http://localhost:5173');
-
+test('selecting product loads BOM from API', async ({ authenticatedPage }) => {
   // Wait for products to load
-  await expect(page.getByTestId('product-selector')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('product-selector')).toBeVisible();
 
   // Select first product using keyboard navigation
-  await selectFirstProduct(page);
+  await selectFirstProduct(authenticatedPage);
 
   // Verify product selected confirmation appears
-  await expect(page.getByTestId('product-selected-confirmation')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('product-selected-confirmation')).toBeVisible();
 
   // Verify Next button becomes enabled
-  const nextButton = page.getByTestId('next-button');
+  const nextButton = authenticatedPage.getByTestId('next-button');
   await expect(nextButton).toBeEnabled();
 
   // Screenshot proof
-  await page.screenshot({
+  await authenticatedPage.screenshot({
     path: 'screenshots/03-product-selected.png',
     fullPage: true,
   });
@@ -193,23 +177,21 @@ test('selecting product loads BOM from API', async ({ page }) => {
  * - Clicking Next navigates to BOM editor
  * - BOM data is displayed
  */
-test('navigates to BOM editor after product selection', async ({ page }) => {
-  await page.goto('http://localhost:5173');
-
+test('navigates to BOM editor after product selection', async ({ authenticatedPage }) => {
   // Select product
-  await expect(page.getByTestId('product-selector')).toBeVisible();
-  await selectFirstProduct(page);
+  await expect(authenticatedPage.getByTestId('product-selector')).toBeVisible();
+  await selectFirstProduct(authenticatedPage);
 
   // Wait for product selected confirmation
-  await expect(page.getByTestId('product-selected-confirmation')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('product-selected-confirmation')).toBeVisible();
 
   // Wait for Next button to be enabled
-  const nextButton = page.getByTestId('next-button');
+  const nextButton = authenticatedPage.getByTestId('next-button');
   await expect(nextButton).toBeEnabled();
 
   // Click Next button and wait for step heading change
   await Promise.all([
-    page.waitForFunction(() => {
+    authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Edit');
     }, {}, { timeout: 10000 }),
@@ -217,12 +199,12 @@ test('navigates to BOM editor after product selection', async ({ page }) => {
   ]);
 
   // Verify we're on step 2 (BOM editing)
-  await expect(page.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible({
+  await expect(authenticatedPage.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible({
     timeout: 5000,
   });
 
   // Screenshot proof
-  await page.screenshot({
+  await authenticatedPage.screenshot({
     path: 'screenshots/04-bom-editor.png',
     fullPage: true,
   });
@@ -237,53 +219,51 @@ test('navigates to BOM editor after product selection', async ({ page }) => {
  * - Response contains calculation_id
  * - Loading spinner appears
  */
-test('submits calculation and receives calculation_id', async ({ page }) => {
-  await page.goto('http://localhost:5173');
-
+test('submits calculation and receives calculation_id', async ({ authenticatedPage }) => {
   // Step 1: Select product
-  await expect(page.getByTestId('product-selector')).toBeVisible();
-  await selectFirstProduct(page);
-  await expect(page.getByTestId('product-selected-confirmation')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('product-selector')).toBeVisible();
+  await selectFirstProduct(authenticatedPage);
+  await expect(authenticatedPage.getByTestId('product-selected-confirmation')).toBeVisible();
 
   // Navigate to Step 2 (BOM Editor)
-  await expect(page.getByTestId('next-button')).toBeEnabled();
+  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled();
   await Promise.all([
-    page.waitForFunction(() => {
+    authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Edit');
     }),
-    page.getByTestId('next-button').click()
+    authenticatedPage.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
+  await expect(authenticatedPage.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
   // Wait for BOM data to load and form validation to complete
-  await page.waitForTimeout(2000);
+  await authenticatedPage.waitForTimeout(2000);
 
   // Navigate to Step 3 (Calculate)
-  await expect(page.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
+  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
   await Promise.all([
-    page.waitForFunction(() => {
+    authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Calculate');
     }),
-    page.getByTestId('next-button').click()
+    authenticatedPage.getByTestId('next-button').click()
   ]);
-  await expect(page.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
+  await expect(authenticatedPage.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
 
   // Screenshot before calculation
-  await page.screenshot({
+  await authenticatedPage.screenshot({
     path: 'screenshots/05-before-calculation.png',
     fullPage: true,
   });
 
   // Setup listener for calculation API call
-  const calculatePromise = page.waitForResponse(
+  const calculatePromise = authenticatedPage.waitForResponse(
     (response) =>
       response.url().includes('/api/v1/calculate') &&
       response.request().method() === 'POST'
   );
 
   // Click Calculate button
-  const calculateButton = page.getByTestId('calculate-button');
+  const calculateButton = authenticatedPage.getByTestId('calculate-button');
   await expect(calculateButton).toBeVisible();
   await calculateButton.click();
 
@@ -300,11 +280,11 @@ test('submits calculation and receives calculation_id', async ({ page }) => {
   expect(responseBody.calculation_id.length).toBeGreaterThan(0);
 
   // Verify loading state appears
-  await expect(page.getByTestId('calculating-button')).toBeVisible({ timeout: 2000 });
-  await expect(page.getByTestId('loading-spinner')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('calculating-button')).toBeVisible({ timeout: 2000 });
+  await expect(authenticatedPage.getByTestId('loading-spinner')).toBeVisible();
 
   // Screenshot proof of loading state
-  await page.screenshot({
+  await authenticatedPage.screenshot({
     path: 'screenshots/06-calculation-loading.png',
     fullPage: true,
   });
@@ -319,67 +299,65 @@ test('submits calculation and receives calculation_id', async ({ page }) => {
  * - Results display appears
  * - Total CO2e value shown
  */
-test('polls for calculation results until complete', async ({ page, context }) => {
+test('polls for calculation results until complete', async ({ authenticatedPage }) => {
   // Track all API requests
   const pollingRequests: string[] = [];
 
-  page.on('request', (request) => {
+  authenticatedPage.on('request', (request) => {
     const url = request.url();
     if (url.includes('/api/v1/calculations/') && request.method() === 'GET') {
       pollingRequests.push(url);
     }
   });
 
-  await page.goto('http://localhost:5173');
-
   // Navigate through wizard and submit calculation
-  await expect(page.getByTestId('product-selector')).toBeVisible();
-  await selectFirstProduct(page);
+  await expect(authenticatedPage.getByTestId('product-selector')).toBeVisible();
+  await selectFirstProduct(authenticatedPage);
 
   // Wait for confirmation and navigate
-  await expect(page.getByTestId('product-selected-confirmation')).toBeVisible();
-  await expect(page.getByTestId('next-button')).toBeEnabled();
+  await expect(authenticatedPage.getByTestId('product-selected-confirmation')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled();
   await Promise.all([
-    page.waitForFunction(() => {
+    authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Edit');
     }),
-    page.getByTestId('next-button').click()
+    authenticatedPage.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
+  await expect(authenticatedPage.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
 
-  await expect(page.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
+  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
   // Wait for BOM data to load and form validation to complete
-  await page.waitForTimeout(2000);
+  await authenticatedPage.waitForTimeout(2000);
   await Promise.all([
-    page.waitForFunction(() => {
+    authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Calculate');
     }),
-    page.getByTestId('next-button').click()
+    authenticatedPage.getByTestId('next-button').click()
   ]);
-  await expect(page.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
+  await expect(authenticatedPage.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
 
   // Submit calculation
-  await page.getByTestId('calculate-button').click();
+  await authenticatedPage.getByTestId('calculate-button').click();
 
   // Wait for loading state
-  await expect(page.getByTestId('calculating-button')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('calculating-button')).toBeVisible();
 
   // Wait for results to appear (up to 30 seconds)
-  await expect(page.getByTestId('results-display')).toBeVisible({ timeout: 30000 });
+  await expect(authenticatedPage.getByTestId('results-display')).toBeVisible({ timeout: 30000 });
 
   // Verify total CO2e is displayed
-  await expect(page.getByTestId('total-co2e')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('total-co2e')).toBeVisible();
 
   // Verify the value is a number
-  const totalCO2eText = await page.getByTestId('total-co2e').textContent();
+  const totalCO2eText = await authenticatedPage.getByTestId('total-co2e').textContent();
   expect(totalCO2eText).toBeTruthy();
   const numericValue = parseFloat(totalCO2eText || '0');
   expect(numericValue).toBeGreaterThan(0);
 
   // Screenshot proof of results
-  await page.screenshot({
+  await authenticatedPage.screenshot({
     path: 'screenshots/07-results-displayed.png',
     fullPage: true,
   });
@@ -397,53 +375,51 @@ test('polls for calculation results until complete', async ({ page, context }) =
  * - All API calls succeed
  * - Results display correctly
  */
-test('completes full calculation flow end-to-end', async ({ page }) => {
-  await page.goto('http://localhost:5173');
-
+test('completes full calculation flow end-to-end', async ({ authenticatedPage }) => {
   // Step 1: Select Product
-  await expect(page.getByTestId('product-selector')).toBeVisible();
-  await selectFirstProduct(page);
-  await expect(page.getByTestId('next-button')).toBeEnabled();
+  await expect(authenticatedPage.getByTestId('product-selector')).toBeVisible();
+  await selectFirstProduct(authenticatedPage);
+  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled();
 
   // Step 2: BOM Editor
   await Promise.all([
-    page.waitForFunction(() => {
+    authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Edit');
     }),
-    page.getByTestId('next-button').click()
+    authenticatedPage.getByTestId('next-button').click()
   ]);
-  await expect(page.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
-  await expect(page.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
+  await expect(authenticatedPage.getByRole('heading', { name: /Edit Bill of Materials/i })).toBeVisible();
+  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
 
   // Wait for BOM data to load and form validation to complete
-  await page.waitForTimeout(2000);
+  await authenticatedPage.waitForTimeout(2000);
   // Step 3: Calculate
   await Promise.all([
-    page.waitForFunction(() => {
+    authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Calculate');
     }),
-    page.getByTestId('next-button').click()
+    authenticatedPage.getByTestId('next-button').click()
   ]);
-  await expect(page.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
-  await page.getByTestId('calculate-button').click();
+  await expect(authenticatedPage.locator('h2').filter({ hasText: /Calculate/ })).toBeVisible();
+  await authenticatedPage.getByTestId('calculate-button').click();
 
   // Step 4: Results
-  await expect(page.getByTestId('results-display')).toBeVisible({ timeout: 30000 });
-  await expect(page.getByTestId('results-summary')).toBeVisible();
-  await expect(page.getByTestId('total-co2e')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('results-display')).toBeVisible({ timeout: 30000 });
+  await expect(authenticatedPage.getByTestId('results-summary')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('total-co2e')).toBeVisible();
 
   // Verify results contain Unicode CO₂e (Issue D fix)
-  const resultsText = await page.textContent('body');
+  const resultsText = await authenticatedPage.textContent('body');
   expect(resultsText).toContain('kg CO₂e');
 
 
   // Verify New Calculation button exists
-  await expect(page.getByTestId('new-calculation-action-button')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('new-calculation-action-button')).toBeVisible();
 
   // Final screenshot
-  await page.screenshot({
+  await authenticatedPage.screenshot({
     path: 'screenshots/08-complete-flow.png',
     fullPage: true,
   });
@@ -460,23 +436,21 @@ test('completes full calculation flow end-to-end', async ({ page }) => {
  * 2. Run: npx playwright test api-integration.spec.ts --grep "backend.*down"
  * 3. Restart backend server
  */
-test.skip('handles API errors gracefully when backend is down', async ({ page }) => {
+test.skip('handles API errors gracefully when backend is down', async ({ authenticatedPage }) => {
   // NOTE: Backend must be manually stopped before running this test
 
-  await page.goto('http://localhost:5173');
-
   // Wait for error message to appear
-  await expect(page.getByTestId('error-message')).toBeVisible({ timeout: 10000 });
+  await expect(authenticatedPage.getByTestId('error-message')).toBeVisible({ timeout: 10000 });
 
   // Verify error message contains expected text
-  const errorText = await page.getByTestId('error-message').textContent();
+  const errorText = await authenticatedPage.getByTestId('error-message').textContent();
   expect(errorText).toContain('Unable to load products');
 
   // Verify retry button is present
-  await expect(page.getByTestId('retry-button')).toBeVisible();
+  await expect(authenticatedPage.getByTestId('retry-button')).toBeVisible();
 
   // Screenshot proof
-  await page.screenshot({
+  await authenticatedPage.screenshot({
     path: 'screenshots/09-api-error-handled.png',
     fullPage: true,
   });
