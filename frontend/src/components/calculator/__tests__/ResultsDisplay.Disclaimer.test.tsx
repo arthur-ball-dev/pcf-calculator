@@ -47,6 +47,12 @@ vi.mock('../BreakdownTable', () => ({
   default: () => <div data-testid="mock-breakdown-table">Breakdown Table</div>,
 }));
 
+// Mock LicenseFooter to avoid duplicate text matches with Disclaimer
+vi.mock('@/components/attribution/LicenseFooter', () => ({
+  LicenseFooter: () => <footer data-testid="mock-license-footer">License Footer</footer>,
+  default: () => <footer data-testid="mock-license-footer">License Footer</footer>,
+}));
+
 /**
  * Factory function to create a completed calculation
  */
@@ -667,7 +673,7 @@ describe('ResultsDisplay - Disclaimer Integration (TASK-FE-P8-007)', () => {
       expect(screen.getByTestId('mock-breakdown-table')).toBeInTheDocument();
       expect(screen.getByTestId('new-calculation-action-button')).toBeInTheDocument();
       expect(screen.getByTestId('mock-export-button')).toBeInTheDocument();
-      expect(screen.getByRole('contentinfo')).toBeInTheDocument(); // LicenseFooter
+      expect(screen.getByTestId('mock-license-footer')).toBeInTheDocument(); // LicenseFooter (mocked)
 
       // Disclaimer should also be present
       expect(screen.getByRole('alert')).toBeInTheDocument();
