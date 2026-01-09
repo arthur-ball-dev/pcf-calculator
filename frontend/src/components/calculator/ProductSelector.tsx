@@ -20,6 +20,8 @@
  * Enhanced in Phase 8: Added BOM filter toggle (TASK-FE-P8-001)
  * Fixed in Phase 7 (TASK-FE-P7-042): Fixed infinite API loop bug by using
  *   request ID pattern to cancel stale requests
+ * Fixed in Phase 8 (TASK-FE-P8-009): Enhanced toggle button active styling
+ *   to provide clear visual distinction between active and inactive states
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -379,7 +381,8 @@ const ProductSelector: React.FC = () => {
         <Label htmlFor="product-select">Select Product</Label>
 
         {/* BOM Filter Toggle - shown outside popover for visibility (TASK-FE-P8-001)
-            The ref is used to detect clicks on this element and prevent popover from closing */}
+            The ref is used to detect clicks on this element and prevent popover from closing
+            TASK-FE-P8-009: Enhanced active styling with font-medium for clear visual distinction */}
         <div ref={filterToggleRef} className="flex items-center gap-2 mb-2" data-testid="bom-filter-toggle-group">
           <span className="text-sm text-muted-foreground">Show:</span>
           <div className="flex rounded-md border">
@@ -388,7 +391,7 @@ const ProductSelector: React.FC = () => {
               className={cn(
                 "px-3 py-1 text-sm rounded-l-md transition-colors",
                 showOnlyWithBom
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground font-medium"
                   : "hover:bg-muted"
               )}
               onClick={() => handleBomFilterChange(true)}
@@ -402,7 +405,7 @@ const ProductSelector: React.FC = () => {
               className={cn(
                 "px-3 py-1 text-sm rounded-r-md transition-colors",
                 !showOnlyWithBom
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground font-medium"
                   : "hover:bg-muted"
               )}
               onClick={() => handleBomFilterChange(false)}
