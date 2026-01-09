@@ -24,7 +24,7 @@
  *   to provide clear visual distinction between active and inactive states
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
@@ -53,6 +53,53 @@ import type { EmissionFactorListItem, ProductDetail } from '@/types/api.types';
 
 // Debounce delay for search input
 const SEARCH_DEBOUNCE_MS = 300;
+
+// Industry display names for grouping
+const INDUSTRY_LABELS: Record<string, string> = {
+  'electronics': 'Electronics',
+  'apparel': 'Apparel & Textiles',
+  'automotive': 'Automotive',
+  'construction': 'Construction',
+  'food_beverage': 'Food & Beverage',
+  'other': 'Other',
+};
+
+// Order for industry groups (most common first)
+const INDUSTRY_ORDER = ['electronics', 'apparel', 'automotive', 'construction', 'food_beverage', 'other'];
+
+/**
+ * Group products by their category (industry)
+ */
+function groupProductsByIndustry<T extends { category?: string | null }>(
+  products: T[]
+): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+
+  for (const product of products) {
+    // Normalize category to lowercase, default to 'other'
+    const category = product.category?.toLowerCase().trim() || 'other';
+
+    if (!groups.has(category)) {
+      groups.set(category, []);
+    }
+    groups.get(category)!.push(product);
+  }
+
+  // Sort groups by predefined order
+  const sortedGroups = new Map<string, T[]>();
+  for (const key of INDUSTRY_ORDER) {
+    if (groups.has(key)) {
+      sortedGroups.set(key, groups.get(key)!);
+      groups.delete(key);
+    }
+  }
+  // Add any remaining categories at the end
+  for (const [key, products] of groups) {
+    sortedGroups.set(key, products);
+  }
+
+  return sortedGroups;
+}
 
 /**
  * Loading skeleton component for product selector
@@ -165,6 +212,13 @@ const ProductSelector: React.FC = () => {
   // Store access
   const { selectedProductId, setSelectedProduct, setLoadingBOM, setBomItems, setSelectedProductDetails } = useCalculatorStore();
   const { markStepComplete, markStepIncomplete } = useWizardStore();
+
+  /**
+   * Group products by industry for organized dropdown display
+   */
+  const groupedProducts = useMemo(() => {
+    return groupProductsByIndustry(products);
+  }, [products]);
 
   /**
    * Load emission factors on component mount
@@ -461,31 +515,36 @@ const ProductSelector: React.FC = () => {
                           ? 'No products with BOMs available'
                           : 'No products available'}
                     </CommandEmpty>
-                    <CommandGroup heading={`Products (${totalProducts}${totalProducts >= 50 ? '+' : ''})`}>
-                      {products.map((product) => (
-                        <CommandItem
-                          key={product.id}
-                          value={product.id}
-                          onSelect={() => handleProductSelect(product.id, product.name)}
-                          className="cursor-pointer"
-                          data-testid={`product-option-${product.id}`}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedProductId === product.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <div className="flex flex-col">
-                            <span>{product.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {product.code}
-                              {product.category && ` - ${product.category}`}
-                            </span>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
+                    {/* Products grouped by industry */}
+                    {Array.from(groupedProducts.entries()).map(([industry, industryProducts]) => (
+                      <CommandGroup
+                        key={industry}
+                        heading={`${INDUSTRY_LABELS[industry] || industry} (${industryProducts.length})`}
+                      >
+                        {industryProducts.map((product) => (
+                          <CommandItem
+                            key={product.id}
+                            value={product.id}
+                            onSelect={() => handleProductSelect(product.id, product.name)}
+                            className="cursor-pointer"
+                            data-testid={`product-option-${product.id}`}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedProductId === product.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span>{product.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {product.code}
+                              </span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ))}
                   </>
                 )}
               </CommandList>

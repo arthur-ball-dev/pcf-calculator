@@ -279,12 +279,16 @@ class ProductGenerator:
         # Generate quantity within range
         quantity = component.generate_quantity()
 
+        # Normalize unit to valid Product unit
+        normalized_unit = self._normalize_unit(component.unit)
+
         # Create BOM entry
         bom = BillOfMaterials(
             id=str(uuid4()).replace("-", ""),
             parent_product_id=parent.id,
             child_product_id=component_product.id,
             quantity=quantity,
+            unit=normalized_unit,
         )
 
         self.db.add(bom)

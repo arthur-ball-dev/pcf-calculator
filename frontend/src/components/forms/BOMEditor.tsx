@@ -288,6 +288,7 @@ export default function BOMEditor() {
                     <TableHead className="min-w-[80px]">Unit</TableHead>
                     <TableHead className="min-w-[120px]">Category</TableHead>
                     <TableHead className="min-w-[250px]">Emission Factor</TableHead>
+                    <TableHead className="min-w-[80px]">Source</TableHead>
                     <TableHead className="min-w-[60px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

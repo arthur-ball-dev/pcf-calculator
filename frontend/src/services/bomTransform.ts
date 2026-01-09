@@ -183,11 +183,12 @@ export function transformAPIBOMToFrontend(
 
     // Transform to frontend format
     // UPDATED: Include notes field (convert null to undefined)
+    // UPDATED: Default null unit to 'kg' (most common unit for materials)
     const frontendItem: BOMItem = {
       id: apiItem.id,
       name: apiItem.child_product_name,
       quantity: apiItem.quantity,
-      unit: apiItem.unit || '', // Handle null unit
+      unit: apiItem.unit || 'kg', // Default null unit to 'kg'
       category,
       emissionFactorId, // String UUID or null
       notes: apiItem.notes ?? undefined, // Convert null to undefined

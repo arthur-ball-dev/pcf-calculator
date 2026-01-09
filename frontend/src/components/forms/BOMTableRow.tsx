@@ -181,7 +181,7 @@ export default function BOMTableRow({
                     });
                   }}
                   onBlur={field.onBlur}
-                  className="w-20"
+                  className="w-28"
                   aria-label="Quantity"
                 />
               </FormControl>
@@ -290,6 +290,21 @@ export default function BOMTableRow({
             );
           }}
         />
+      </TableCell>
+
+      {/* Source - Display data source of selected emission factor */}
+      <TableCell>
+        {(() => {
+          const selectedFactorId = form.watch(`items.${index}.emissionFactorId`);
+          const selectedFactor = filteredFactors.find((f) => f.id === selectedFactorId);
+          return selectedFactor ? (
+            <span className="text-sm text-muted-foreground">
+              {selectedFactor.data_source}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground/50">—</span>
+          );
+        })()}
       </TableCell>
 
       {/* Actions */}
