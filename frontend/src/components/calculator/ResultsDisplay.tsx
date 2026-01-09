@@ -2,6 +2,7 @@
  * ResultsDisplay Component
  *
  * Final step (Step 4) of the wizard showing calculation results:
+ * - Disclaimer: Legal disclaimer for data accuracy (at TOP for prominence)
  * - ResultsSummary: Total CO2e with timestamp
  * - SankeyDiagram: Visual flow of emissions with in-chart drill-down
  * - BreakdownTable: Detailed category breakdown with expandable items
@@ -13,6 +14,7 @@
  * TASK-FE-P8-002: Category Drill-Down in Carbon Flow Visualization (in-chart expansion)
  * TASK-FE-P8-003: Pass breakdown data to BreakdownTable for expandable items
  * TASK-FE-P8-006: Wire LicenseFooter into ResultsDisplay for attribution compliance
+ * TASK-FE-P8-007: Add Disclaimer to ResultsDisplay for legal compliance
  */
 
 import { useWizardStore } from '../../store/wizardStore';
@@ -24,6 +26,7 @@ import BreakdownTable from './BreakdownTable';
 import SankeyDiagram from '../visualizations/SankeyDiagram';
 import { ExportButton } from '../ExportButton';
 import { LicenseFooter } from '../attribution/LicenseFooter';
+import { Disclaimer } from '../attribution/Disclaimer';
 import { classifyComponent } from '../../utils/classifyComponent';
 
 /**
@@ -32,7 +35,7 @@ import { classifyComponent } from '../../utils/classifyComponent';
  * Displays calculation results with summary, visualization, and detailed breakdown.
  * Provides actions to start new calculation or export data.
  * Sankey diagram supports in-chart drill-down when clicking on category nodes.
- * Includes LicenseFooter for data source attribution compliance.
+ * Includes Disclaimer at top for legal compliance and LicenseFooter for data source attribution.
  */
 export default function ResultsDisplay() {
   const { reset: resetWizard } = useWizardStore();
@@ -153,6 +156,9 @@ export default function ResultsDisplay() {
 
   return (
     <div className="space-y-8 bg-background" data-testid="results-display">
+      {/* Disclaimer for legal compliance - MUST be at top for prominence */}
+      <Disclaimer variant="full" defaultExpanded={true} />
+
       {/* Summary Card */}
       <ResultsSummary
         totalCO2e={calculation.total_co2e_kg || 0}
