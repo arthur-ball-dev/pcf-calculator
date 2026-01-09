@@ -2,13 +2,15 @@
  * Excel Export Utility
  * TASK-FE-P5-005: Excel/XLSX generation and export functionality
  * TASK-FE-P7-024: Dynamic import for bundle optimization
+ * TASK-FE-P8-008: Attribution sheet for legal compliance
  *
  * Features:
- * - Multi-sheet workbook creation (Summary, Breakdown, BOM)
+ * - Multi-sheet workbook creation (Summary, Breakdown, BOM, Attribution)
  * - Column width configuration
  * - Cell formatting for numbers and percentages
  * - Download triggering with proper MIME type
  * - Dynamic import of xlsx library for code splitting
+ * - Attribution sheet for data source compliance
  *
  * Note: The main exportToExcel function uses dynamic import to keep xlsx
  * out of the initial bundle. The helper functions (createWorkbook, addSummarySheet, etc.)
@@ -18,6 +20,7 @@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { formatCategoryLabel } from '../classifyComponent';
+import { generateAttributionText, type DataSourceInfo } from '../exportAttribution';
 
 export interface CalculationExportData {
   productName: string;
@@ -44,6 +47,8 @@ export interface CalculationExportData {
     energySource?: string;
     productionVolume?: number;
   };
+  // Data sources for attribution sheet (TASK-FE-P8-008)
+  dataSources?: DataSourceInfo[];
 }
 
 export interface SheetConfig {
@@ -227,6 +232,58 @@ export function addBOMSheet(
 }
 
 /**
+ * Add Attribution sheet to workbook
+ * TASK-FE-P8-008: Legal compliance for data sources
+ * Uses synchronous API for backward compatibility
+ */
+export function addAttributionSheet(
+  workbook: WorkBook,
+  dataSources: DataSourceInfo[],
+  config: SheetConfig = {}
+): void {
+  const sheetName = config.sheetName || 'Data Sources';
+
+  // Build attribution data for the sheet
+  const sheetData: (string | number)[][] = [
+    ['DATA SOURCE ATTRIBUTIONS'],
+    [''],
+    ['This calculation uses data from the following sources:'],
+    [''],
+    ['Source', 'Attribution Required', 'Attribution Text'],
+  ];
+
+  // Add each data source that requires attribution
+  const requiredSources = dataSources.filter(s => s.attribution_required && s.attribution_text);
+
+  if (requiredSources.length > 0) {
+    for (const source of requiredSources) {
+      sheetData.push([source.name, 'Yes', source.attribution_text]);
+    }
+  } else {
+    sheetData.push(['No specific attributions required', '', '']);
+  }
+
+  // Add disclaimer section
+  sheetData.push(['']);
+  sheetData.push(['']);
+  sheetData.push(['DISCLAIMER']);
+  sheetData.push(['']);
+  sheetData.push(['Calculations are for informational purposes only.']);
+  sheetData.push(['No warranty is provided regarding accuracy.']);
+  sheetData.push(['Consult qualified professionals for regulatory compliance.']);
+
+  const sheet = XLSX.utils.aoa_to_sheet(sheetData);
+
+  // Set column widths
+  sheet['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 80 }];
+
+  // Merge header row
+  sheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+
+  XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+}
+
+/**
  * Export data to Excel file
  * Uses dynamic import to load xlsx library on demand for bundle optimization.
  * This is the main entry point for Excel export functionality.
@@ -342,6 +399,40 @@ export async function exportToExcel(
     }
   }
   xlsxModule.utils.book_append_sheet(workbook, bomSheet, 'Bill of Materials');
+
+  // Add Attribution sheet (TASK-FE-P8-008)
+  const dataSources = data.dataSources || [];
+  const attributionSheetData: (string | number)[][] = [
+    ['DATA SOURCE ATTRIBUTIONS'],
+    [''],
+    ['This calculation uses data from the following sources:'],
+    [''],
+    ['Source', 'Attribution Required', 'Attribution Text'],
+  ];
+
+  const requiredSources = dataSources.filter(s => s.attribution_required && s.attribution_text);
+
+  if (requiredSources.length > 0) {
+    for (const source of requiredSources) {
+      attributionSheetData.push([source.name, 'Yes', source.attribution_text]);
+    }
+  } else {
+    attributionSheetData.push(['No specific attributions required', '', '']);
+  }
+
+  // Add disclaimer section
+  attributionSheetData.push(['']);
+  attributionSheetData.push(['']);
+  attributionSheetData.push(['DISCLAIMER']);
+  attributionSheetData.push(['']);
+  attributionSheetData.push(['Calculations are for informational purposes only.']);
+  attributionSheetData.push(['No warranty is provided regarding accuracy.']);
+  attributionSheetData.push(['Consult qualified professionals for regulatory compliance.']);
+
+  const attributionSheet = xlsxModule.utils.aoa_to_sheet(attributionSheetData);
+  attributionSheet['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 80 }];
+  attributionSheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+  xlsxModule.utils.book_append_sheet(workbook, attributionSheet, 'Data Sources');
 
   // Write workbook to array buffer
   const excelBuffer = xlsxModule.write(workbook, {

@@ -1,6 +1,7 @@
 /**
  * CSV Export Utility
  * TASK-FE-P5-005: CSV generation and export functionality
+ * TASK-FE-P8-008: Attribution integration for legal compliance
  *
  * Features:
  * - Converts array of objects to CSV string
@@ -8,7 +9,10 @@
  * - Custom delimiters (comma, semicolon, tab)
  * - Date and number formatting
  * - Special character escaping
+ * - Attribution appending for data source compliance
  */
+
+import { appendAttributionToCSV, type DataSourceInfo } from '../exportAttribution';
 
 export interface CSVOptions {
   delimiter?: string;
@@ -17,9 +21,11 @@ export interface CSVOptions {
   headers?: string[];
   dateFormat?: (date: Date) => string;
   numberFormat?: (num: number) => string;
+  // TASK-FE-P8-008: Data sources for attribution
+  dataSources?: DataSourceInfo[];
 }
 
-const defaultOptions: Required<Omit<CSVOptions, 'headers'>> & { headers?: string[] } = {
+const defaultOptions: Required<Omit<CSVOptions, 'headers' | 'dataSources'>> & { headers?: string[]; dataSources?: DataSourceInfo[] } = {
   delimiter: ',',
   includeHeaders: true,
   includeBOM: true,
@@ -140,6 +146,7 @@ export function downloadFile(
 
 /**
  * Export data as CSV file
+ * TASK-FE-P8-008: Now includes attribution appending for legal compliance
  */
 export function exportToCSV<T extends Record<string, unknown>>(
   data: T[],
@@ -157,7 +164,14 @@ export function exportToCSV<T extends Record<string, unknown>>(
     opts.headers = headers;
   }
 
-  const csvContent = generateCSVString(data, opts);
+  // Generate CSV content
+  let csvContent = generateCSVString(data, opts);
+
+  // TASK-FE-P8-008: Append attribution if data sources are provided
+  // Attribution is always appended when dataSources is provided (even if empty - for disclaimer)
+  if (opts.dataSources !== undefined) {
+    csvContent = appendAttributionToCSV(csvContent, opts.dataSources);
+  }
 
   downloadFile(csvContent, `${filename}.csv`, 'text/csv;charset=utf-8;');
 }

@@ -1,6 +1,7 @@
 /**
  * useExport Hook
  * TASK-FE-P5-005: Hook for managing export functionality
+ * TASK-FE-P8-008: Integrated attribution into exports
  *
  * Features:
  * - CSV and Excel export methods
@@ -8,15 +9,40 @@
  * - Error handling
  * - Data transformation from API response to export format
  * - Concurrent export prevention
+ * - Attribution integration for legal compliance
  */
 
 import { useState, useCallback, useRef } from 'react';
 import { exportToCSV, type CSVOptions } from '@/utils/export/csvExport';
 import { exportToExcel, type CalculationExportData } from '@/utils/export/excelExport';
 import { classifyComponent, formatCategoryLabel } from '@/utils/classifyComponent';
+import type { DataSourceInfo } from '@/utils/exportAttribution';
 import type { CalculationStatusResponse } from '@/types/api.types';
 
-// Extended results type with optional breakdown fields
+// Default data sources with attribution info
+// Used when explicit data sources are not provided
+const DEFAULT_DATA_SOURCES: DataSourceInfo[] = [
+  {
+    code: 'EPA',
+    name: 'EPA GHG Emission Factors Hub',
+    attribution_required: false,
+    attribution_text: 'Data source: U.S. EPA GHG Emission Factors Hub',
+  },
+  {
+    code: 'DEFRA',
+    name: 'UK Government GHG Conversion Factors',
+    attribution_required: true,
+    attribution_text: 'Contains UK Government GHG Conversion Factors for Company Reporting. (c) Crown copyright, licensed under the Open Government Licence v3.0.',
+  },
+  {
+    code: 'EXIOBASE',
+    name: 'EXIOBASE 3.8',
+    attribution_required: true,
+    attribution_text: 'EXIOBASE 3.8 is licensed under Creative Commons Attribution-ShareAlike 4.0. Citation: Stadler et al. 2018.',
+  },
+];
+
+// Extended results type with optional breakdown fields and data sources
 interface ExtendedResults extends CalculationStatusResponse {
   category_breakdown?: Array<{
     scope: string;
@@ -31,12 +57,14 @@ interface ExtendedResults extends CalculationStatusResponse {
     unit: string;
     emission_factor: number;
     emissions: number;
+    data_source?: string;
   }>;
   parameters?: {
     transport_distance?: number;
     energy_source?: string;
     production_volume?: number;
   };
+  data_sources?: DataSourceInfo[];
 }
 
 interface ProductInfo {
@@ -71,6 +99,35 @@ function generateFilename(productName: string, productCode: string): string {
   const timestamp = new Date().toISOString().split('T')[0];
 
   return `${sanitized}_PCF_${timestamp}`;
+}
+
+/**
+ * Get data sources from results or BOM items
+ * Falls back to default sources to ensure legal compliance
+ */
+function getDataSourcesFromResults(results: ExtendedResults | null): DataSourceInfo[] {
+  // Strategy 1: If results include explicit data_sources, use directly
+  if (results?.data_sources && results.data_sources.length > 0) {
+    return results.data_sources;
+  }
+
+  // Strategy 2: Infer from BOM items (if data_source field exists)
+  const bomDetails = results?.bom_details || [];
+  const sourceCodes = new Set<string>();
+  bomDetails.forEach(item => {
+    if (item.data_source) {
+      sourceCodes.add(item.data_source);
+    }
+  });
+
+  if (sourceCodes.size > 0) {
+    // Map source codes to full DataSourceInfo objects
+    return DEFAULT_DATA_SOURCES.filter(source => sourceCodes.has(source.code));
+  }
+
+  // Strategy 3: Return empty array (disclaimer will still be included)
+  // This ensures we don't include attributions for sources not actually used
+  return [];
 }
 
 /**
@@ -147,6 +204,9 @@ export function useExport(
         const filename =
           options.filename || generateFilename(productInfo.name, productInfo.code);
 
+        // Get data sources for attribution (TASK-FE-P8-008)
+        const dataSources = getDataSourcesFromResults(results);
+
         // Check if any custom options were provided
         const hasCustomOptions =
           options.delimiter !== undefined ||
@@ -158,6 +218,7 @@ export function useExport(
         const hasHeaders = options.headers !== undefined;
 
         // Call exportToCSV with appropriate arguments based on what was provided
+        // Attribution is handled by the exportToCSV function via dataSources option
         // Note: await the result in case the function returns a Promise (for testing mocks)
         if (hasHeaders || hasCustomOptions) {
           // Extract CSV-specific options
@@ -169,11 +230,15 @@ export function useExport(
             csvOptions.includeBOM = options.includeBOM;
           if (options.dateFormat) csvOptions.dateFormat = options.dateFormat;
           if (options.numberFormat) csvOptions.numberFormat = options.numberFormat;
+          // Add data sources for attribution (TASK-FE-P8-008)
+          csvOptions.dataSources = dataSources;
 
           await exportToCSV(csvData, filename, options.headers, csvOptions);
         } else {
           // Simple call with just data and filename
-          await exportToCSV(csvData, filename);
+          // TASK-FE-P8-008: Pass dataSources for attribution
+          // Use the fourth argument for options with dataSources
+          await exportToCSV(csvData, filename, undefined, { dataSources });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'CSV export failed';
@@ -196,6 +261,9 @@ export function useExport(
     setError(null);
 
     try {
+      // Get data sources for attribution (TASK-FE-P8-008)
+      const dataSources = getDataSourcesFromResults(results);
+
       // Transform API response to export data format
       const exportData: CalculationExportData = {
         productName: productInfo.name,
@@ -221,6 +289,8 @@ export function useExport(
               productionVolume: results.parameters.production_volume,
             }
           : {},
+        // Add data sources for attribution sheet (TASK-FE-P8-008)
+        dataSources: dataSources,
       };
 
       const filename = generateFilename(productInfo.name, productInfo.code);
