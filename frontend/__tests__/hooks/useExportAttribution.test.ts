@@ -536,7 +536,9 @@ describe('useExport Hook - Attribution Integration', () => {
       // Filename should follow same pattern regardless of attribution
       expect(exportToCSV).toHaveBeenCalledWith(
         expect.anything(),
-        expect.stringContaining('Test_Widget')
+        expect.stringContaining('Test_Widget'),
+        undefined,
+        expect.objectContaining({ dataSources: expect.any(Array) })
       );
     });
 
@@ -597,7 +599,9 @@ describe('useExport Hook - Attribution Integration', () => {
 
       expect(exportToCSV).toHaveBeenCalledWith(
         expect.anything(),
-        'custom-report'
+        'custom-report',
+        undefined,
+        expect.objectContaining({ dataSources: expect.any(Array) })
       );
       // When implemented, attribution should still be included
     });
