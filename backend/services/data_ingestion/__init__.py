@@ -7,6 +7,7 @@ TASK-DATA-P5-003: DEFRA Data Connector
 TASK-DATA-P5-004: Exiobase Data Connector
 TASK-DATA-P5-005: Product Catalog Expansion
 TASK-BE-P7-002: Connector Registry
+TASK-DATA-P8-004: Emission Factor Mapping Infrastructure
 
 This package provides the foundation for data ingestion from external sources:
 - BaseDataIngestion: Abstract base class for all connectors
@@ -22,6 +23,10 @@ Product Catalog Expansion (TASK-DATA-P5-005):
 - CategoryLoader: Load hierarchical product categories
 - ProductGenerator: Generate sample products per category
 - FullTextSearchIndexer: Update FTS vectors for products and categories
+
+Emission Factor Mapping (TASK-DATA-P8-004):
+- EmissionFactorMapper: Maps BOM component names to emission factors
+- Proxy Factor Loader: Loads calculated proxy factors (EPA + DEFRA only)
 
 Usage:
     from backend.services.data_ingestion import (
@@ -44,6 +49,10 @@ Usage:
         CategoryLoader,
         ProductGenerator,
         FullTextSearchIndexer,
+        # Emission Factor Mapping (TASK-DATA-P8-004)
+        EmissionFactorMapper,
+        load_proxy_factors,
+        load_proxy_factors_async,
     )
 
     # Using EPA connector
@@ -84,6 +93,14 @@ Usage:
     indexer = FullTextSearchIndexer()
     await indexer.update_product_vectors(db)
     await indexer.update_category_vectors(db)
+
+    # Emission Factor Mapping (TASK-DATA-P8-004)
+    mapper = EmissionFactorMapper(db=async_session)
+    factor = await mapper.get_factor_for_component("aluminum", "kg", "US")
+    warnings = mapper.get_warnings()
+
+    # Load proxy factors
+    count = await load_proxy_factors_async(async_session)
 
     # Custom connector
     class MyConnector(BaseDataIngestion):
@@ -132,6 +149,17 @@ from backend.services.data_ingestion.category_loader import CategoryLoader
 from backend.services.data_ingestion.product_generator import ProductGenerator
 from backend.services.data_ingestion.fts_indexer import FullTextSearchIndexer
 
+# TASK-DATA-P8-004: Emission Factor Mapping Infrastructure
+from backend.services.data_ingestion.emission_factor_mapper import (
+    EmissionFactorMapper,
+)
+from backend.services.data_ingestion.proxy_factor_loader import (
+    load_proxy_factors,
+    load_proxy_factors_async,
+    validate_source_factors,
+    get_proxy_factor_count,
+)
+
 
 __all__ = [
     # Base class
@@ -157,4 +185,10 @@ __all__ = [
     "CategoryLoader",
     "ProductGenerator",
     "FullTextSearchIndexer",
+    # Emission Factor Mapping (TASK-DATA-P8-004)
+    "EmissionFactorMapper",
+    "load_proxy_factors",
+    "load_proxy_factors_async",
+    "validate_source_factors",
+    "get_proxy_factor_count",
 ]
