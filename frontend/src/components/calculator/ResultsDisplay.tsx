@@ -6,11 +6,13 @@
  * - SankeyDiagram: Visual flow of emissions with in-chart drill-down
  * - BreakdownTable: Detailed category breakdown with expandable items
  * - Action buttons: New Calculation, Export (CSV/Excel)
+ * - LicenseFooter: Data source attribution links and disclaimer
  *
  * TASK-FE-009: Results Dashboard Implementation
  * TASK-FE-P5-011: Integrated ExportButton component for CSV/Excel export
  * TASK-FE-P8-002: Category Drill-Down in Carbon Flow Visualization (in-chart expansion)
  * TASK-FE-P8-003: Pass breakdown data to BreakdownTable for expandable items
+ * TASK-FE-P8-006: Wire LicenseFooter into ResultsDisplay for attribution compliance
  */
 
 import { useWizardStore } from '../../store/wizardStore';
@@ -21,6 +23,7 @@ import ResultsSummary from './ResultsSummary';
 import BreakdownTable from './BreakdownTable';
 import SankeyDiagram from '../visualizations/SankeyDiagram';
 import { ExportButton } from '../ExportButton';
+import { LicenseFooter } from '../attribution/LicenseFooter';
 import { classifyComponent } from '../../utils/classifyComponent';
 
 /**
@@ -29,6 +32,7 @@ import { classifyComponent } from '../../utils/classifyComponent';
  * Displays calculation results with summary, visualization, and detailed breakdown.
  * Provides actions to start new calculation or export data.
  * Sankey diagram supports in-chart drill-down when clicking on category nodes.
+ * Includes LicenseFooter for data source attribution compliance.
  */
 export default function ResultsDisplay() {
   const { reset: resetWizard } = useWizardStore();
@@ -202,6 +206,9 @@ export default function ResultsDisplay() {
           productCode={selectedProduct?.code || 'UNKNOWN'}
         />
       </div>
+
+      {/* License Footer for attribution compliance */}
+      <LicenseFooter className="mt-8" />
     </div>
   );
 }
