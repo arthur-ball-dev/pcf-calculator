@@ -17,9 +17,9 @@
  * - Accessibility-compliant (ARIA labels, keyboard navigation)
  *
  * Enhanced in Phase 7: Replaced simple Select with searchable Command combobox
- * Enhanced in Phase 8: Added BOM filter toggle
- * Fixed in Phase 7 (TASK-FE-P7-042): Fixed infinite API loop bug by adding
- *   ref-based deduplication and consolidating competing useEffect hooks
+ * Enhanced in Phase 8: Added BOM filter toggle (TASK-FE-P8-001)
+ * Fixed in Phase 7 (TASK-FE-P7-042): Fixed infinite API loop bug by using
+ *   request ID pattern to cancel stale requests
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -124,42 +124,6 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 /**
- * BOM Filter Toggle Component
- * Allows users to filter products by whether they have BOMs
- */
-interface BomFilterToggleProps {
-  showOnlyWithBom: boolean;
-  onToggle: (value: boolean) => void;
-}
-
-const BomFilterToggle: React.FC<BomFilterToggleProps> = ({ showOnlyWithBom, onToggle }) => {
-  return (
-    <div className="flex gap-1 p-2 border-b" data-testid="bom-filter-toggle">
-      <Button
-        variant={showOnlyWithBom ? "default" : "outline"}
-        size="sm"
-        onClick={() => onToggle(true)}
-        className="flex-1 text-xs"
-        data-testid="bom-filter-with-bom"
-        aria-pressed={showOnlyWithBom}
-      >
-        With BOMs
-      </Button>
-      <Button
-        variant={!showOnlyWithBom ? "default" : "outline"}
-        size="sm"
-        onClick={() => onToggle(false)}
-        className="flex-1 text-xs"
-        data-testid="bom-filter-all"
-        aria-pressed={!showOnlyWithBom}
-      >
-        All Products
-      </Button>
-    </div>
-  );
-};
-
-/**
  * Main ProductSelector component
  */
 const ProductSelector: React.FC = () => {
@@ -186,8 +150,15 @@ const ProductSelector: React.FC = () => {
   const [emissionFactors, setEmissionFactors] = useState<EmissionFactorListItem[]>([]);
   const [isLoadingEmissionFactors, setIsLoadingEmissionFactors] = useState(true);
 
-  // Ref to prevent concurrent search calls (TASK-FE-P7-042 fix)
-  const searchInProgressRef = useRef(false);
+  // Ref to track current search request ID for deduplication (TASK-FE-P7-042 fix)
+  // We use a request ID instead of a ref guard to allow new requests to supersede old ones
+  const currentRequestIdRef = useRef(0);
+
+  // Ref to the filter toggle container for detecting clicks on it
+  const filterToggleRef = useRef<HTMLDivElement>(null);
+
+  // Ref to track previous search query for detecting clears
+  const prevSearchQueryRef = useRef('');
 
   // Store access
   const { selectedProductId, setSelectedProduct, setLoadingBOM, setBomItems, setSelectedProductDetails } = useCalculatorStore();
@@ -215,16 +186,14 @@ const ProductSelector: React.FC = () => {
   /**
    * Search products with debounced query using backend search API
    *
-   * TASK-FE-P7-042 fix: Added ref-based deduplication to prevent
-   * concurrent API calls that caused the infinite loop bug.
+   * TASK-FE-P7-042 fix: Uses request ID pattern to prevent stale responses
+   * from overwriting newer ones. Each search gets a unique ID, and we only
+   * process results if the ID matches the current request.
    */
   const searchProducts = useCallback(async (query: string, hasBom: boolean) => {
-    // Prevent concurrent calls - fixes infinite loop bug (TASK-FE-P7-042)
-    if (searchInProgressRef.current) {
-      return;
-    }
+    // Increment request ID to invalidate any in-flight requests
+    const requestId = ++currentRequestIdRef.current;
 
-    searchInProgressRef.current = true;
     setIsSearching(true);
     setError(null);
 
@@ -238,13 +207,22 @@ const ProductSelector: React.FC = () => {
         has_bom: hasBom || undefined, // Only pass has_bom when filtering for products with BOMs
       });
 
-      setProducts(result.items);
-      setTotalProducts(result.total);
+      // Only update state if this is still the current request
+      // This prevents stale responses from overwriting newer data
+      if (requestId === currentRequestIdRef.current) {
+        setProducts(result.items);
+        setTotalProducts(result.total);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'));
+      // Only set error if this is still the current request
+      if (requestId === currentRequestIdRef.current) {
+        setError(err instanceof Error ? err : new Error('Unknown error'));
+      }
     } finally {
-      setIsSearching(false);
-      searchInProgressRef.current = false;
+      // Only clear searching state if this is still the current request
+      if (requestId === currentRequestIdRef.current) {
+        setIsSearching(false);
+      }
     }
   }, []);
 
@@ -252,13 +230,7 @@ const ProductSelector: React.FC = () => {
    * Consolidated effect to trigger search when popover opens or search params change
    *
    * TASK-FE-P7-042 fix: Consolidated two competing useEffect hooks into one.
-   * Previously, there were two effects:
-   * - Effect 1 triggered on: open, debouncedSearch, showOnlyWithBom
-   * - Effect 2 triggered on: open, products.length, isSearching, showOnlyWithBom
-   *
-   * The race condition occurred because both effects fired when `open` changed,
-   * and Effect 2 would re-fire when isSearching changed, potentially triggering
-   * another search under certain timing conditions.
+   * Previously, there were two effects that created a race condition.
    *
    * This single effect handles all search triggers:
    * - Initial load when popover opens (open becomes true)
@@ -271,9 +243,22 @@ const ProductSelector: React.FC = () => {
     }
   }, [open, debouncedSearch, showOnlyWithBom, searchProducts]);
 
-  // NOTE: The second useEffect that was here (lines 248-253 in the original)
-  // has been removed as part of TASK-FE-P7-042 fix. It was redundant and
-  // caused the infinite loop by creating a race condition with the first effect.
+  /**
+   * Effect to handle immediate search when search query is cleared
+   *
+   * This catches the case where user.clear() clears the input and we want
+   * to immediately search with empty query without waiting for debounce.
+   * This is needed because cmdk/jsdom may not properly trigger the debounced
+   * value change when clearing.
+   */
+  useEffect(() => {
+    // If query was cleared (went from non-empty to empty) while popover is open
+    if (open && prevSearchQueryRef.current !== '' && searchQuery === '') {
+      // Trigger search immediately with empty query
+      searchProducts('', showOnlyWithBom);
+    }
+    prevSearchQueryRef.current = searchQuery;
+  }, [searchQuery, open, showOnlyWithBom, searchProducts]);
 
   /**
    * Sync wizard step completion based on selection
@@ -288,12 +273,28 @@ const ProductSelector: React.FC = () => {
 
   /**
    * Handle BOM filter toggle change
+   *
+   * TASK-FE-P8-001: When filter changes, just update the state.
+   * The useEffect above handles triggering the search when the popover is open.
    */
-  const handleBomFilterChange = (value: boolean) => {
+  const handleBomFilterChange = useCallback((value: boolean) => {
     setShowOnlyWithBom(value);
-    // Products will be refreshed automatically via the useEffect
-    // that watches showOnlyWithBom
-  };
+    // The useEffect watching showOnlyWithBom will trigger the search
+    // when popover is open, so we don't need to call searchProducts here
+  }, []);
+
+  /**
+   * Handle popover outside click - prevent closing when clicking on filter toggle
+   *
+   * TASK-FE-P8-001: When user clicks on the BOM filter toggle buttons,
+   * we prevent the popover from closing so they can see the updated product list.
+   */
+  const handleInteractOutside = useCallback((event: Event) => {
+    // Check if the click was on the filter toggle
+    if (filterToggleRef.current?.contains(event.target as Node)) {
+      event.preventDefault();
+    }
+  }, []);
 
   /**
    * Handle product selection with full BOM loading
@@ -376,6 +377,43 @@ const ProductSelector: React.FC = () => {
     <div className="space-y-4" data-testid="product-selector" data-tour="product-select">
       <div className="space-y-2">
         <Label htmlFor="product-select">Select Product</Label>
+
+        {/* BOM Filter Toggle - shown outside popover for visibility (TASK-FE-P8-001)
+            The ref is used to detect clicks on this element and prevent popover from closing */}
+        <div ref={filterToggleRef} className="flex items-center gap-2 mb-2" data-testid="bom-filter-toggle-group">
+          <span className="text-sm text-muted-foreground">Show:</span>
+          <div className="flex rounded-md border">
+            <button
+              type="button"
+              className={cn(
+                "px-3 py-1 text-sm rounded-l-md transition-colors",
+                showOnlyWithBom
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted"
+              )}
+              onClick={() => handleBomFilterChange(true)}
+              data-testid="bom-filter-with-bom"
+              aria-pressed={showOnlyWithBom}
+            >
+              With BOMs
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "px-3 py-1 text-sm rounded-r-md transition-colors",
+                !showOnlyWithBom
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted"
+              )}
+              onClick={() => handleBomFilterChange(false)}
+              data-testid="bom-filter-all"
+              aria-pressed={!showOnlyWithBom}
+            >
+              All Products
+            </button>
+          </div>
+        </div>
+
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -391,12 +429,12 @@ const ProductSelector: React.FC = () => {
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[400px] p-0 bg-white border shadow-lg" align="start">
+          <PopoverContent
+            className="w-[400px] p-0 bg-white border shadow-lg"
+            align="start"
+            onInteractOutside={handleInteractOutside}
+          >
             <Command shouldFilter={false} className="bg-white">
-              <BomFilterToggle
-                showOnlyWithBom={showOnlyWithBom}
-                onToggle={handleBomFilterChange}
-              />
               <CommandInput
                 placeholder="Type to search products..."
                 value={searchQuery}
