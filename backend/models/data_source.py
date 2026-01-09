@@ -2,6 +2,7 @@
 DataSource model - Tracks emission factor data sources
 
 TASK-DB-P5-002: Extended Database Schema
+TASK-DB-P8-002: Added licenses relationship for compliance tracking
 
 Represents external data sources for emission factors such as
 EPA GHG Emission Factors Hub, DEFRA Conversion Factors, and Exiobase.
@@ -21,6 +22,7 @@ Attributes:
 Relationships:
     emission_factors: EmissionFactor objects from this source
     sync_logs: DataSyncLog records for this source
+    licenses: DataSourceLicense records for compliance tracking (TASK-DB-P8-002)
 """
 
 from sqlalchemy import (
@@ -95,6 +97,13 @@ class DataSource(Base):
 
     sync_logs = relationship(
         "DataSyncLog",
+        back_populates="data_source",
+        cascade="all, delete-orphan"
+    )
+
+    # TASK-DB-P8-002: License compliance tracking relationship
+    licenses = relationship(
+        "DataSourceLicense",
         back_populates="data_source",
         cascade="all, delete-orphan"
     )

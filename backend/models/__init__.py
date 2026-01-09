@@ -8,6 +8,9 @@ TASK-DB-P5-002: Extended with DataSource, ProductCategory, DataSyncLog
 and additional columns for full-text search and data lineage.
 
 TASK-BE-P7-018: Added User model for authentication and authorization.
+
+TASK-DB-P8-002: Added DataSourceLicense and EmissionFactorProvenance
+for compliance tracking and audit trails.
 """
 
 from sqlalchemy import (
@@ -170,6 +173,9 @@ class EmissionFactor(Base):
 
     Phase 7 Extensions (TASK-DB-P7-023):
     - Added index on category column for improved query performance
+
+    Phase 8 Extensions (TASK-DB-P8-002):
+    - Added provenance relationship for compliance tracking
     """
     __tablename__ = "emission_factors"
 
@@ -252,6 +258,14 @@ class EmissionFactor(Base):
         "DataSource",
         back_populates="emission_factors",
         foreign_keys=[data_source_id]
+    )
+
+    # TASK-DB-P8-002: Provenance relationship for compliance tracking
+    provenance = relationship(
+        "EmissionFactorProvenance",
+        back_populates="emission_factor",
+        uselist=False,  # One-to-one relationship
+        cascade="all, delete-orphan"
     )
 
     # Provide instance-level access
@@ -530,6 +544,10 @@ from backend.models.data_sync_log import DataSyncLog
 # Import Phase 7 User model for authentication (TASK-BE-P7-018)
 from backend.models.user import User
 
+# Import Phase 8 Compliance models (TASK-DB-P8-002)
+from backend.models.data_source_license import DataSourceLicense
+from backend.models.emission_factor_provenance import EmissionFactorProvenance
+
 # Export all models
 __all__ = [
     'Base',
@@ -545,4 +563,7 @@ __all__ = [
     'DataSyncLog',
     # Phase 7 models (TASK-BE-P7-018)
     'User',
+    # Phase 8 Compliance models (TASK-DB-P8-002)
+    'DataSourceLicense',
+    'EmissionFactorProvenance',
 ]
