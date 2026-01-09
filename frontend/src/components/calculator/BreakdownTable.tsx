@@ -7,9 +7,11 @@
  * - Sortable columns (CO2e, percentage)
  * - Progress bars showing percentage contribution
  * - WCAG 2.1 AA accessible
+ * - SourceBadge for data source attribution (TASK-FE-P8-005)
  *
  * TASK-FE-009: Results Dashboard - Breakdown Table
  * TASK-FE-P8-003: Expandable items in detailed breakdown section
+ * TASK-FE-P8-005: Integrate SourceBadge into Breakdown Table
  */
 
 import React, { useState, useMemo } from 'react';
@@ -23,6 +25,7 @@ import {
   TableRow,
 } from '../ui/table';
 import { EMISSION_CATEGORY_COLORS } from '../../constants/colors';
+import { SourceBadge } from '@/components/attribution/SourceBadge';
 import type { BreakdownByComponent } from '../../types/store.types';
 
 /**
@@ -33,6 +36,8 @@ interface BreakdownItem {
   co2e: number;
   quantity?: number;
   unit?: string;
+  /** TASK-FE-P8-005: Data source code for SourceBadge */
+  data_source?: string;
 }
 
 /**
@@ -52,6 +57,8 @@ interface BreakdownTableProps {
   transportCO2e?: number;
   /** Component-level breakdown (component_name -> co2e_kg) */
   breakdown?: BreakdownByComponent;
+  /** TASK-FE-P8-005: Data source mapping (component_name -> source_code) */
+  itemSources?: Record<string, string>;
 }
 
 type SortField = 'category' | 'co2e' | 'percentage';
@@ -150,6 +157,7 @@ function classifyComponent(name: string): 'materials' | 'energy' | 'transport' |
  * @param energyCO2e - Energy emissions
  * @param transportCO2e - Transport emissions
  * @param breakdown - Component-level breakdown map
+ * @param itemSources - TASK-FE-P8-005: Mapping of component names to data source codes
  */
 export default function BreakdownTable({
   totalCO2e,
@@ -157,6 +165,7 @@ export default function BreakdownTable({
   energyCO2e = 0,
   transportCO2e = 0,
   breakdown,
+  itemSources,
 }: BreakdownTableProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField>('co2e');
@@ -198,9 +207,12 @@ export default function BreakdownTable({
     if (breakdown && Object.keys(breakdown).length > 0) {
       Object.entries(breakdown).forEach(([componentName, co2e]) => {
         const category = classifyComponent(componentName);
+        // TASK-FE-P8-005: Include data_source from itemSources mapping
+        const dataSource = itemSources?.[componentName];
         categoriesMap[category].items.push({
           name: componentName,
           co2e: co2e,
+          data_source: dataSource,
         });
       });
 
@@ -223,7 +235,7 @@ export default function BreakdownTable({
 
     // Return only categories with non-zero totals
     return Object.values(categoriesMap).filter((cat) => cat.total > 0);
-  }, [totalCO2e, materialsCO2e, energyCO2e, transportCO2e, breakdown]);
+  }, [totalCO2e, materialsCO2e, energyCO2e, transportCO2e, breakdown, itemSources]);
 
   // Sort breakdown data
   const sortedBreakdown = useMemo(() => {
@@ -406,6 +418,10 @@ export default function BreakdownTable({
                           <span className="ml-2 text-xs">
                             ({subItem.quantity} {subItem.unit})
                           </span>
+                        )}
+                        {/* TASK-FE-P8-005: SourceBadge for data source attribution */}
+                        {subItem.data_source && (
+                          <SourceBadge sourceCode={subItem.data_source} className="ml-2" />
                         )}
                       </span>
                     </TableCell>

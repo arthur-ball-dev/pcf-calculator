@@ -3,6 +3,7 @@
  *
  * Mobile-optimized card list for BOM items.
  * TASK-FE-P7-010: Mobile BOM Card View
+ * TASK-FE-P8-005: Integrate SourceBadge for data source attribution
  *
  * Features:
  * - Card-based layout for better mobile readability
@@ -12,10 +13,12 @@
  * - Category badges with color coding
  * - Empty state messaging
  * - Read-only mode support
+ * - SourceBadge for data source attribution (EPA, DEFRA, EXIOBASE, PROXY)
  *
  * Uses:
  * - shadcn/ui Card, Button, Input, Badge, AlertDialog
  * - Lucide icons (Pencil, Trash2, Check, X)
+ * - SourceBadge component for data source attribution
  */
 
 import { useState } from 'react';
@@ -36,6 +39,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Pencil, Trash2, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SourceBadge } from '@/components/attribution/SourceBadge';
 
 interface BOMItem {
   id: string;
@@ -44,6 +48,8 @@ interface BOMItem {
   unit: string;
   category: 'material' | 'energy' | 'transport' | 'other';
   emissionFactorId?: string | null;
+  /** TASK-FE-P8-005: Data source code for SourceBadge (EPA, DEFRA, EXIOBASE, PROXY) */
+  data_source?: string;
 }
 
 interface BOMCardListProps {
@@ -125,12 +131,18 @@ export function BOMCardList({
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-base truncate">{item.name}</h3>
-                <Badge
-                  variant="secondary"
-                  className={cn('mt-1', categoryColors[item.category])}
-                >
-                  {item.category}
-                </Badge>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <Badge
+                    variant="secondary"
+                    className={cn(categoryColors[item.category])}
+                  >
+                    {item.category}
+                  </Badge>
+                  {/* TASK-FE-P8-005: SourceBadge for data source attribution */}
+                  {item.data_source && item.data_source.trim() !== '' && (
+                    <SourceBadge sourceCode={item.data_source} />
+                  )}
+                </div>
               </div>
               {!isReadOnly && (
                 <div className="flex gap-1 flex-shrink-0">
