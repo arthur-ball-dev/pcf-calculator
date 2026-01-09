@@ -2,6 +2,7 @@
 Electronics industry BOM templates.
 
 TASK-BE-P8-001: BOM Template System (5 Industry Templates)
+TASK-BE-P8-002: Product Catalog Generation - Updated natural gas unit to MJ
 
 Data sources:
 - iFixit teardown reports (public)
@@ -82,8 +83,10 @@ LAPTOP_TEMPLATE = BOMTemplate(
             "electricity_manufacturing", (15, 35), "kWh",
             "Assembly electricity", "energy"
         ),
+        # Natural gas converted from m3 to MJ (1 m3 = ~38 MJ)
+        # Original: (0.5, 1.5) m3 -> (19, 57) MJ
         ComponentSpec(
-            "natural_gas_manufacturing", (0.5, 1.5), "m3",
+            "natural_gas_manufacturing", (19, 57), "MJ",
             "Manufacturing heat", "energy"
         ),
         ComponentSpec(
