@@ -1,8 +1,12 @@
 """
-Exiobase 3.9.4 Multi-Regional Input-Output Data Connector.
+Exiobase 3.8 Multi-Regional Input-Output Data Connector.
 
 TASK-DATA-P5-004: Exiobase Data Connector
-TASK-DATA-URL-FIX: Updated URL for Exiobase 3.9.4
+TASK-DATA-P8-003: Updated URL to v3.8 (Zenodo 5589597) for CC-BY-SA 4.0 compliance
+
+CRITICAL LICENSE COMPLIANCE:
+- MUST use Exiobase v3.8 (Zenodo 5589597) - CC-BY-SA 4.0 license
+- DO NOT use v3.9 (Zenodo 14614930) - has Non-Commercial (NC) restrictions
 
 This module implements the Exiobase connector that:
 - Downloads the MRIO dataset ZIP from Zenodo
@@ -12,8 +16,8 @@ This module implements the Exiobase connector that:
 - Transforms records to internal schema
 
 Data Source:
-- Exiobase 3.9.4: https://zenodo.org/records/14614930
-- License: CC BY-SA 4.0
+- Exiobase 3.8: https://zenodo.org/records/5589597
+- License: CC-BY-SA 4.0 (allows commercial use with ShareAlike)
 
 The F matrix contains emission intensities per product per region with:
 - Rows: Environmental stressors (emissions like CO2, CH4, N2O)
@@ -43,24 +47,27 @@ from backend.services.data_ingestion.base import BaseDataIngestion
 
 class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
     """
-    Exiobase 3.9.4 Multi-Regional Input-Output connector.
+    Exiobase 3.8 Multi-Regional Input-Output connector.
 
     Downloads and parses the Exiobase MRIO database, extracting emission
     factors from the F matrix (satellite accounts) for key product categories
     across 49 regions.
 
+    CRITICAL: Uses v3.8 (CC-BY-SA 4.0) for commercial use compliance.
+    DO NOT change to v3.9 which has Non-Commercial restrictions.
+
     Attributes:
-        ZENODO_URL: URL to download Exiobase 3.9.4 IOT 2022 ZIP archive
+        ZENODO_URL: URL to download Exiobase 3.8 IOT ZIP archive
         REGIONS: List of 49 Exiobase region codes (44 countries + 5 RoW)
         PRODUCT_CATEGORIES: Key product categories to extract
         GHG_STRESSORS: GHG emission stressors to process
         reference_year: Reference year for emission factors (default 2022)
     """
 
-    # Zenodo URL for Exiobase 3.9.4 IOT 2022 (Industry x Industry format)
-    # Updated from deprecated 3.8.2 URL which returns 404
-    # See: https://zenodo.org/records/14614930
-    ZENODO_URL = "https://zenodo.org/api/records/14614930/files/IOT_2022_ixi.zip/content"
+    # CRITICAL: Use Exiobase v3.8 (Zenodo 5589597) for CC-BY-SA 4.0 license
+    # DO NOT use v3.9 (Zenodo 14614930) - has Non-Commercial (NC) restrictions
+    # See: knowledge/db_compliance/External_Data_Source_Compliance_Guide.md
+    ZENODO_URL = "https://zenodo.org/api/records/5589597/files/IOT_2019_ixi.zip/content"
 
     # All 49 Exiobase regions (44 countries + 5 rest-of-world regions)
     REGIONS = [
@@ -101,7 +108,7 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
     ]
 
     # Possible F matrix file locations within the ZIP archive
-    # Exiobase 3.9.4 may use different paths than 3.8.2
+    # Exiobase 3.8 uses satellite/F.txt path
     F_MATRIX_PATHS = [
         "satellite/F.txt",
         "satellite/F_",
@@ -120,7 +127,8 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
             **kwargs: Keyword arguments passed to BaseDataIngestion
         """
         super().__init__(*args, **kwargs)
-        self.reference_year = 2022
+        # v3.8 uses 2019 data year
+        self.reference_year = 2019
 
     async def fetch_raw_data(self) -> bytes:
         """
@@ -150,8 +158,7 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
         Parse Exiobase ZIP and extract emission factors from F matrix.
 
         The F matrix location may vary between Exiobase versions:
-        - 3.8.2: satellite/F.txt
-        - 3.9.4: May use IOT/F.txt or other paths
+        - 3.8: satellite/F.txt
 
         This method searches multiple possible locations for the F matrix.
 
@@ -197,7 +204,7 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
         Find the F matrix file within the ZIP archive.
 
         Searches through multiple possible paths to find the F matrix,
-        supporting both Exiobase 3.8.2 and 3.9.4 file structures.
+        supporting Exiobase 3.8 file structure.
 
         Args:
             zf: Open ZipFile object
@@ -313,7 +320,7 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
             - scope: "Scope 3" (supply chain emissions)
             - category: Product category
             - geography: Region code
-            - reference_year: 2022
+            - reference_year: 2019 (v3.8 data year)
             - data_quality_rating: 0.75 (aggregated data)
             - external_id: Unique identifier
             - metadata: Additional information
@@ -362,7 +369,7 @@ class ExiobaseEmissionFactorsIngestion(BaseDataIngestion):
                 "external_id": external_id,
                 "metadata": {
                     "stressors_included": list(set(data["stressors"])),
-                    "source": "Exiobase 3.9.4",
+                    "source": "Exiobase 3.8",
                 }
             })
 
