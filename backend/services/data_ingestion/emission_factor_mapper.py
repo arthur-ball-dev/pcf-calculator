@@ -383,6 +383,11 @@ class EmissionFactorMapper:
             "wood": "material",
             "concrete": "material",
             "cement": "material",
+            "lithium": "material",
+            "battery": "material",
+            "semiconductor": "material",
+            "carbon": "material",
+            "fiber": "material",
             # Energy
             "electricity": "energy",
             "power": "energy",
