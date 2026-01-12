@@ -8,6 +8,8 @@
  * - Emission factor selection without category filtering
  * - Delete button with tooltip (disabled when minimum constraint active)
  * - Accessibility with ARIA labels
+ * - React.memo for performance optimization (prevents re-renders when sibling rows change)
+ * - Support for virtualized rendering (TASK-FE-P8-007)
  *
  * Props:
  * - field: Field object from useFieldArray (properly typed)
@@ -15,10 +17,14 @@
  * - form: React Hook Form instance
  * - onRemove: Callback for delete action
  * - canRemove: Whether delete is allowed (based on minimum constraint)
+ * - isVirtualized: Whether this row is being rendered in a virtualized context
  *
  * TASK-FE-P7-026: Eliminated TypeScript any usages - field is now properly typed
+ * TASK-FE-P8-005: Added React.memo wrapper to prevent unnecessary re-renders
+ * TASK-FE-P8-007: Added isVirtualized prop for virtualized list rendering
  */
 
+import React from 'react';
 import type { UseFormReturn, FieldArrayWithId } from 'react-hook-form';
 import { Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -56,6 +62,7 @@ import {
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useEmissionFactors } from '@/hooks/useEmissionFactors';
 import { classifyComponent } from '@/utils/classifyComponent';
+import { SourceBadge } from '@/components/attribution/SourceBadge';
 import type { BOMFormData } from '@/schemas/bomSchema';
 
 /**
@@ -90,16 +97,31 @@ interface BOMTableRowProps {
   onRemove: () => void;
   /** Whether delete is allowed (based on minimum constraint) */
   canRemove: boolean;
+  /** Whether this row is being rendered in a virtualized context (TASK-FE-P8-007) */
+  isVirtualized?: boolean;
 }
 
 /**
  * BOMTableRow - Editable table row for a single BOM item
+ *
+ * Wrapped with React.memo to prevent unnecessary re-renders when sibling rows change.
+ * This is a critical performance optimization for large BOMs.
+ *
+ * Note: The form object from React Hook Form maintains stable reference identity,
+ * so passing it as a prop doesn't cause unnecessary re-renders.
+ * The index and canRemove props are primitives and also don't cause issues.
+ * The onRemove callback should ideally be memoized in the parent component
+ * (see TASK-FE-P8-006 for useCallback optimization).
+ *
+ * When isVirtualized is true, the component renders only the cell contents
+ * (without the <tr> wrapper) since the parent handles the row element positioning.
  */
-export default function BOMTableRow({
+const BOMTableRow = React.memo(function BOMTableRow({
   index,
   form,
   onRemove,
   canRemove,
+  isVirtualized = false,
 }: BOMTableRowProps) {
   const { data: emissionFactors, isLoading: isLoadingFactors } = useEmissionFactors();
 
@@ -107,8 +129,11 @@ export default function BOMTableRow({
   // This ensures pre-selected emission factors always appear in the dropdown
   const filteredFactors = emissionFactors || [];
 
-  return (
-    <TableRow>
+  /**
+   * Render the cell contents (shared between virtualized and non-virtualized rendering)
+   */
+  const renderCells = () => (
+    <>
       {/* Component Name */}
       <TableCell>
         <FormField
@@ -292,15 +317,16 @@ export default function BOMTableRow({
         />
       </TableCell>
 
-      {/* Source - Display data source of selected emission factor */}
+      {/* Source - Display data source of selected emission factor with link to attribution */}
       <TableCell>
         {(() => {
           const selectedFactorId = form.watch(`items.${index}.emissionFactorId`);
           const selectedFactor = filteredFactors.find((f) => f.id === selectedFactorId);
-          return selectedFactor ? (
-            <span className="text-sm text-muted-foreground">
-              {selectedFactor.data_source}
-            </span>
+          return selectedFactor && selectedFactor.data_source ? (
+            <SourceBadge
+              sourceCode={selectedFactor.data_source}
+              className="text-sm"
+            />
           ) : (
             <span className="text-sm text-muted-foreground/50">—</span>
           );
@@ -369,6 +395,23 @@ export default function BOMTableRow({
           </TooltipProvider>
         )}
       </TableCell>
+    </>
+  );
+
+  // When virtualized, return only the cells (parent provides the <tr>)
+  // When not virtualized, wrap in TableRow
+  if (isVirtualized) {
+    return renderCells();
+  }
+
+  return (
+    <TableRow>
+      {renderCells()}
     </TableRow>
   );
-}
+});
+
+// Set display name for debugging in React DevTools
+BOMTableRow.displayName = 'BOMTableRow';
+
+export default BOMTableRow;
