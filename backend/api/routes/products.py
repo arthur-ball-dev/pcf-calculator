@@ -3,6 +3,8 @@ Products API Routes
 TASK-API-001: Implementation of products REST endpoints
 TASK-API-P5-002: Enhanced Product Search and Categories
 TASK-BE-P7-018: Added JWT authentication (user role required)
+TASK-BE-P8-003: Added Redis caching for hot paths (product list and search)
+TASK-BE-P8-004: Refactored search_products to reduce cyclomatic complexity
 
 Endpoints:
 - GET /api/v1/products - List products with pagination and filtering
@@ -11,14 +13,16 @@ Endpoints:
 - GET /api/v1/products/categories - Hierarchical category tree
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple, Any, Dict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import uuid
 import re
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, Query as SQLAQuery
 from sqlalchemy import or_, func, exists, select, not_
 from pydantic import BaseModel, Field
 
@@ -32,6 +36,17 @@ from backend.schemas.products import (
     ProductSearchResponse,
     ProductCategoriesResponse,
 )
+from backend.utils.cache import (
+    get_cached_response_sync,
+    cache_response_sync,
+    get_product_list_cache_key,
+    get_product_search_cache_key,
+    PRODUCT_LIST_TTL,
+    PRODUCT_SEARCH_TTL,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -244,7 +259,354 @@ def count_tree_categories(categories: List[CategoryTreeNode]) -> int:
 
 
 # ============================================================================
+# Search Helper Data Structures
+# TASK-BE-P8-004: Extracted from search_products for reduced complexity
+# ============================================================================
+
+@dataclass
+class ValidatedParams:
+    """
+    Validated and normalized search parameters.
+
+    TASK-BE-P8-004: Data class to hold validated search parameters,
+    separating validation logic from query building.
+    """
+    query: Optional[str]
+    category_id: Optional[str]
+    industry: Optional[str]
+    manufacturer: Optional[str]
+    country_of_origin: Optional[str]
+    is_finished_product: Optional[bool]
+    has_bom: Optional[bool]
+    limit: int
+    offset: int
+    error: Optional[Dict[str, Any]]  # None if valid, error dict if invalid
+
+
+# ============================================================================
+# Search Helper Functions
+# TASK-BE-P8-004: Extracted from search_products for reduced complexity
+# ============================================================================
+
+def _validate_search_params(
+    query: Optional[str],
+    category_id: Optional[str],
+    industry: Optional[str],
+    manufacturer: Optional[str],
+    country_of_origin: Optional[str],
+    is_finished_product: Optional[bool],
+    has_bom: Optional[bool],
+    limit: int,
+    offset: int,
+    db: Session
+) -> ValidatedParams:
+    """
+    Validate and normalize search parameters.
+
+    TASK-BE-P8-004: Extracted from search_products to reduce cyclomatic complexity.
+    CC < 5 achieved by using early returns and single responsibility.
+
+    Args:
+        query: Full-text search query
+        category_id: Category ID filter
+        industry: Industry sector filter
+        manufacturer: Manufacturer filter
+        country_of_origin: Country code filter
+        is_finished_product: Finished product filter
+        has_bom: Has BOM filter
+        limit: Pagination limit
+        offset: Pagination offset
+        db: Database session for category validation
+
+    Returns:
+        ValidatedParams with error=None if valid, or error dict if invalid
+    """
+    # Normalize empty query to None
+    normalized_query = query
+    if query is not None:
+        if query == "":
+            normalized_query = None
+        elif len(query) < 2:
+            return ValidatedParams(
+                query=None, category_id=None, industry=None, manufacturer=None,
+                country_of_origin=None, is_finished_product=None, has_bom=None,
+                limit=limit, offset=offset,
+                error={
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid request parameters",
+                    "details": [{"field": "query", "message": "Query must be at least 2 characters"}],
+                    "status_code": 400
+                }
+            )
+        elif len(query) > 200:
+            return ValidatedParams(
+                query=None, category_id=None, industry=None, manufacturer=None,
+                country_of_origin=None, is_finished_product=None, has_bom=None,
+                limit=limit, offset=offset,
+                error={
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid request parameters",
+                    "details": [{"field": "query", "message": "Query must not exceed 200 characters"}],
+                    "status_code": 400
+                }
+            )
+
+    # Validate country code format
+    if country_of_origin is not None:
+        if not re.match(r"^[A-Z]{2}$", country_of_origin):
+            return ValidatedParams(
+                query=None, category_id=None, industry=None, manufacturer=None,
+                country_of_origin=None, is_finished_product=None, has_bom=None,
+                limit=limit, offset=offset,
+                error={
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid request parameters",
+                    "details": [{"field": "country_of_origin", "message": "Must be ISO 3166-1 alpha-2 format (2 uppercase letters)"}],
+                    "status_code": 400
+                }
+            )
+
+    # Validate industry
+    valid_industries = [e.value for e in IndustrySector]
+    if industry is not None and industry not in valid_industries:
+        return ValidatedParams(
+            query=None, category_id=None, industry=None, manufacturer=None,
+            country_of_origin=None, is_finished_product=None, has_bom=None,
+            limit=limit, offset=offset,
+            error={
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid request parameters",
+                "details": [{"field": "industry", "message": f"Must be one of: {', '.join(valid_industries)}"}],
+                "status_code": 400
+            }
+        )
+
+    # Validate category_id exists
+    if category_id is not None:
+        category = db.query(ProductCategory).filter(ProductCategory.id == category_id).first()
+        if category is None:
+            return ValidatedParams(
+                query=None, category_id=None, industry=None, manufacturer=None,
+                country_of_origin=None, is_finished_product=None, has_bom=None,
+                limit=limit, offset=offset,
+                error={
+                    "code": "INVALID_CATEGORY",
+                    "message": "Category not found",
+                    "details": [{"field": "category_id", "message": f"No category exists with ID {category_id}"}],
+                    "status_code": 422
+                }
+            )
+
+    # All validations passed
+    return ValidatedParams(
+        query=normalized_query,
+        category_id=category_id,
+        industry=industry,
+        manufacturer=manufacturer,
+        country_of_origin=country_of_origin,
+        is_finished_product=is_finished_product,
+        has_bom=has_bom,
+        limit=limit,
+        offset=offset,
+        error=None
+    )
+
+
+def _build_search_query(db: Session, params: ValidatedParams) -> SQLAQuery:
+    """
+    Build SQLAlchemy query with filters from validated parameters.
+
+    TASK-BE-P8-004: Extracted from search_products to reduce cyclomatic complexity.
+    CC < 5 achieved by sequential filter application without nested conditions.
+
+    Args:
+        db: Database session
+        params: Validated search parameters
+
+    Returns:
+        SQLAlchemy query object with all filters applied
+    """
+    # Build base query with eager loading for category
+    base_query = db.query(Product).options(
+        joinedload(Product.product_category)
+    )
+
+    # Apply full-text search (using LIKE for SQLite compatibility)
+    if params.query:
+        query_lower = f"%{params.query.lower()}%"
+        base_query = base_query.filter(
+            or_(
+                func.lower(Product.name).like(query_lower),
+                func.lower(Product.description).like(query_lower),
+                func.lower(Product.code).like(query_lower),
+                func.lower(Product.search_vector).like(query_lower)
+            )
+        )
+
+    # Apply category filter
+    if params.category_id is not None:
+        base_query = base_query.filter(Product.category_id == params.category_id)
+
+    # Apply industry filter (via category relationship OR string category field)
+    if params.industry is not None:
+        base_query = base_query.filter(
+            or_(
+                exists(
+                    select(ProductCategory.id).where(
+                        ProductCategory.id == Product.category_id,
+                        ProductCategory.industry_sector == params.industry
+                    )
+                ),
+                func.lower(Product.category) == params.industry.lower()
+            )
+        )
+
+    # Apply manufacturer filter (case-insensitive partial match)
+    if params.manufacturer is not None:
+        manufacturer_pattern = f"%{params.manufacturer}%"
+        base_query = base_query.filter(
+            func.lower(Product.manufacturer).like(func.lower(manufacturer_pattern))
+        )
+
+    # Apply country filter
+    if params.country_of_origin is not None:
+        base_query = base_query.filter(Product.country_of_origin == params.country_of_origin)
+
+    # Apply is_finished_product filter
+    if params.is_finished_product is not None:
+        base_query = base_query.filter(Product.is_finished_product == params.is_finished_product)
+
+    # Apply has_bom filter
+    has_bom_subquery = exists(
+        select(BillOfMaterials.id).where(
+            BillOfMaterials.parent_product_id == Product.id
+        )
+    )
+    if params.has_bom is True:
+        base_query = base_query.filter(has_bom_subquery)
+    elif params.has_bom is False:
+        base_query = base_query.filter(not_(has_bom_subquery))
+
+    # Order by name
+    base_query = base_query.order_by(Product.name)
+
+    return base_query
+
+
+def _apply_relevance_scoring(
+    products: List[Product],
+    query: Optional[str]
+) -> List[Tuple[Product, Optional[float]]]:
+    """
+    Apply relevance scoring to search results.
+
+    TASK-BE-P8-004: Extracted from search_products to reduce cyclomatic complexity.
+    CC < 5 achieved by separating scoring logic from main flow.
+
+    Args:
+        products: List of Product objects from query
+        query: Search query string (None if no query)
+
+    Returns:
+        List of (Product, relevance_score) tuples
+    """
+    if not query:
+        return [(p, None) for p in products]
+
+    query_lower = query.lower()
+    scored_products = []
+
+    for p in products:
+        score = 0.0
+
+        # Exact name match highest
+        if p.name and query_lower in p.name.lower():
+            score += 0.5
+            if p.name.lower().startswith(query_lower):
+                score += 0.3
+
+        # Description match
+        if p.description and query_lower in p.description.lower():
+            score += 0.1
+
+        # Code match
+        if p.code and query_lower in p.code.lower():
+            score += 0.1
+
+        relevance_score = min(score, 1.0)
+        scored_products.append((p, relevance_score))
+
+    return scored_products
+
+
+def _format_search_results(
+    scored_products: List[Tuple[Product, Optional[float]]],
+    total: int,
+    params: ValidatedParams
+) -> Dict[str, Any]:
+    """
+    Format search results into response dict (cacheable).
+
+    TASK-BE-P8-003: Changed return type from ProductSearchResponse to dict
+    to support caching (JSON serializable).
+
+    Args:
+        scored_products: List of (Product, relevance_score) tuples
+        total: Total count of matching products
+        params: Validated parameters (for pagination info)
+
+    Returns:
+        Dict with formatted items for caching
+    """
+    items = []
+    for p, relevance_score in scored_products:
+        # Build category info if product has category
+        category_info = None
+        if p.product_category:
+            category_info = {
+                "id": p.product_category.id,
+                "code": p.product_category.code,
+                "name": p.product_category.name,
+                "industry_sector": p.product_category.industry_sector
+            }
+        elif p.category:
+            # Fallback: create category info from string field
+            category_info = {
+                "id": "",
+                "code": p.category,
+                "name": p.category.replace("_", " ").title(),
+                "industry_sector": p.category
+            }
+
+        items.append({
+            "id": p.id,
+            "code": p.code,
+            "name": p.name,
+            "description": p.description,
+            "unit": p.unit,
+            "category": category_info,
+            "manufacturer": p.manufacturer,
+            "country_of_origin": p.country_of_origin,
+            "is_finished_product": p.is_finished_product,
+            "relevance_score": relevance_score,
+            "created_at": p.created_at.isoformat() if p.created_at else ""
+        })
+
+    has_more = (params.offset + len(items)) < total
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": params.limit,
+        "offset": params.offset,
+        "has_more": has_more
+    }
+
+
+# ============================================================================
 # Search Endpoint
+# TASK-BE-P8-003: Added Redis caching
+# TASK-BE-P8-004: Refactored to use helper functions for reduced complexity
 # ============================================================================
 
 @router.get(
@@ -300,6 +662,13 @@ def search_products(
     """
     Search products with full-text search and multi-criteria filtering.
 
+    TASK-BE-P8-003: Added Redis caching with 60-second TTL.
+    TASK-BE-P8-004: Refactored to use helper functions:
+    - _validate_search_params: Validate and normalize parameters
+    - _build_search_query: Build SQLAlchemy query with filters
+    - _apply_relevance_scoring: Calculate relevance scores
+    - _format_search_results: Format response
+
     Query Parameters:
     - query: Full-text search in name, description, and code (min 2 chars)
     - category_id: Filter by category UUID
@@ -307,7 +676,7 @@ def search_products(
     - manufacturer: Filter by manufacturer name (partial, case-insensitive)
     - country_of_origin: Filter by ISO alpha-2 country code
     - is_finished_product: Filter by finished product status
-    - has_bom: Filter for products with BOM entries (true=only with BOM, false=only without BOM)
+    - has_bom: Filter for products with BOM entries
     - limit: Maximum results (default 50, max 100)
     - offset: Results to skip (default 0)
 
@@ -317,178 +686,67 @@ def search_products(
     - limit/offset: Applied pagination
     - has_more: Whether more results exist
     """
-    # Validate query length
-    if query is not None:
-        if query == "":
-            query = None  # Treat empty string as no query
-        elif len(query) < 2:
-            return create_error_response(
-                status_code=400,
-                code="VALIDATION_ERROR",
-                message="Invalid request parameters",
-                details=[{"field": "query", "message": "Query must be at least 2 characters"}]
-            )
-        elif len(query) > 200:
-            return create_error_response(
-                status_code=400,
-                code="VALIDATION_ERROR",
-                message="Invalid request parameters",
-                details=[{"field": "query", "message": "Query must not exceed 200 characters"}]
-            )
-
-    # Validate country code format
-    if country_of_origin is not None:
-        if not re.match(r"^[A-Z]{2}$", country_of_origin):
-            return create_error_response(
-                status_code=400,
-                code="VALIDATION_ERROR",
-                message="Invalid request parameters",
-                details=[{"field": "country_of_origin", "message": "Must be ISO 3166-1 alpha-2 format (2 uppercase letters)"}]
-            )
-
-    # Validate industry
-    valid_industries = [e.value for e in IndustrySector]
-    if industry is not None and industry not in valid_industries:
-        return create_error_response(
-            status_code=400,
-            code="VALIDATION_ERROR",
-            message="Invalid request parameters",
-            details=[{"field": "industry", "message": f"Must be one of: {', '.join(valid_industries)}"}]
-        )
-
-    # Validate category_id exists
-    if category_id is not None:
-        category = db.query(ProductCategory).filter(ProductCategory.id == category_id).first()
-        if category is None:
-            return create_error_response(
-                status_code=422,
-                code="INVALID_CATEGORY",
-                message="Category not found",
-                details=[{"field": "category_id", "message": f"No category exists with ID {category_id}"}]
-            )
-
-    # Build base query with eager loading for category
-    base_query = db.query(Product).options(
-        joinedload(Product.product_category)
-    )
-
-    # Apply full-text search (using LIKE for SQLite compatibility)
-    if query:
-        query_lower = f"%{query.lower()}%"
-        base_query = base_query.filter(
-            or_(
-                func.lower(Product.name).like(query_lower),
-                func.lower(Product.description).like(query_lower),
-                func.lower(Product.code).like(query_lower),
-                func.lower(Product.search_vector).like(query_lower)
-            )
-        )
-
-    # Apply category filter
-    if category_id is not None:
-        base_query = base_query.filter(Product.category_id == category_id)
-
-    # Apply industry filter (via category relationship)
-    if industry is not None:
-        base_query = base_query.join(
-            ProductCategory,
-            Product.category_id == ProductCategory.id
-        ).filter(ProductCategory.industry_sector == industry)
-
-    # Apply manufacturer filter (case-insensitive partial match)
-    if manufacturer is not None:
-        manufacturer_pattern = f"%{manufacturer}%"
-        base_query = base_query.filter(
-            func.lower(Product.manufacturer).like(func.lower(manufacturer_pattern))
-        )
-
-    # Apply country filter
-    if country_of_origin is not None:
-        base_query = base_query.filter(Product.country_of_origin == country_of_origin)
-
-    # Apply is_finished_product filter
-    if is_finished_product is not None:
-        base_query = base_query.filter(Product.is_finished_product == is_finished_product)
-
-    # Apply has_bom filter (TASK-FE-P8-001)
-    # Subquery to find products that are parents in bill_of_materials
-    has_bom_subquery = exists(
-        select(BillOfMaterials.id).where(
-            BillOfMaterials.parent_product_id == Product.id
-        )
-    )
-    if has_bom is True:
-        # Only products that ARE a parent in bill_of_materials
-        base_query = base_query.filter(has_bom_subquery)
-    elif has_bom is False:
-        # Only products that are NOT a parent in bill_of_materials
-        base_query = base_query.filter(not_(has_bom_subquery))
-
-    # Get total count before pagination
-    total = base_query.count()
-
-    # Order by name (or relevance if query provided)
-    # For SQLite, we use name ordering. In PostgreSQL, you'd use ts_rank
-    base_query = base_query.order_by(Product.name)
-
-    # Apply pagination
-    products = base_query.offset(offset).limit(limit).all()
-
-    # Convert to response format
-    items = []
-    for p in products:
-        # Calculate simple relevance score for SQLite
-        # In PostgreSQL, this would use ts_rank
-        relevance_score = None
-        if query:
-            query_lower = query.lower()
-            score = 0.0
-            # Exact name match highest
-            if p.name and query_lower in p.name.lower():
-                score += 0.5
-                if p.name.lower().startswith(query_lower):
-                    score += 0.3
-            # Description match
-            if p.description and query_lower in p.description.lower():
-                score += 0.1
-            # Code match
-            if p.code and query_lower in p.code.lower():
-                score += 0.1
-            relevance_score = min(score, 1.0)
-
-        # Build category info if product has category
-        category_info = None
-        if p.product_category:
-            category_info = CategoryInfo(
-                id=p.product_category.id,
-                code=p.product_category.code,
-                name=p.product_category.name,
-                industry_sector=p.product_category.industry_sector
-            )
-
-        items.append(ProductSearchItem(
-            id=p.id,
-            code=p.code,
-            name=p.name,
-            description=p.description,
-            unit=p.unit,
-            category=category_info,
-            manufacturer=p.manufacturer,
-            country_of_origin=p.country_of_origin,
-            is_finished_product=p.is_finished_product,
-            relevance_score=relevance_score,
-            created_at=p.created_at.isoformat() if p.created_at else ""
-        ))
-
-    has_more = (offset + len(items)) < total
-
-    return ProductSearchResponse(
-        items=items,
-        total=total,
+    # Step 1: Validate parameters (must be done before caching)
+    validated = _validate_search_params(
+        query=query,
+        category_id=category_id,
+        industry=industry,
+        manufacturer=manufacturer,
+        country_of_origin=country_of_origin,
+        is_finished_product=is_finished_product,
+        has_bom=has_bom,
         limit=limit,
         offset=offset,
-        has_more=has_more
+        db=db
     )
+
+    # Return error response if validation failed
+    if validated.error:
+        return create_error_response(
+            status_code=validated.error["status_code"],
+            code=validated.error["code"],
+            message=validated.error["message"],
+            details=validated.error["details"]
+        )
+
+    # Step 2: Check cache (TASK-BE-P8-003)
+    cache_key = get_product_search_cache_key(
+        query=validated.query,
+        category_id=validated.category_id,
+        industry=validated.industry,
+        manufacturer=validated.manufacturer,
+        country_of_origin=validated.country_of_origin,
+        is_finished_product=validated.is_finished_product,
+        has_bom=validated.has_bom,
+        limit=validated.limit,
+        offset=validated.offset
+    )
+
+    cached_response = get_cached_response_sync(cache_key)
+    if cached_response is not None:
+        logger.debug(f"Cache hit for product search: {cache_key}")
+        return ProductSearchResponse(**cached_response)
+
+    # Step 3: Build query with filters (cache miss)
+    logger.debug(f"Cache miss for product search: {cache_key}")
+    db_query = _build_search_query(db, validated)
+
+    # Step 4: Get total count before pagination
+    total = db_query.count()
+
+    # Step 5: Apply pagination and execute
+    products = db_query.offset(validated.offset).limit(validated.limit).all()
+
+    # Step 6: Apply relevance scoring
+    scored = _apply_relevance_scoring(products, validated.query)
+
+    # Step 7: Format response
+    response_dict = _format_search_results(scored, total, validated)
+
+    # Step 8: Cache the response (TASK-BE-P8-003)
+    cache_response_sync(cache_key, response_dict, PRODUCT_SEARCH_TTL)
+
+    return ProductSearchResponse(**response_dict)
 
 
 # ============================================================================
@@ -614,7 +872,8 @@ def get_product_categories(
 
 
 # ============================================================================
-# Existing API Endpoints
+# Product List Endpoint
+# TASK-BE-P8-003: Added Redis caching with 300-second TTL
 # ============================================================================
 
 @router.get(
@@ -633,6 +892,8 @@ def list_products(
     """
     List all products with pagination and optional filtering.
 
+    TASK-BE-P8-003: Added Redis caching with 5-minute TTL.
+
     Query Parameters:
     - limit: Maximum number of products to return (1-1000, default: 100)
     - offset: Number of products to skip (default: 0)
@@ -644,6 +905,17 @@ def list_products(
     - limit: Applied limit
     - offset: Applied offset
     """
+    # Step 1: Check cache (TASK-BE-P8-003)
+    cache_key = get_product_list_cache_key(limit, offset, is_finished)
+
+    cached_response = get_cached_response_sync(cache_key)
+    if cached_response is not None:
+        logger.debug(f"Cache hit for product list: {cache_key}")
+        return ProductListResponse(**cached_response)
+
+    # Step 2: Cache miss - fetch from database
+    logger.debug(f"Cache miss for product list: {cache_key}")
+
     # Build query
     query = db.query(Product)
 
@@ -657,27 +929,36 @@ def list_products(
     # Apply pagination
     products = query.offset(offset).limit(limit).all()
 
-    # Convert products to response format
+    # Convert products to response format (dict for caching)
     items = [
-        ProductListItemResponse(
-            id=p.id,
-            code=p.code,
-            name=p.name,
-            unit=p.unit,
-            category=p.category,
-            is_finished_product=p.is_finished_product,
-            created_at=p.created_at.isoformat() if p.created_at else ""
-        )
+        {
+            "id": p.id,
+            "code": p.code,
+            "name": p.name,
+            "unit": p.unit,
+            "category": p.category,
+            "is_finished_product": p.is_finished_product,
+            "created_at": p.created_at.isoformat() if p.created_at else ""
+        }
         for p in products
     ]
 
-    return ProductListResponse(
-        items=items,
-        total=total,
-        limit=limit,
-        offset=offset
-    )
+    response_dict = {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
 
+    # Step 3: Cache the response (TASK-BE-P8-003)
+    cache_response_sync(cache_key, response_dict, PRODUCT_LIST_TTL)
+
+    return ProductListResponse(**response_dict)
+
+
+# ============================================================================
+# Product Detail Endpoint
+# ============================================================================
 
 @router.get(
     "/products/{product_id}",
