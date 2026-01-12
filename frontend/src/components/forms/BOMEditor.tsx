@@ -11,17 +11,20 @@
  * - Keyboard navigation and accessibility
  * - Loading state display while BOM is being fetched (TASK-FE-019)
  * - Responsive view switching: card view on mobile, table on desktop (TASK-FE-P7-010)
+ * - List virtualization for large BOM lists (20+ items) (TASK-FE-P8-007)
  *
  * Uses:
  * - React Hook Form with useFieldArray
  * - Zod validation schema
  * - shadcn/ui components (Table, Input, Select, Button, Tooltip)
  * - useBreakpoints hook for responsive behavior
+ * - @tanstack/react-virtual for list virtualization
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useForm, useFieldArray, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
@@ -41,6 +44,18 @@ import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { generateId } from '@/lib/utils';
 import { classifyComponent } from '@/utils/classifyComponent';
 import type { BOMItem } from '@/types/store.types';
+
+/**
+ * Configuration for virtualization
+ * VIRTUALIZATION_THRESHOLD: Number of items above which virtualization kicks in
+ * ROW_HEIGHT: Estimated height of each row in pixels
+ * OVERSCAN: Number of extra rows to render above/below viewport for smooth scrolling
+ * CONTAINER_HEIGHT: Fixed height for the virtualized scroll container
+ */
+const VIRTUALIZATION_THRESHOLD = 20;
+const ROW_HEIGHT = 64;
+const OVERSCAN = 5;
+const CONTAINER_HEIGHT = 400;
 
 /**
  * Default values for new BOM item
@@ -91,6 +106,9 @@ export default function BOMEditor() {
   const { markStepComplete, markStepIncomplete } = useWizardStore();
   const { isMobile } = useBreakpoints();
 
+  // Ref for the virtualized scroll container
+  const parentRef = useRef<HTMLDivElement>(null);
+
   // Track the last bomItems JSON to detect external vs local changes
   // This prevents circular updates: form -> store -> form.reset
   const lastBomItemsRef = useRef<string>('');
@@ -121,6 +139,17 @@ export default function BOMEditor() {
   });
 
   const { formState: { isValid, errors } } = form;
+
+  // Determine if virtualization should be used based on item count
+  const useVirtualization = fields.length >= VIRTUALIZATION_THRESHOLD;
+
+  // Initialize virtualizer for large lists
+  const rowVirtualizer = useVirtualizer({
+    count: fields.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: OVERSCAN,
+  });
 
   // Reset form when BOM items change EXTERNALLY (e.g., after product selection loads BOM)
   // Skip reset if the change came from our own form (prevents circular updates)
@@ -263,6 +292,117 @@ export default function BOMEditor() {
     };
   });
 
+  /**
+   * Render the table header (shared between virtualized and non-virtualized views)
+   */
+  const renderTableHeader = () => (
+    <TableHeader>
+      <TableRow>
+        <TableHead className="min-w-[200px]">Component Name</TableHead>
+        <TableHead className="min-w-[100px]">Quantity</TableHead>
+        <TableHead className="min-w-[80px]">Unit</TableHead>
+        <TableHead className="min-w-[120px]">Category</TableHead>
+        <TableHead className="min-w-[250px]">Emission Factor</TableHead>
+        <TableHead className="min-w-[80px]">Source</TableHead>
+        <TableHead className="min-w-[60px] text-right">Actions</TableHead>
+      </TableRow>
+    </TableHeader>
+  );
+
+  /**
+   * Render non-virtualized table body (for small lists)
+   */
+  const renderNonVirtualizedTable = () => (
+    <div className="border rounded-lg overflow-hidden" data-tour="bom-table">
+      <div className="overflow-x-auto">
+        <Table>
+          {renderTableHeader()}
+          <TableBody>
+            {fields.map((field, index) => (
+              <BOMTableRow
+                key={field.fieldId}
+                field={field}
+                index={index}
+                form={form}
+                onRemove={() => handleRemoveComponent(index)}
+                canRemove={fields.length > 1}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+
+  /**
+   * Render virtualized table body (for large lists - TASK-FE-P8-007)
+   * Uses @tanstack/react-virtual for efficient rendering of only visible rows
+   *
+   * Note: We use a standard Table for the header and a separate scrollable
+   * container for the virtualized body to ensure proper header alignment.
+   */
+  const renderVirtualizedTable = () => {
+    const virtualItems = rowVirtualizer.getVirtualItems();
+
+    return (
+      <div className="border rounded-lg overflow-hidden" data-tour="bom-table">
+        <div className="overflow-x-auto">
+          {/* Fixed header table */}
+          <Table>
+            {renderTableHeader()}
+          </Table>
+
+          {/* Virtualized scroll container */}
+          <div
+            ref={parentRef}
+            data-testid="bom-virtual-scroll-container"
+            className="overflow-y-auto"
+            style={{ height: `${CONTAINER_HEIGHT}px` }}
+          >
+            {/* Inner container that sets the total scrollable height */}
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {/* Render only visible rows using absolute positioning */}
+              {virtualItems.map((virtualRow) => {
+                const field = fields[virtualRow.index];
+                return (
+                  <div
+                    key={field.fieldId}
+                    data-testid="bom-virtual-row"
+                    className="absolute w-full"
+                    style={{
+                      top: 0,
+                      left: 0,
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <Table>
+                      <TableBody>
+                        <BOMTableRow
+                          field={field}
+                          index={virtualRow.index}
+                          form={form}
+                          onRemove={() => handleRemoveComponent(virtualRow.index)}
+                          canRemove={fields.length > 1}
+                        />
+                      </TableBody>
+                    </Table>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Form {...form}>
       <form className="space-y-6">
@@ -277,36 +417,8 @@ export default function BOMEditor() {
             className="mt-4"
           />
         ) : (
-          /* Desktop Table View */
-          <div className="border rounded-lg overflow-hidden" data-tour="bom-table">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[200px]">Component Name</TableHead>
-                    <TableHead className="min-w-[100px]">Quantity</TableHead>
-                    <TableHead className="min-w-[80px]">Unit</TableHead>
-                    <TableHead className="min-w-[120px]">Category</TableHead>
-                    <TableHead className="min-w-[250px]">Emission Factor</TableHead>
-                    <TableHead className="min-w-[80px]">Source</TableHead>
-                    <TableHead className="min-w-[60px] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fields.map((field, index) => (
-                    <BOMTableRow
-                      key={field.fieldId}
-                      field={field}
-                      index={index}
-                      form={form}
-                      onRemove={() => handleRemoveComponent(index)}
-                      canRemove={fields.length > 1}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+          /* Desktop Table View - Use virtualization for large lists */
+          useVirtualization ? renderVirtualizedTable() : renderNonVirtualizedTable()
         )}
 
         {/* Array-level validation errors (e.g., duplicate names) */}
