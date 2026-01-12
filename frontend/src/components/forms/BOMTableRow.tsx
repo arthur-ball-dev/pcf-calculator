@@ -21,11 +21,12 @@
  *
  * TASK-FE-P7-026: Eliminated TypeScript any usages - field is now properly typed
  * TASK-FE-P8-005: Added React.memo wrapper to prevent unnecessary re-renders
+ * TASK-FE-P8-006: Extracted inline handlers to useCallback for stable references
  * TASK-FE-P8-007: Added isVirtualized prop for virtualized list rendering
  */
 
-import React from 'react';
-import type { UseFormReturn, FieldArrayWithId } from 'react-hook-form';
+import React, { useCallback } from 'react';
+import type { UseFormReturn, FieldArrayWithId, ControllerRenderProps } from 'react-hook-form';
 import { Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -110,8 +111,11 @@ interface BOMTableRowProps {
  * Note: The form object from React Hook Form maintains stable reference identity,
  * so passing it as a prop doesn't cause unnecessary re-renders.
  * The index and canRemove props are primitives and also don't cause issues.
- * The onRemove callback should ideally be memoized in the parent component
- * (see TASK-FE-P8-006 for useCallback optimization).
+ * The onRemove callback should ideally be memoized in the parent component.
+ *
+ * TASK-FE-P8-006: All inline handlers are now extracted to useCallback hooks
+ * with proper dependency arrays [form, index] to prevent stale closures
+ * and maintain stable function references for React.memo optimization.
  *
  * When isVirtualized is true, the component renders only the cell contents
  * (without the <tr> wrapper) since the parent handles the row element positioning.
@@ -128,6 +132,107 @@ const BOMTableRow = React.memo(function BOMTableRow({
   // Show all emission factors - no category filtering
   // This ensures pre-selected emission factors always appear in the dropdown
   const filteredFactors = emissionFactors || [];
+
+  /**
+   * Handle name field changes with auto-classification and validation
+   * TASK-FE-P8-006: Extracted from inline handler to useCallback
+   */
+  const handleNameChange = useCallback(
+    (
+      e: React.ChangeEvent<HTMLInputElement>,
+      fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.name`>['onChange']
+    ) => {
+      fieldOnChange(e);
+      // Auto-classify the category based on component name
+      const newName = e.target.value;
+      if (newName) {
+        const classifiedCategory = classifyComponent(newName);
+        // Map 'materials' to 'material' for form value
+        const formCategory = classifiedCategory === 'materials' ? 'material' : classifiedCategory;
+        form.setValue(`items.${index}.category`, formCategory);
+      }
+      // Trigger validation for this field AND array-level validation
+      // Array-level validation includes duplicate name checking
+      // Use queueMicrotask to ensure field value is set before validation
+      queueMicrotask(() => {
+        form.trigger(`items.${index}.name`).then(() => {
+          // Also trigger items array validation for duplicate check
+          form.trigger('items');
+        });
+      });
+    },
+    [form, index]
+  );
+
+  /**
+   * Handle quantity field changes with validation
+   * TASK-FE-P8-006: Extracted from inline handler to useCallback
+   */
+  const handleQuantityChange = useCallback(
+    (
+      e: React.ChangeEvent<HTMLInputElement>,
+      fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.quantity`>['onChange']
+    ) => {
+      // Use valueAsNumber for proper HTML5 number input handling
+      // Allow NaN to pass through - this preserves "-" while typing
+      // Zod validation will catch invalid values
+      // Totals calculation handles NaN gracefully with || 0
+      const value = e.target.valueAsNumber;
+      fieldOnChange(value);
+      // Manually trigger validation for array fields
+      // This is required because mode: 'onChange' doesn't always
+      // trigger validation for nested array fields automatically
+      // Use queueMicrotask to ensure field value is set before validation
+      queueMicrotask(() => {
+        form.trigger(`items.${index}.quantity`);
+      });
+    },
+    [form, index]
+  );
+
+  /**
+   * Handle category changes and reset emission factor
+   * TASK-FE-P8-006: Extracted from inline handler to useCallback
+   */
+  const handleCategoryChange = useCallback(
+    (
+      value: string,
+      fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.category`>['onChange']
+    ) => {
+      fieldOnChange(value);
+      // Reset emission factor when category changes
+      form.setValue(`items.${index}.emissionFactorId`, null);
+    },
+    [form, index]
+  );
+
+  /**
+   * Handle emission factor selection changes
+   * TASK-FE-P8-006: Extracted from inline handler to useCallback
+   */
+  const handleEmissionFactorChange = useCallback(
+    (
+      value: string,
+      fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.emissionFactorId`>['onChange']
+    ) => {
+      // Store as string (UUID) or null for empty selection
+      fieldOnChange(value || null);
+    },
+    []
+  );
+
+  /**
+   * Handle delete confirmation action
+   * TASK-FE-P8-006: Extracted from inline handler to useCallback
+   */
+  const handleDeleteConfirm = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      // Delay removal to allow dialog to close first
+      setTimeout(() => onRemove(), 0);
+    },
+    [onRemove]
+  );
 
   /**
    * Render the cell contents (shared between virtualized and non-virtualized rendering)
@@ -148,26 +253,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   placeholder="e.g., Cotton, Electricity"
                   className="min-w-[200px]"
                   aria-label="Component name"
-                  onChange={(e) => {
-                    field.onChange(e);
-                    // Auto-classify the category based on component name
-                    const newName = e.target.value;
-                    if (newName) {
-                      const classifiedCategory = classifyComponent(newName);
-                      // Map 'materials' to 'material' for form value
-                      const formCategory = classifiedCategory === 'materials' ? 'material' : classifiedCategory;
-                      form.setValue(`items.${index}.category`, formCategory);
-                    }
-                    // Trigger validation for this field AND array-level validation
-                    // Array-level validation includes duplicate name checking
-                    // Use queueMicrotask to ensure field value is set before validation
-                    queueMicrotask(() => {
-                      form.trigger(`items.${index}.name`).then(() => {
-                        // Also trigger items array validation for duplicate check
-                        form.trigger('items');
-                      });
-                    });
-                  }}
+                  onChange={(e) => handleNameChange(e, field.onChange)}
                 />
               </FormControl>
               <FormMessage />
@@ -190,21 +276,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   data-testid="bom-item-quantity"
                   step="0.01"
                   min="0"
-                  onChange={(e) => {
-                    // Use valueAsNumber for proper HTML5 number input handling
-                    // Allow NaN to pass through - this preserves "-" while typing
-                    // Zod validation will catch invalid values
-                    // Totals calculation handles NaN gracefully with || 0
-                    const value = e.target.valueAsNumber;
-                    field.onChange(value);
-                    // Manually trigger validation for array fields
-                    // This is required because mode: 'onChange' doesn't always
-                    // trigger validation for nested array fields automatically
-                    // Use queueMicrotask to ensure field value is set before validation
-                    queueMicrotask(() => {
-                      form.trigger(`items.${index}.quantity`);
-                    });
-                  }}
+                  onChange={(e) => handleQuantityChange(e, field.onChange)}
                   onBlur={field.onBlur}
                   className="w-28"
                   aria-label="Quantity"
@@ -251,11 +323,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
           render={({ field }) => (
             <FormItem>
               <Select
-                onValueChange={(value) => {
-                  field.onChange(value);
-                  // Reset emission factor when category changes
-                  form.setValue(`items.${index}.emissionFactorId`, null);
-                }}
+                onValueChange={(value) => handleCategoryChange(value, field.onChange)}
                 value={field.value}
               >
                 <FormControl>
@@ -290,10 +358,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
             return (
               <FormItem>
                 <Select
-                  onValueChange={(value) => {
-                    // Store as string (UUID) or null for empty selection
-                    field.onChange(value || null);
-                  }}
+                  onValueChange={(value) => handleEmissionFactorChange(value, field.onChange)}
                   value={selectValue}
                   disabled={isLoadingFactors || filteredFactors.length === 0}
                 >
@@ -359,11 +424,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={(e) => {
-                    e.preventDefault();
-                    // Delay removal to allow dialog to close first
-                    setTimeout(() => onRemove(), 0);
-                  }}
+                  onClick={handleDeleteConfirm}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   Delete
