@@ -1,0 +1,451 @@
+#!/usr/bin/env python3
+"""
+Data Migration Script: Fix Missing data_source and category Fields
+
+TASK-FIX-P8-001: Fix missing data_source on emission_factors and category on products
+
+This script updates existing database records to populate:
+1. emission_factors.data_source based on data_source_id relationship
+2. products.category based on metadata.industry field
+
+TASK-DATA-COMPLIANCE: Fix emission factor compliance issues:
+3. Remove Ecoinvent factors (no license) after adding EPA/DEFRA replacements
+4. Link unlinked factors (data_source text but NULL data_source_id)
+
+Run from project root:
+    python -m backend.scripts.fix_data_sources
+"""
+
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from sqlalchemy import update, text, delete
+from backend.database.connection import db_context
+from backend.models import EmissionFactor, Product, DataSource
+
+
+def fix_emission_factor_data_sources(session) -> int:
+    """
+    Update emission_factors.data_source based on data_source_id relationship.
+
+    Maps:
+    - EPA data source -> "EPA"
+    - DEFRA data source -> "DEFRA"
+    - Exiobase data source -> "Exiobase"
+    - Calculated Proxy Factors -> "PROXY"
+
+    Returns:
+        Number of records updated
+    """
+    # Get data source mappings
+    data_sources = session.query(DataSource).all()
+
+    source_name_map = {}
+    for ds in data_sources:
+        if "EPA" in ds.name:
+            source_name_map[ds.id] = "EPA"
+        elif "DEFRA" in ds.name:
+            source_name_map[ds.id] = "DEFRA"
+        elif "Exiobase" in ds.name.lower():
+            source_name_map[ds.id] = "Exiobase"
+        elif "Proxy" in ds.name:
+            source_name_map[ds.id] = "PROXY"
+        else:
+            source_name_map[ds.id] = ds.name[:20]  # Fallback to truncated name
+
+    print(f"Found {len(source_name_map)} data source mappings:")
+    for ds_id, name in source_name_map.items():
+        print(f"  {ds_id[:8]}... -> {name}")
+
+    # Update emission factors with empty data_source
+    total_updated = 0
+    for ds_id, source_name in source_name_map.items():
+        result = session.execute(
+            update(EmissionFactor)
+            .where(
+                EmissionFactor.data_source_id == ds_id,
+                EmissionFactor.data_source == ""
+            )
+            .values(data_source=source_name)
+        )
+        count = result.rowcount
+        if count > 0:
+            print(f"  Updated {count} factors to data_source='{source_name}'")
+            total_updated += count
+
+    session.commit()
+    return total_updated
+
+
+def fix_proxy_factor_sources(session) -> int:
+    """
+    Update PROXY factors to show actual underlying data sources.
+
+    TASK-FIX-P8-003: For compliance, PROXY factors must display their
+    underlying data sources (EPA, DEFRA, etc.) in the data_source field.
+    The proxy/derived status should be indicated separately via metadata.
+
+    Parses source_factors from metadata like:
+    'EPA:aluminum;EPA:plastic_abs;DEFRA:electricity_grid'
+    And extracts unique sources: "EPA, DEFRA"
+
+    Returns:
+        Number of records updated
+    """
+    from backend.models import EmissionFactor
+
+    # Get all PROXY factors
+    proxy_factors = session.query(EmissionFactor).filter(
+        EmissionFactor.data_source == "PROXY"
+    ).all()
+
+    print(f"Found {len(proxy_factors)} PROXY factors to update")
+
+    updated_count = 0
+    for ef in proxy_factors:
+        # Get metadata
+        metadata = ef.emission_metadata or {}
+        source_factors_str = metadata.get('source_factors', '')
+
+        if not source_factors_str:
+            print(f"  Warning: {ef.activity_name} has no source_factors metadata")
+            continue
+
+        # Parse source_factors to extract unique sources
+        # Format: 'EPA:aluminum;EPA:plastic_abs;DEFRA:electricity_grid'
+        sources = set()
+        for factor_ref in source_factors_str.split(';'):
+            if ':' in factor_ref:
+                src = factor_ref.split(':')[0].upper()
+                sources.add(src)
+
+        if not sources:
+            print(f"  Warning: {ef.activity_name} could not parse sources from: {source_factors_str}")
+            continue
+
+        # Create new data_source value with sorted, unique sources
+        new_data_source = ', '.join(sorted(sources))
+
+        # Update metadata to mark as derived
+        updated_metadata = dict(metadata)
+        updated_metadata['is_derived'] = True
+        updated_metadata['original_data_source'] = 'PROXY'
+
+        # Update the factor
+        ef.data_source = new_data_source
+        ef.emission_metadata = updated_metadata
+
+        print(f"  {ef.activity_name}: PROXY -> {new_data_source}")
+        updated_count += 1
+
+    session.commit()
+    return updated_count
+
+
+def fix_product_categories(session) -> int:
+    """
+    Update products.category based on metadata.industry field.
+
+    Products generated by ProductGenerator store industry in metadata JSON.
+    This extracts that value and sets the category column.
+
+    Returns:
+        Number of records updated
+    """
+    # SQLite JSON extraction syntax
+    # For SQLite: json_extract(metadata, '$.industry')
+    # For PostgreSQL: metadata->>'industry'
+
+    # First, try to detect the database type
+    from backend.config import settings
+    is_postgres = "postgresql" in settings.database_url
+
+    if is_postgres:
+        json_extract = "metadata->>'industry'"
+    else:
+        json_extract = "json_extract(metadata, '$.industry')"
+
+    # Update products where category is NULL and metadata.industry exists
+    sql = text(f"""
+        UPDATE products
+        SET category = {json_extract}
+        WHERE category IS NULL
+        AND {json_extract} IS NOT NULL
+    """)
+
+    result = session.execute(sql)
+    count = result.rowcount
+    print(f"Updated {count} products with category from metadata.industry")
+
+    session.commit()
+    return count
+
+
+def remove_ecoinvent_factors(session) -> int:
+    """
+    Remove Ecoinvent emission factors after adding EPA/DEFRA replacements.
+
+    TASK-DATA-COMPLIANCE Issue A: No Ecoinvent license - must remove these factors.
+
+    Process:
+    1. First add replacement factors from EPA/DEFRA for packaging materials
+    2. Then delete the Ecoinvent factors using raw SQL to avoid cascade issues
+
+    Returns:
+        Number of Ecoinvent factors removed
+    """
+    from backend.models.base import generate_uuid
+
+    print("Step 1: Add replacement factors for packaging materials...")
+
+    # Get EPA and DEFRA data source IDs
+    epa_ds = session.query(DataSource).filter(
+        DataSource.name.like('%EPA%')
+    ).first()
+
+    defra_ds = session.query(DataSource).filter(
+        DataSource.name.like('%DEFRA%')
+    ).first()
+
+    if not epa_ds or not defra_ds:
+        print("  ERROR: Could not find EPA or DEFRA data sources!")
+        return 0
+
+    print(f"  EPA data source ID: {epa_ds.id[:8]}...")
+    print(f"  DEFRA data source ID: {defra_ds.id[:8]}...")
+
+    # Check if replacement factors already exist
+    existing_cardboard = session.query(EmissionFactor).filter(
+        EmissionFactor.activity_name == 'packaging_cardboard',
+        EmissionFactor.data_source != 'Ecoinvent'
+    ).first()
+
+    existing_plastic = session.query(EmissionFactor).filter(
+        EmissionFactor.activity_name == 'packaging_plastic',
+        EmissionFactor.data_source != 'Ecoinvent'
+    ).first()
+
+    replacements_added = 0
+
+    # Add packaging_cardboard replacement from DEFRA
+    # DEFRA 2024 paper/cardboard factor: ~0.94 kg CO2e/kg
+    if not existing_cardboard:
+        cardboard_factor = EmissionFactor(
+            id=generate_uuid(),
+            activity_name='packaging_cardboard',
+            category='material',
+            co2e_factor=0.94,
+            unit='kg',
+            data_source='DEFRA',
+            data_source_id=defra_ds.id,
+            geography='GLO',
+            reference_year=2024,
+            data_quality_rating=0.85,
+            is_active=True,
+            emission_metadata={
+                'description': 'Cardboard packaging material',
+                'replaced_ecoinvent': True,
+                'defra_category': 'Paper and cardboard'
+            }
+        )
+        session.add(cardboard_factor)
+        replacements_added += 1
+        print(f"  Added DEFRA replacement for packaging_cardboard (0.94 kg CO2e/kg)")
+    else:
+        print(f"  Replacement for packaging_cardboard already exists")
+
+    # Add packaging_plastic replacement from EPA
+    # EPA plastic packaging factor: ~2.4 kg CO2e/kg (using EPA plastics data)
+    if not existing_plastic:
+        plastic_factor = EmissionFactor(
+            id=generate_uuid(),
+            activity_name='packaging_plastic',
+            category='material',
+            co2e_factor=2.4,
+            unit='kg',
+            data_source='EPA',
+            data_source_id=epa_ds.id,
+            geography='US',
+            reference_year=2024,
+            data_quality_rating=0.80,
+            is_active=True,
+            emission_metadata={
+                'description': 'Plastic packaging material (mixed)',
+                'replaced_ecoinvent': True,
+                'epa_category': 'Plastics'
+            }
+        )
+        session.add(plastic_factor)
+        replacements_added += 1
+        print(f"  Added EPA replacement for packaging_plastic (2.4 kg CO2e/kg)")
+    else:
+        print(f"  Replacement for packaging_plastic already exists")
+
+    session.flush()  # Ensure replacements are in DB before deleting
+
+    print()
+    print("Step 2: Remove Ecoinvent factors...")
+
+    # First list what will be deleted
+    ecoinvent_factors = session.execute(
+        text("SELECT id, activity_name FROM emission_factors WHERE data_source = 'Ecoinvent'")
+    ).fetchall()
+
+    for row in ecoinvent_factors:
+        print(f"  Deleting: {row[1]} (Ecoinvent)")
+
+    # Use raw SQL to delete, bypassing ORM cascade which tries to load
+    # the emission_factor_provenance table that doesn't exist
+    result = session.execute(
+        text("DELETE FROM emission_factors WHERE data_source = 'Ecoinvent'")
+    )
+    deleted_count = result.rowcount
+
+    session.commit()
+
+    print(f"  Removed {deleted_count} Ecoinvent factors")
+    print(f"  Added {replacements_added} replacement factors")
+
+    return deleted_count
+
+
+def link_unlinked_factors(session) -> int:
+    """
+    Link emission factors that have data_source text but NULL data_source_id.
+
+    TASK-DATA-COMPLIANCE Issue B: 21 factors have data_source text but
+    NULL data_source_id, preventing proper provenance tracking.
+
+    Maps data_source text to corresponding data_source_id:
+    - 'EPA' -> EPA GHG Emission Factors Hub ID
+    - 'DEFRA' -> DEFRA Conversion Factors ID
+    - 'Exiobase' -> Exiobase ID
+    - 'PROXY' -> Calculated Proxy Factors ID
+
+    Returns:
+        Number of factors linked
+    """
+    print("Mapping data_source text to data_source_id...")
+
+    # Build mapping from data_source name patterns to IDs
+    data_sources = session.query(DataSource).all()
+
+    source_id_map = {}
+    for ds in data_sources:
+        if "EPA" in ds.name:
+            source_id_map['EPA'] = ds.id
+        elif "DEFRA" in ds.name:
+            source_id_map['DEFRA'] = ds.id
+        elif "exiobase" in ds.name.lower():
+            source_id_map['Exiobase'] = ds.id
+            source_id_map['EXIOBASE'] = ds.id
+        elif "Proxy" in ds.name:
+            source_id_map['PROXY'] = ds.id
+
+    print(f"  Source ID mappings:")
+    for name, ds_id in source_id_map.items():
+        print(f"    {name} -> {ds_id[:8]}...")
+
+    # Find all factors with NULL data_source_id but non-empty data_source
+    # Use raw SQL to list them first
+    unlinked_rows = session.execute(
+        text("""
+            SELECT id, activity_name, data_source
+            FROM emission_factors
+            WHERE data_source_id IS NULL
+            AND data_source IS NOT NULL
+            AND data_source != ''
+        """)
+    ).fetchall()
+
+    print(f"  Found {len(unlinked_rows)} unlinked factors")
+
+    linked_count = 0
+    for row in unlinked_rows:
+        ef_id, activity_name, ds_text = row
+        ds_text_upper = ds_text.strip().upper()
+
+        # Handle composite sources like "DEFRA, EPA"
+        # Take first source as primary
+        if ',' in ds_text_upper:
+            primary = ds_text_upper.split(',')[0].strip()
+        else:
+            primary = ds_text_upper
+
+        if primary in source_id_map:
+            # Use raw SQL update to avoid ORM cascade issues
+            session.execute(
+                text("UPDATE emission_factors SET data_source_id = :ds_id WHERE id = :ef_id"),
+                {"ds_id": source_id_map[primary], "ef_id": ef_id}
+            )
+            linked_count += 1
+            print(f"    Linked: {activity_name} ({ds_text}) -> {primary}")
+        else:
+            print(f"    WARNING: Unknown source for {activity_name}: '{ds_text}'")
+
+    session.commit()
+    return linked_count
+
+
+def main():
+    """Main entry point."""
+    print("=" * 60)
+    print("DATA MIGRATION: Fix Missing data_source and category Fields")
+    print("=" * 60)
+    print()
+
+    try:
+        with db_context() as session:
+            # Fix emission factor data_source
+            print("1. Fixing emission_factors.data_source...")
+            ef_count = fix_emission_factor_data_sources(session)
+
+            print()
+
+            # Fix PROXY factors to show actual underlying sources
+            print("2. Fixing PROXY factors to show actual data sources...")
+            proxy_count = fix_proxy_factor_sources(session)
+
+            print()
+
+            # Fix product categories
+            print("3. Fixing products.category...")
+            prod_count = fix_product_categories(session)
+
+            print()
+
+            # NEW: Remove Ecoinvent factors (compliance fix)
+            print("4. Removing Ecoinvent factors (no license - compliance fix)...")
+            ecoinvent_removed = remove_ecoinvent_factors(session)
+
+            print()
+
+            # NEW: Link unlinked factors (compliance fix)
+            print("5. Linking factors with NULL data_source_id...")
+            linked_count = link_unlinked_factors(session)
+
+            print()
+            print("=" * 60)
+            print("MIGRATION COMPLETE")
+            print("=" * 60)
+            print(f"  Emission factors updated: {ef_count}")
+            print(f"  PROXY factors fixed: {proxy_count}")
+            print(f"  Products updated: {prod_count}")
+            print(f"  Ecoinvent factors removed: {ecoinvent_removed}")
+            print(f"  Factors linked to data_source_id: {linked_count}")
+
+            return 0
+
+    except Exception as e:
+        print(f"\nError during migration: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
