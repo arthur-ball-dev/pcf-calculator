@@ -361,10 +361,10 @@ describe('GET /admin/data-sources', () => {
     expect(source).toHaveProperty('created_at');
   });
 
-  it('returns at least 3 data sources (EPA, DEFRA, Exiobase)', async () => {
+  it('returns at least 2 data sources (EPA, DEFRA)', async () => {
     const response = await axios.get(endpoint);
 
-    expect(response.data.data_sources.length).toBeGreaterThanOrEqual(3);
+    expect(response.data.data_sources.length).toBeGreaterThanOrEqual(2);
   });
 
   it('includes last_sync information', async () => {
@@ -721,17 +721,6 @@ describe('Mock Data Quality', () => {
     expect(response.data.total_categories).toBeGreaterThanOrEqual(20);
   });
 
-  it('emission factors cover EPA, DEFRA, and EXIOBASE sources', async () => {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/emission-factors`);
-
-    const sources = new Set(
-      response.data.items.map((f: { data_source: string }) => f.data_source)
-    );
-
-    expect(sources.has('EPA_GHG_HUB')).toBe(true);
-    expect(sources.has('DEFRA_CONVERSION')).toBe(true);
-    expect(sources.has('EXIOBASE')).toBe(true);
-  });
 
   it('products have realistic industry sectors', async () => {
     const response = await axios.get(`${API_BASE_URL}/api/v1/products/search`);

@@ -3,7 +3,7 @@
  * TASK-FE-P8-005: Integrate SourceBadge into BOM Table and Breakdown Table
  *
  * Test Coverage:
- * - Scenario 1: SourceBadge renders when data_source is provided (EPA, DEFRA, EXIOBASE)
+ * - Scenario 1: SourceBadge renders when data_source is provided (EPA, DEFRA)
  * - Scenario 2: SourceBadge links to attribution anchor
  * - Scenario 3: Edge case - handle missing data_source gracefully
  * - SourceBadge colors match source type
@@ -31,7 +31,6 @@ interface BOMItem {
 const mockBomItemsWithDataSource: BOMItem[] = [
   { id: '1', name: 'Steel Sheet', quantity: 100, unit: 'kg', category: 'material', data_source: 'EPA' },
   { id: '2', name: 'Electricity Grid', quantity: 50, unit: 'kWh', category: 'energy', data_source: 'DEFRA' },
-  { id: '3', name: 'Freight Transport', quantity: 200, unit: 'tkm', category: 'transport', data_source: 'EXIOBASE' },
 ];
 
 // Mock BOM items with mixed data_source (some missing)
@@ -84,19 +83,6 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       expect(within(card2).getByText('[DEF]')).toBeInTheDocument();
     });
 
-    it('should render SourceBadge with [EXI] text when data_source is EXIOBASE', () => {
-      render(
-        <BOMCardList
-          items={mockBomItemsWithDataSource}
-          onUpdate={mockUpdate}
-          onRemove={mockRemove}
-        />
-      );
-
-      // SourceBadge for EXIOBASE should display [EXI] text
-      const card3 = screen.getByTestId('bom-card-3');
-      expect(within(card3).getByText('[EXI]')).toBeInTheDocument();
-    });
 
     it('should render SourceBadge as a link to EPA attribution anchor', () => {
       render(
@@ -131,20 +117,6 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       expect(defraLink).toHaveAttribute('href', '#defra-attribution');
     });
 
-    it('should render SourceBadge with correct anchor href for EXIOBASE', () => {
-      render(
-        <BOMCardList
-          items={mockBomItemsWithDataSource}
-          onUpdate={mockUpdate}
-          onRemove={mockRemove}
-        />
-      );
-
-      // EXIOBASE link
-      const card3 = screen.getByTestId('bom-card-3');
-      const exiobaseLink = within(card3).getByText('[EXI]');
-      expect(exiobaseLink).toHaveAttribute('href', '#exiobase-attribution');
-    });
 
     it('should apply green color to EPA SourceBadge', () => {
       render(
@@ -174,19 +146,6 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       expect(defraBadge.className).toMatch(/blue/i);
     });
 
-    it('should apply purple color to EXIOBASE SourceBadge', () => {
-      render(
-        <BOMCardList
-          items={mockBomItemsWithDataSource}
-          onUpdate={mockUpdate}
-          onRemove={mockRemove}
-        />
-      );
-
-      const card3 = screen.getByTestId('bom-card-3');
-      const exiobaseBadge = within(card3).getByText('[EXI]');
-      expect(exiobaseBadge.className).toMatch(/purple/i);
-    });
   });
 
   // ==========================================================================

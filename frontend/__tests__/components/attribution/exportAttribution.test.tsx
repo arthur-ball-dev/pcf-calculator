@@ -32,13 +32,6 @@ const mockDataSources: DataSourceInfo[] = [
     attribution_text:
       'Contains UK Government GHG Conversion Factors (c) Crown copyright, licensed under the Open Government Licence v3.0',
   },
-  {
-    code: 'EXIOBASE',
-    name: 'EXIOBASE 3.8',
-    attribution_required: true,
-    attribution_text:
-      'EXIOBASE 3.8 is licensed under Creative Commons Attribution-ShareAlike 4.0. Citation: Stadler et al. 2018',
-  },
 ];
 
 describe('generateAttributionText', () => {
@@ -62,7 +55,6 @@ describe('generateAttributionText', () => {
       const result = generateAttributionText(mockDataSources);
 
       expect(result).toContain('DEFRA Conversion Factors');
-      expect(result).toContain('EXIOBASE 3.8');
     });
 
     it('includes attribution text for required sources', () => {
@@ -71,7 +63,6 @@ describe('generateAttributionText', () => {
       expect(result).toContain(
         'Contains UK Government GHG Conversion Factors (c) Crown copyright'
       );
-      expect(result).toContain('EXIOBASE 3.8 is licensed under Creative Commons');
     });
 
     it('does not include attribution text for non-required sources', () => {

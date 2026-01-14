@@ -39,7 +39,7 @@ describe('Disclaimer', () => {
       ).toBeInTheDocument();
 
       expect(
-        screen.getByText(/including the U.S. EPA, UK Government \(DEFRA\/DESNZ\), and EXIOBASE/)
+        screen.getByText(/including the U.S. EPA and UK Government \(DEFRA\/DESNZ\)/)
       ).toBeInTheDocument();
     });
 

@@ -36,16 +36,6 @@ const mockDataSources = [
       'Contains UK Government GHG Conversion Factors (c) Crown copyright, licensed under the Open Government Licence v3.0',
     license_url: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/',
   },
-  {
-    code: 'EXIOBASE',
-    name: 'EXIOBASE 3.8',
-    license_type: 'CC_BY_SA_4',
-    factors_used: 2,
-    attribution_required: true,
-    attribution_text:
-      'EXIOBASE 3.8 is licensed under Creative Commons Attribution-ShareAlike 4.0. Citation: Stadler et al. 2018',
-    license_url: 'https://zenodo.org/records/5589597',
-  },
 ];
 
 describe('DataSourceAttribution', () => {
@@ -69,7 +59,6 @@ describe('DataSourceAttribution', () => {
 
       expect(screen.getByText('EPA GHG Emission Factors Hub')).toBeInTheDocument();
       expect(screen.getByText('DEFRA Conversion Factors')).toBeInTheDocument();
-      expect(screen.getByText('EXIOBASE 3.8')).toBeInTheDocument();
     });
 
     it('displays license type for each source', () => {
@@ -77,7 +66,6 @@ describe('DataSourceAttribution', () => {
 
       expect(screen.getByText(/US PUBLIC DOMAIN/)).toBeInTheDocument();
       expect(screen.getByText(/OGL V3/)).toBeInTheDocument();
-      expect(screen.getByText(/CC BY SA 4/)).toBeInTheDocument();
     });
 
     it('displays factors used count when greater than zero', () => {
@@ -85,7 +73,6 @@ describe('DataSourceAttribution', () => {
 
       expect(screen.getByText(/Factors used: 5/)).toBeInTheDocument();
       expect(screen.getByText(/Factors used: 3/)).toBeInTheDocument();
-      expect(screen.getByText(/Factors used: 2/)).toBeInTheDocument();
     });
   });
 
@@ -98,10 +85,6 @@ describe('DataSourceAttribution', () => {
         screen.getByText(/Contains UK Government GHG Conversion Factors/)
       ).toBeInTheDocument();
 
-      // EXIOBASE attribution is required
-      expect(
-        screen.getByText(/EXIOBASE 3.8 is licensed under Creative Commons/)
-      ).toBeInTheDocument();
     });
 
     it('does not show attribution text for sources that do not require it', () => {
@@ -126,7 +109,7 @@ describe('DataSourceAttribution', () => {
       render(<DataSourceAttribution dataSources={mockDataSources} />);
 
       const links = screen.getAllByRole('link', { name: /view license/i });
-      expect(links).toHaveLength(3);
+      expect(links).toHaveLength(2);
     });
 
     it('license links open in new tab', () => {
@@ -172,7 +155,6 @@ describe('DataSourceAttribution', () => {
 
       expect(document.getElementById('epa-attribution')).toBeInTheDocument();
       expect(document.getElementById('defra-attribution')).toBeInTheDocument();
-      expect(document.getElementById('exiobase-attribution')).toBeInTheDocument();
     });
 
     it('uses source code as fallback anchor ID', () => {
@@ -233,11 +215,6 @@ describe('SourceBadge', () => {
       expect(screen.getByText('[DEF]')).toBeInTheDocument();
     });
 
-    it('renders EXIOBASE badge correctly', () => {
-      render(<SourceBadge sourceCode="EXIOBASE" />);
-
-      expect(screen.getByText('[EXI]')).toBeInTheDocument();
-    });
 
     it('renders PROXY badge correctly', () => {
       render(<SourceBadge sourceCode="PROXY" />);
@@ -267,12 +244,6 @@ describe('SourceBadge', () => {
       expect(link).toHaveAttribute('href', '#defra-attribution');
     });
 
-    it('links to correct anchor for EXIOBASE', () => {
-      render(<SourceBadge sourceCode="EXIOBASE" />);
-
-      const link = screen.getByRole('link');
-      expect(link).toHaveAttribute('href', '#exiobase-attribution');
-    });
   });
 
   describe('Styling', () => {

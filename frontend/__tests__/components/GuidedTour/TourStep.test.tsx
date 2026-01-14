@@ -187,7 +187,7 @@ describe('TASK-UI-P5-002: Tour Steps Configuration', () => {
 
     test('mentions emission factor sources', () => {
       // const { container } = render(TOUR_STEPS[3].content);
-      // expect(screen.getByText(/EPA|DEFRA|Exiobase/i)).toBeInTheDocument();
+      // expect(screen.getByText(/EPA|DEFRA/i)).toBeInTheDocument();
 
       // Placeholder assertion - remove when implementing
       expect(true).toBe(true);

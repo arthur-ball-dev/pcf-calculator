@@ -90,30 +90,6 @@ describe('exportAttribution Utility', () => {
       expect(result).not.toContain('EPA emission factors data.');
     });
 
-    it('should include multiple data sources when both require attribution', () => {
-      const sources: DataSourceInfo[] = [
-        {
-          code: 'DEFRA',
-          name: 'UK Government GHG Conversion Factors',
-          attribution_required: true,
-          attribution_text: 'Contains UK Government GHG Conversion Factors.',
-        },
-        {
-          code: 'EXIOBASE',
-          name: 'EXIOBASE Multi-Regional Database',
-          attribution_required: true,
-          attribution_text: 'Uses EXIOBASE environmental data.',
-        },
-      ];
-
-      const result = generateAttributionText(sources);
-
-      // Both sources should be included
-      expect(result).toContain('UK Government GHG Conversion Factors');
-      expect(result).toContain('Contains UK Government GHG Conversion Factors.');
-      expect(result).toContain('EXIOBASE Multi-Regional Database');
-      expect(result).toContain('Uses EXIOBASE environmental data.');
-    });
 
     it('should handle empty sources array with disclaimer only', () => {
       const sources: DataSourceInfo[] = [];
@@ -269,44 +245,6 @@ describe('exportAttribution Utility', () => {
       });
     });
 
-    describe('Scenario 2: Multiple data sources', () => {
-      it('should include DEFRA and EXIOBASE, omit EPA when not required', () => {
-        const sources: DataSourceInfo[] = [
-          {
-            code: 'EPA',
-            name: 'EPA GHG Emission Factors Hub',
-            attribution_required: false,
-            attribution_text: 'EPA emission factors data.',
-          },
-          {
-            code: 'DEFRA',
-            name: 'UK Government GHG Conversion Factors',
-            attribution_required: true,
-            attribution_text: 'UK Government GHG Conversion Factors.',
-          },
-          {
-            code: 'EXIOBASE',
-            name: 'EXIOBASE Database',
-            attribution_required: true,
-            attribution_text: 'EXIOBASE multi-regional environmentally extended database.',
-          },
-        ];
-
-        const result = generateAttributionText(sources);
-
-        // DEFRA included
-        expect(result).toContain('UK Government GHG Conversion Factors');
-        expect(result).toContain('UK Government GHG Conversion Factors.');
-        // EXIOBASE included
-        expect(result).toContain('EXIOBASE Database');
-        expect(result).toContain('EXIOBASE multi-regional');
-        // EPA NOT included (attribution_required: false)
-        expect(result).not.toContain('EPA GHG Emission Factors Hub');
-        expect(result).not.toContain('EPA emission factors data.');
-        // Disclaimer always included
-        expect(result).toContain('DISCLAIMER');
-      });
-    });
 
     describe('Scenario 3: Edge Case - No data sources', () => {
       it('should still work and include disclaimer', () => {

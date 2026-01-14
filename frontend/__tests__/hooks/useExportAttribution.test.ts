@@ -84,12 +84,6 @@ describe('useExport Hook - Attribution Integration', () => {
       attribution_required: true,
       attribution_text: 'Contains UK Government GHG Conversion Factors.',
     },
-    {
-      code: 'EXIOBASE',
-      name: 'EXIOBASE Database',
-      attribution_required: true,
-      attribution_text: 'EXIOBASE multi-regional environmentally extended database.',
-    },
   ];
 
   // Extended results type with data_sources field
@@ -134,7 +128,7 @@ describe('useExport Hook - Attribution Integration', () => {
     ],
     bom_details: [
       { component_name: 'Steel', quantity: 100, unit: 'kg', emission_factor: 2.5, emissions: 250, data_source: 'DEFRA' },
-      { component_name: 'Plastic', quantity: 50, unit: 'kg', emission_factor: 3.2, emissions: 160, data_source: 'EXIOBASE' },
+      { component_name: 'Plastic', quantity: 50, unit: 'kg', emission_factor: 3.2, emissions: 160, data_source: 'DEFRA' },
     ],
     parameters: {
       transport_distance: 500,
@@ -241,7 +235,7 @@ describe('useExport Hook - Attribution Integration', () => {
   // ==========================================================================
 
   describe('Multiple Data Sources - Scenario 2', () => {
-    it('should include DEFRA and EXIOBASE attribution, omit EPA', async () => {
+    it('should include DEFRA attribution, omit EPA', async () => {
       const resultsWithMultipleSources: ExtendedResultsWithSources = {
         ...sampleResultsWithSources,
         data_sources: multipleDataSources,
@@ -257,7 +251,7 @@ describe('useExport Hook - Attribution Integration', () => {
 
       // When implemented:
       // - DEFRA attribution should be included (attribution_required: true)
-      // - EXIOBASE attribution should be included (attribution_required: true)
+      // - DEFRA sources work correctly (attribution_required: true)
       // - EPA should NOT be included (attribution_required: false)
       // - Disclaimer should be included
     });
@@ -418,7 +412,7 @@ describe('useExport Hook - Attribution Integration', () => {
       expect(exportToExcel).toHaveBeenCalled();
 
       // When implemented, the Excel file should have an Attribution sheet
-      // containing DEFRA and EXIOBASE attributions (not EPA)
+      // containing DEFRA attributions (not EPA)
     });
 
     it('should handle Excel export with empty data sources', async () => {
@@ -451,7 +445,7 @@ describe('useExport Hook - Attribution Integration', () => {
         data_sources: undefined, // No explicit data_sources
         bom_details: [
           { component_name: 'Steel', quantity: 100, unit: 'kg', emission_factor: 2.5, emissions: 250, data_source: 'DEFRA' },
-          { component_name: 'Plastic', quantity: 50, unit: 'kg', emission_factor: 3.2, emissions: 160, data_source: 'EXIOBASE' },
+          { component_name: 'Plastic', quantity: 50, unit: 'kg', emission_factor: 3.2, emissions: 160, data_source: 'DEFRA' },
           { component_name: 'Aluminum', quantity: 25, unit: 'kg', emission_factor: 4.0, emissions: 100, data_source: 'DEFRA' },
         ],
       };
@@ -464,7 +458,7 @@ describe('useExport Hook - Attribution Integration', () => {
         await result.current.exportToCSV();
       });
 
-      // When implemented, should detect unique sources (DEFRA, EXIOBASE) from BOM
+      // When implemented, should detect unique sources (DEFRA) from BOM
       // and include their attribution in the export
     });
 

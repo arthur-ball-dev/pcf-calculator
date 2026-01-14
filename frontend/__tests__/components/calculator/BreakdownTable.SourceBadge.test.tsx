@@ -41,7 +41,7 @@ const mockBreakdownWithSource: BreakdownWithSource = {
   cotton: { co2e: 1.5, data_source: 'DEFRA' },
   polyester: { co2e: 0.3, data_source: 'EPA' },
   electricity_us: { co2e: 0.15, data_source: 'EPA' },
-  truck_transport: { co2e: 0.1, data_source: 'EXIOBASE' },
+  truck_transport: { co2e: 0.1, data_source: 'EPA' },
 };
 
 // Mock breakdown data with mixed sources (some missing)
@@ -57,7 +57,7 @@ const mockItemSources: Record<string, string> = {
   cotton: 'DEFRA',
   polyester: 'EPA',
   electricity_us: 'EPA',
-  truck_transport: 'EXIOBASE',
+  truck_transport: 'EPA',
 };
 
 // Standard mock breakdown (numeric values only)
@@ -141,25 +141,6 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
       });
     });
 
-    it('should render SourceBadge with [EXI] text for EXIOBASE source when item expanded', async () => {
-      const user = userEvent.setup();
-      render(
-        <BreakdownTable
-          totalCO2e={mockPropsWithSources.totalCO2e}
-          transportCO2e={mockPropsWithSources.transportCO2e}
-          breakdown={mockPropsWithSources.breakdown}
-          itemSources={mockPropsWithSources.itemSources}
-        />
-      );
-
-      // Expand transport category to see truck_transport item
-      await user.click(screen.getByTestId('expand-transport'));
-
-      await waitFor(() => {
-        const transportRow = screen.getByTestId('item-row-truck_transport');
-        expect(within(transportRow).getByText('[EXI]')).toBeInTheDocument();
-      });
-    });
 
     it('should render SourceBadge as a link to attribution anchor', async () => {
       const user = userEvent.setup();
@@ -260,25 +241,6 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
       });
     });
 
-    it('should apply purple color to EXIOBASE SourceBadge', async () => {
-      const user = userEvent.setup();
-      render(
-        <BreakdownTable
-          totalCO2e={mockPropsWithSources.totalCO2e}
-          transportCO2e={mockPropsWithSources.transportCO2e}
-          breakdown={mockPropsWithSources.breakdown}
-          itemSources={mockPropsWithSources.itemSources}
-        />
-      );
-
-      await user.click(screen.getByTestId('expand-transport'));
-
-      await waitFor(() => {
-        const transportRow = screen.getByTestId('item-row-truck_transport');
-        const exiobaseBadge = within(transportRow).getByText('[EXI]');
-        expect(exiobaseBadge.className).toMatch(/purple/i);
-      });
-    });
   });
 
   // ==========================================================================
@@ -453,25 +415,6 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
       });
     });
 
-    it('should have correct href for EXIOBASE attribution', async () => {
-      const user = userEvent.setup();
-      render(
-        <BreakdownTable
-          totalCO2e={mockPropsWithSources.totalCO2e}
-          transportCO2e={mockPropsWithSources.transportCO2e}
-          breakdown={mockPropsWithSources.breakdown}
-          itemSources={mockPropsWithSources.itemSources}
-        />
-      );
-
-      await user.click(screen.getByTestId('expand-transport'));
-
-      await waitFor(() => {
-        const transportRow = screen.getByTestId('item-row-truck_transport');
-        const exiobaseBadge = within(transportRow).getByText('[EXI]');
-        expect(exiobaseBadge).toHaveAttribute('href', '#exiobase-attribution');
-      });
-    });
   });
 
   // ==========================================================================

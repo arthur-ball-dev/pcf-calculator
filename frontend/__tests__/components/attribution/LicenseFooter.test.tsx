@@ -55,13 +55,6 @@ describe('LicenseFooter', () => {
       expect(link).toHaveAttribute('href', '#defra-attribution');
     });
 
-    it('displays EXIOBASE link', () => {
-      render(<LicenseFooter />);
-
-      const link = screen.getByRole('link', { name: /exiobase/i });
-      expect(link).toBeInTheDocument();
-      expect(link).toHaveAttribute('href', '#exiobase-attribution');
-    });
 
     it('displays Full Attribution link', () => {
       render(<LicenseFooter />);
