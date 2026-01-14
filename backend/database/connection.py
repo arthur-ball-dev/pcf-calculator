@@ -9,17 +9,39 @@ This module handles:
 - Connection pooling (QueuePool for PostgreSQL, StaticPool option for SQLite)
 - Session lifecycle management (sync and async)
 - FastAPI dependency injection for database sessions
+- Pool status monitoring for health checks
+
+TASK-DB-P9-001: Added POOL_CONFIG and get_pool_status for production readiness.
 """
 
 from contextlib import contextmanager, asynccontextmanager
-from typing import Generator, AsyncGenerator
+from typing import Generator, AsyncGenerator, Dict, Any
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.pool import QueuePool, StaticPool, NullPool
+from sqlalchemy.pool import QueuePool, StaticPool, NullPool, AsyncAdaptedQueuePool
 
 from backend.config import settings
+
+
+# =============================================================================
+# Connection Pool Configuration (TASK-DB-P9-001)
+# =============================================================================
+
+# Pool configuration constants for production readiness
+# These settings ensure:
+# - Adequate connections for 50+ concurrent users
+# - Health checks before connection checkout (pool_pre_ping)
+# - Connection recycling to prevent stale connections
+# - Burst handling via max_overflow
+POOL_CONFIG: Dict[str, Any] = {
+    "pool_size": settings.db_pool_size,           # Steady-state connections (default: 10)
+    "max_overflow": settings.db_max_overflow,     # Burst connections (default: 20)
+    "pool_timeout": settings.db_pool_timeout,     # Wait time for connection (default: 30s)
+    "pool_recycle": settings.db_pool_recycle,     # Recycle connections (default: 1800s = 30 min)
+    "pool_pre_ping": True,                        # Health check before use (CRITICAL for production)
+}
 
 
 def _create_engine():
@@ -38,15 +60,30 @@ def _create_engine():
     """
     if settings.is_sqlite:
         # SQLite configuration
-        engine = create_engine(
-            settings.database_url,
-            connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
-            pool_pre_ping=True,  # Verify connections before using
-            poolclass=StaticPool if "memory" in settings.database_url else QueuePool,
-            pool_size=settings.db_pool_size if "memory" not in settings.database_url else 0,
-            max_overflow=settings.db_max_overflow if "memory" not in settings.database_url else 0,
-            echo=settings.debug,  # Log SQL queries in debug mode
-        )
+        is_memory_db = "memory" in settings.database_url
+
+        if is_memory_db:
+            # In-memory SQLite requires StaticPool for connection sharing
+            engine = create_engine(
+                settings.database_url,
+                connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
+                pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
+                poolclass=StaticPool,
+                echo=settings.debug,  # Log SQL queries in debug mode
+            )
+        else:
+            # File-based SQLite can use QueuePool
+            engine = create_engine(
+                settings.database_url,
+                connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
+                pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
+                poolclass=QueuePool,
+                pool_size=POOL_CONFIG["pool_size"],
+                max_overflow=POOL_CONFIG["max_overflow"],
+                pool_timeout=POOL_CONFIG["pool_timeout"],
+                pool_recycle=POOL_CONFIG["pool_recycle"],
+                echo=settings.debug,  # Log SQL queries in debug mode
+            )
 
         # Enable foreign keys for SQLite connections
         @event.listens_for(engine, "connect")
@@ -64,13 +101,15 @@ def _create_engine():
         return engine
 
     elif settings.is_postgresql:
-        # PostgreSQL configuration
+        # PostgreSQL configuration with full pooling support
         engine = create_engine(
             settings.database_url,
             poolclass=QueuePool,
-            pool_size=settings.db_pool_size,
-            max_overflow=settings.db_max_overflow,
-            pool_pre_ping=True,  # Verify connections before using
+            pool_size=POOL_CONFIG["pool_size"],
+            max_overflow=POOL_CONFIG["max_overflow"],
+            pool_timeout=POOL_CONFIG["pool_timeout"],
+            pool_recycle=POOL_CONFIG["pool_recycle"],
+            pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
             echo=settings.debug,  # Log SQL queries in debug mode
         )
         return engine
@@ -105,6 +144,45 @@ def get_engine():
         Engine: SQLAlchemy engine
     """
     return engine
+
+
+def get_pool_status() -> Dict[str, Any]:
+    """
+    Get current connection pool status for monitoring.
+
+    Returns a dictionary with pool metrics useful for health checks
+    and performance monitoring.
+
+    Returns:
+        dict with pool metrics:
+        - pool_size: Configured pool size
+        - checked_in: Available connections in pool
+        - checked_out: Active connections in use
+        - overflow: Current overflow connections (above pool_size)
+        - invalid: Number of invalidated connections (if available)
+
+    TASK-DB-P9-001: Added for production health monitoring.
+    """
+    pool = engine.pool
+
+    # Handle StaticPool (used for in-memory SQLite) which doesn't have size methods
+    if isinstance(pool, StaticPool):
+        return {
+            "pool_size": 1,  # StaticPool maintains a single connection
+            "checked_in": 1,
+            "checked_out": 0,
+            "overflow": 0,
+            "invalid": 0,
+        }
+
+    # QueuePool and similar pools have these methods
+    return {
+        "pool_size": pool.size(),
+        "checked_in": pool.checkedin(),
+        "checked_out": pool.checkedout(),
+        "overflow": pool.overflow(),
+        "invalid": getattr(pool, 'invalidatedcount', lambda: 0)(),
+    }
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -205,6 +283,8 @@ def _create_async_engine():
     Uses the async_database_url from settings which converts:
     - sqlite:/// to sqlite+aiosqlite:///
     - postgresql:// to postgresql+asyncpg://
+
+    TASK-DB-P9-001: Updated to use POOL_CONFIG for consistency.
     """
     async_url = settings.async_database_url
 
@@ -216,9 +296,12 @@ def _create_async_engine():
     elif settings.is_postgresql:
         return create_async_engine(
             async_url,
-            pool_size=settings.db_pool_size,
-            max_overflow=settings.db_max_overflow,
-            pool_pre_ping=True,
+            poolclass=AsyncAdaptedQueuePool,
+            pool_size=POOL_CONFIG["pool_size"],
+            max_overflow=POOL_CONFIG["max_overflow"],
+            pool_timeout=POOL_CONFIG["pool_timeout"],
+            pool_recycle=POOL_CONFIG["pool_recycle"],
+            pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
             echo=settings.debug,
         )
     else:

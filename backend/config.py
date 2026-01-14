@@ -9,6 +9,7 @@ TASK-BE-P7-003: Fixed database path resolution to use absolute path from project
 TASK-BE-P7-018: Added JWT authentication configuration settings.
 TASK-BE-P7-020: Added rate limiting configuration settings.
 TASK-CALC-P7-022: Added emission factor cache TTL configuration.
+TASK-DB-P9-001: Added connection pool timeout and recycle settings.
 """
 
 import os
@@ -136,6 +137,8 @@ class Settings(BaseSettings):
         database_url_pooled: PostgreSQL pooled connection (for PgBouncer)
         db_pool_size: Database connection pool size
         db_max_overflow: Maximum overflow connections
+        db_pool_timeout: Connection pool timeout in seconds
+        db_pool_recycle: Connection recycle time in seconds
         cors_origins: Allowed CORS origins for frontend
         api_v1_prefix: API version 1 prefix
         CELERY_BROKER_URL: Celery broker URL (Redis)
@@ -177,13 +180,22 @@ class Settings(BaseSettings):
     )
 
     # Connection pool settings (primarily for PostgreSQL)
+    # TASK-DB-P9-001: Added pool_timeout and pool_recycle for production readiness
     db_pool_size: int = Field(
-        default=5,
-        description="Database connection pool size"
+        default=10,
+        description="Database connection pool size (steady-state connections)"
     )
     db_max_overflow: int = Field(
-        default=10,
-        description="Maximum overflow connections beyond pool size"
+        default=20,
+        description="Maximum overflow connections beyond pool size (burst handling)"
+    )
+    db_pool_timeout: int = Field(
+        default=30,
+        description="Seconds to wait for available connection from pool"
+    )
+    db_pool_recycle: int = Field(
+        default=1800,
+        description="Seconds before recycling connections (30 min default)"
     )
 
     # Supabase settings (optional)
