@@ -11,11 +11,12 @@ TDD Tests for:
 - Error handling for unknown data sources
 
 Test scenarios from TASK-BE-P7-002_SPEC:
+
+NOTE: Exiobase has been removed from this project due to licensing constraints.
 1. EPA sync trigger
 2. DEFRA sync trigger
-3. Exiobase sync trigger
-4. Unknown connector error handling
-5. Connector registry lookup
+3. Unknown connector error handling
+4. Connector registry lookup
 """
 
 import uuid
@@ -67,21 +68,6 @@ def defra_data_source(db_session: Session) -> DataSource:
     return data_source
 
 
-@pytest.fixture
-def exiobase_data_source(db_session: Session) -> DataSource:
-    """Create Exiobase data source matching seeded data."""
-    data_source = DataSource(
-        id=uuid.uuid4().hex,
-        name="Exiobase",
-        source_type="database",
-        base_url="https://zenodo.org/record/5589597",
-        sync_frequency="monthly",
-        is_active=True,
-    )
-    db_session.add(data_source)
-    db_session.commit()
-    db_session.refresh(data_source)
-    return data_source
 
 
 @pytest.fixture
@@ -139,20 +125,6 @@ class TestConnectorRegistry:
         connector_class = get_connector_class("DEFRA Conversion Factors")
         assert connector_class == DEFRAEmissionFactorsIngestion
 
-    def test_connector_registry_returns_exiobase_class(self):
-        """
-        Test: get_connector_class returns ExiobaseEmissionFactorsIngestion for Exiobase name.
-
-        Input: "Exiobase"
-        Expected: ExiobaseEmissionFactorsIngestion class
-        """
-        from backend.services.data_ingestion.registry import get_connector_class
-        from backend.services.data_ingestion.exiobase_ingestion import (
-            ExiobaseEmissionFactorsIngestion
-        )
-
-        connector_class = get_connector_class("Exiobase")
-        assert connector_class == ExiobaseEmissionFactorsIngestion
 
     def test_connector_registry_raises_for_unknown(self):
         """
@@ -174,7 +146,6 @@ class TestConnectorRegistry:
 
         assert is_connector_available("EPA GHG Emission Factors Hub") is True
         assert is_connector_available("DEFRA Conversion Factors") is True
-        assert is_connector_available("Exiobase") is True
 
     def test_is_connector_available_returns_false_for_unknown(self):
         """
@@ -184,6 +155,8 @@ class TestConnectorRegistry:
 
         assert is_connector_available("Unknown Source") is False
         assert is_connector_available("Custom API") is False
+        # Exiobase has been removed from the project
+        assert is_connector_available("Exiobase") is False
 
 
 # ============================================================================
@@ -296,44 +269,10 @@ class TestDEFRASyncTrigger:
             assert data["data_source"]["name"] == "DEFRA Conversion Factors"
 
 
-# ============================================================================
-# Test 3: Exiobase Sync Trigger
-# ============================================================================
-
-
-class TestExiobaseSyncTrigger:
-    """Tests for Exiobase data source sync trigger."""
-
-    def test_sync_trigger_exiobase_returns_202(
-        self,
-        admin_client,
-        exiobase_data_source: DataSource,
-        db_session: Session
-    ):
-        """
-        Test: POST /admin/data-sources/{exiobase_id}/sync returns 202 Accepted.
-
-        Input:
-            - data_sources table has Exiobase entry
-            - POST /admin/data-sources/{exiobase_id}/sync
-        Expected:
-            - Returns 202 Accepted
-            - ExiobaseEmissionFactorsIngestion connector will be invoked
-        """
-        with patch(
-            'backend.api.routes.admin.data_sources.execute_sync_in_background'
-        ) as mock_execute:
-            mock_execute.return_value = None
-
-            response = admin_client.post(f"/admin/data-sources/{exiobase_data_source.id}/sync")
-
-            assert response.status_code == 202
-            data = response.json()
-            assert data["data_source"]["name"] == "Exiobase"
 
 
 # ============================================================================
-# Test 4: Unknown Connector Error
+# Test 3: Unknown Connector Error
 # ============================================================================
 
 

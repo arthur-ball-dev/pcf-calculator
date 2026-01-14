@@ -1,26 +1,26 @@
 """
-Integration test suite for External Data Connectors (EPA/DEFRA/Exiobase).
+Integration test suite for External Data Connectors (EPA/DEFRA).
 
 TASK-DATA-P8-003: Activate External Data Connectors
 Phase A: Test-Driven Development - Tests First
 
 This test suite validates:
-1. All three connectors (EPA, DEFRA, Exiobase) sync successfully
+1. Both connectors (EPA, DEFRA) sync successfully
 2. Expected emission factor counts by source
 3. Data quality validation (positive factors, valid units)
 4. DataSyncLog entries created correctly
 5. Idempotency - re-running syncs doesn't create duplicates
-6. Exiobase uses v3.8 URL (Zenodo 5589597) for CC-BY-SA 4.0 compliance
 
 Expected Counts (from SPEC):
 - EPA: 75-125 records
 - DEFRA: 200-400 records
-- EXIOBASE: 500-1000 records
-- Total: 775-1525 records
+- Total: 275-525 records
 
 Test-Driven Development Protocol:
 - These tests MUST be committed BEFORE implementation changes
 - Tests define the expected behavior, implementation must make them pass
+
+NOTE: Exiobase has been removed from this project due to licensing constraints.
 """
 
 import pytest
@@ -113,36 +113,14 @@ def defra_data_source(db_session):
     return source
 
 
-@pytest.fixture
-def exiobase_data_source(db_session):
-    """Create Exiobase data source for testing."""
-    from backend.models import DataSource
-
-    source = DataSource(
-        name="Exiobase",
-        source_type="file",
-        # CRITICAL: Must use v3.8 (5589597), NOT v3.9 (14614930)
-        base_url="https://zenodo.org/record/5589597",
-        sync_frequency="monthly",
-        is_active=True,
-        license_type="CC-BY-SA-4.0",
-        requires_attribution=True,
-        allows_commercial_use=True,
-        requires_share_alike=True,
-    )
-    db_session.add(source)
-    db_session.commit()
-    db_session.refresh(source)
-    return source
 
 
 @pytest.fixture
-def all_data_sources(db_session, epa_data_source, defra_data_source, exiobase_data_source):
-    """Create all three data sources."""
+def all_data_sources(db_session, epa_data_source, defra_data_source):
+    """Create all data sources."""
     return {
         "EPA": epa_data_source,
         "DEFRA": defra_data_source,
-        "EXIOBASE": exiobase_data_source,
     }
 
 
@@ -293,109 +271,8 @@ def sample_defra_excel():
     return output.getvalue()
 
 
-@pytest.fixture
-def sample_exiobase_zip():
-    """Create sample Exiobase ZIP with F matrix."""
-    import zipfile
-    import pandas as pd
-
-    # Create F matrix data (simplified)
-    # Columns: Region_Product combinations
-    # Rows: GHG stressors
-    products = [
-        "DE_Electricity",
-        "US_Electricity",
-        "CN_Electricity",
-        "GB_Iron and Steel",
-        "DE_Aluminium",
-        "US_Cement",
-        "JP_Plastics",
-        "FR_Paper",
-        "IT_Textiles",
-        "ES_Chemicals",
-    ]
-
-    stressors = [
-        "CO2 - combustion - air",
-        "CH4 - combustion - air",
-        "N2O - combustion - air",
-    ]
-
-    # Create data with realistic values
-    import random
-    random.seed(42)  # Reproducible
-
-    data = {}
-    for prod in products:
-        data[prod] = [random.uniform(0.1, 10.0) for _ in stressors]
-
-    df = pd.DataFrame(data, index=stressors)
-
-    # Save to TSV
-    tsv_buffer = BytesIO()
-    df.to_csv(tsv_buffer, sep="\t")
-    tsv_buffer.seek(0)
-
-    # Create ZIP file
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("satellite/F.txt", tsv_buffer.getvalue())
-
-    zip_buffer.seek(0)
-    return zip_buffer.getvalue()
 
 
-# =============================================================================
-# Test Class: Exiobase URL Compliance
-# =============================================================================
-
-
-class TestExiobaseURLCompliance:
-    """Test that Exiobase uses v3.8 URL for license compliance."""
-
-    def test_exiobase_url_is_v38_zenodo(self):
-        """
-        CRITICAL: Verify Exiobase connector uses v3.8 URL (Zenodo 5589597).
-
-        v3.8 has CC-BY-SA 4.0 license which allows commercial use.
-        v3.9 has CC-BY-NC-SA which prohibits commercial use.
-
-        This test MUST pass for legal compliance.
-        """
-        from backend.services.data_ingestion.exiobase_ingestion import (
-            ExiobaseEmissionFactorsIngestion
-        )
-
-        # Check the class attribute directly
-        url = ExiobaseEmissionFactorsIngestion.ZENODO_URL
-
-        # Must contain 5589597 (v3.8), NOT 14614930 (v3.9)
-        assert "5589597" in url, (
-            f"Exiobase URL must use v3.8 (Zenodo 5589597), not v3.9. "
-            f"Current URL: {url}"
-        )
-        assert "14614930" not in url, (
-            f"Exiobase URL must NOT use v3.9 (Zenodo 14614930) due to NC license. "
-            f"Current URL: {url}"
-        )
-
-    def test_exiobase_url_not_v39(self):
-        """Ensure v3.9 URL (NC license) is NOT used."""
-        from backend.services.data_ingestion.exiobase_ingestion import (
-            ExiobaseEmissionFactorsIngestion
-        )
-
-        url = ExiobaseEmissionFactorsIngestion.ZENODO_URL
-
-        # v3.9 record ID must not appear
-        forbidden_ids = ["14614930"]  # v3.9 record ID
-
-        for forbidden_id in forbidden_ids:
-            assert forbidden_id not in url, (
-                f"Exiobase URL contains v3.9 record ID {forbidden_id}. "
-                f"This version has Non-Commercial restrictions. "
-                f"Use v3.8 (5589597) instead."
-            )
 
 
 # =============================================================================
@@ -606,75 +483,6 @@ class TestDEFRASync:
             )
 
 
-# =============================================================================
-# Test Class: Exiobase Sync
-# =============================================================================
-
-
-class TestExiobaseSync:
-    """Test Exiobase emission factor synchronization."""
-
-    @pytest.mark.asyncio
-    async def test_exiobase_sync_creates_emission_factors(
-        self, db_session, exiobase_data_source, sample_exiobase_zip
-    ):
-        """Test that Exiobase sync creates emission factors in database."""
-        import respx
-        import httpx
-        from backend.services.data_ingestion.exiobase_ingestion import (
-            ExiobaseEmissionFactorsIngestion
-        )
-        from backend.models import EmissionFactor
-
-        with respx.mock:
-            respx.get(url__regex=r".*zenodo\.org.*").mock(
-                return_value=httpx.Response(200, content=sample_exiobase_zip)
-            )
-
-            mock_session = create_mock_async_session(db_session)
-            ingestion = ExiobaseEmissionFactorsIngestion(
-                db=mock_session,
-                data_source_id=exiobase_data_source.id,
-                sync_type="initial"
-            )
-
-            result = await ingestion.execute_sync()
-
-        assert result.status == "completed"
-        # Exiobase should create factors for multiple regions
-        assert result.records_created >= 5
-
-    @pytest.mark.asyncio
-    async def test_exiobase_factors_have_region_geography(
-        self, db_session, exiobase_data_source, sample_exiobase_zip
-    ):
-        """Test that Exiobase factors have region-specific geography."""
-        import respx
-        import httpx
-        from backend.services.data_ingestion.exiobase_ingestion import (
-            ExiobaseEmissionFactorsIngestion
-        )
-        from backend.models import EmissionFactor
-
-        with respx.mock:
-            respx.get(url__regex=r".*zenodo\.org.*").mock(
-                return_value=httpx.Response(200, content=sample_exiobase_zip)
-            )
-
-            mock_session = create_mock_async_session(db_session)
-            ingestion = ExiobaseEmissionFactorsIngestion(
-                db=mock_session,
-                data_source_id=exiobase_data_source.id
-            )
-            await ingestion.execute_sync()
-
-        factors = db_session.query(EmissionFactor).filter(
-            EmissionFactor.data_source_id == exiobase_data_source.id
-        ).all()
-
-        # Exiobase should have various geographies (DE, US, CN, etc.)
-        geographies = {f.geography for f in factors}
-        assert len(geographies) >= 2, "Exiobase should have multiple geographies"
 
 
 # =============================================================================
@@ -936,35 +744,14 @@ class TestDataQualityValidation:
 class TestDataSourceRegistration:
     """Test data source seed data correctness."""
 
-    def test_seed_data_has_correct_exiobase_url(self):
-        """Test that seed data uses Exiobase v3.8 URL."""
-        from backend.database.seeds.data_sources import SEED_DATA_SOURCES
-
-        exiobase_seed = next(
-            (s for s in SEED_DATA_SOURCES if "Exiobase" in s["name"]),
-            None
-        )
-
-        assert exiobase_seed is not None, "Exiobase not in seed data"
-
-        # Check URL contains v3.8 record ID
-        base_url = exiobase_seed.get("base_url", "")
-        assert "5589597" in base_url, (
-            f"Exiobase seed URL must use v3.8 (5589597). Found: {base_url}"
-        )
-        assert "14614930" not in base_url, (
-            f"Exiobase seed URL must NOT use v3.9 (14614930). Found: {base_url}"
-        )
-
     def test_seed_data_has_all_sources(self):
-        """Test that seed data includes all three sources."""
+        """Test that seed data includes EPA and DEFRA sources."""
         from backend.database.seeds.data_sources import SEED_DATA_SOURCES
 
         source_names = {s["name"] for s in SEED_DATA_SOURCES}
 
         assert "EPA GHG Emission Factors Hub" in source_names
         assert "DEFRA Conversion Factors" in source_names
-        assert "Exiobase" in source_names
 
     def test_defra_requires_attribution(self):
         """Test that DEFRA seed data has requires_attribution=True."""
@@ -980,19 +767,6 @@ class TestDataSourceRegistration:
             "DEFRA requires attribution under OGL v3.0"
         )
 
-    def test_exiobase_requires_share_alike(self):
-        """Test that Exiobase seed data has requires_share_alike=True."""
-        from backend.database.seeds.data_sources import SEED_DATA_SOURCES
-
-        exio_seed = next(
-            (s for s in SEED_DATA_SOURCES if "Exiobase" in s["name"]),
-            None
-        )
-
-        assert exio_seed is not None
-        assert exio_seed.get("requires_share_alike", False) is True, (
-            "Exiobase v3.8 requires ShareAlike under CC-BY-SA 4.0"
-        )
 
 
 # =============================================================================
@@ -1032,8 +806,8 @@ class TestVerificationOutputFormat:
             ORDER BY ds.name
         """)).fetchall()
 
-        # Should have 3 rows (one per source)
-        assert len(result) == 3
+        # Should have 2 rows (one per src: EPA, DEFRA)
+        assert len(result) == 2
 
         # Each should have 3 factors
         for name, count in result:
