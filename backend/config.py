@@ -299,13 +299,40 @@ class Settings(BaseSettings):
 
     @property
     def is_postgresql(self) -> bool:
-        """Check if the database is PostgreSQL."""
-        return "postgresql" in self.database_url.lower()
+        """
+        Check if the database is PostgreSQL.
+
+        Handles both 'postgresql://' and 'postgres://' URL formats.
+        Railway and some other providers use 'postgres://' shorthand.
+        """
+        url_lower = self.database_url.lower()
+        return "postgresql" in url_lower or url_lower.startswith("postgres://")
 
     @property
     def is_sqlite(self) -> bool:
         """Check if the database is SQLite."""
         return "sqlite" in self.database_url.lower()
+
+    @property
+    def sync_database_url(self) -> str:
+        """
+        Get the normalized database URL for sync SQLAlchemy operations.
+
+        Railway and some providers use 'postgres://' shorthand which needs
+        to be converted to 'postgresql://' for SQLAlchemy compatibility.
+
+        Returns the URL in a format that SQLAlchemy's default drivers can use:
+        - PostgreSQL: postgresql://... (works with psycopg)
+        - SQLite: sqlite:///... (works with sqlite3)
+        """
+        url = self.database_url
+
+        if self.is_postgresql:
+            # Normalize postgres:// to postgresql://
+            if url.startswith("postgres://"):
+                return url.replace("postgres://", "postgresql://", 1)
+        # SQLite URLs don't need normalization
+        return url
 
     @property
     def async_database_url(self) -> str:

@@ -29,8 +29,13 @@ from backend.models import Base
 config = context.config
 
 # Override sqlalchemy.url from environment variable if set
+# Normalize postgres:// to postgresql:// for SQLAlchemy compatibility
+# (Railway and some providers use postgres:// shorthand)
 database_url = os.environ.get("DATABASE_URL")
 if database_url:
+    # Normalize postgres:// URLs to postgresql:// for SQLAlchemy
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
     config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.

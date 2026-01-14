@@ -12,7 +12,10 @@ and configures the connection appropriately.
 |----------|----------|--------------------------|
 | SQLite | Development, testing | `sqlite:///./pcf_calculator.db` |
 | PostgreSQL | Production, staging | `postgresql://user:pass@host:5432/db` |
+| Railway | Cloud deployment | `postgres://user:pass@host.railway.internal:5432/db` |
 | Supabase | Cloud PostgreSQL | `postgresql://postgres:pass@db.xxx.supabase.co:5432/postgres?sslmode=require` |
+
+**Note:** Both `postgres://` and `postgresql://` URL formats are supported. Railway uses `postgres://` which is automatically normalized.
 
 ## Quick Start
 
@@ -115,6 +118,97 @@ python scripts/validate_database.py
 # Or verify manually
 python -c "from backend.database.connection import get_engine; e = get_engine(); print(f'Connected to: {e.url}')"
 ```
+
+## Railway Deployment
+
+[Railway](https://railway.app) provides simple, fast cloud deployment with built-in PostgreSQL.
+
+### 1. Create Railway Project
+
+1. Sign up at [railway.app](https://railway.app)
+2. Create a new project from your GitHub repository
+3. Railway auto-detects the Python/FastAPI application
+
+### 2. Add PostgreSQL Service
+
+1. In your Railway project, click "New Service" → "Database" → "PostgreSQL"
+2. Railway automatically provisions a PostgreSQL 16 instance
+3. The `DATABASE_URL` environment variable is auto-injected
+
+### 3. Configure Environment Variables
+
+Railway provides `DATABASE_URL` automatically. Add these additional variables:
+
+```bash
+# Required
+PCF_CALC_JWT_SECRET_KEY=your-secure-32-character-secret-key
+
+# Optional - CORS for frontend
+CORS_ORIGINS=https://your-frontend-domain.vercel.app
+RAILWAY_PUBLIC_URL=https://your-backend.up.railway.app
+
+# Optional - Redis for Celery (if using background tasks)
+REDIS_URL=redis://default:xxx@your-redis.railway.internal:6379
+```
+
+### 4. Deployment Configuration
+
+The repository includes these Railway configuration files:
+
+- `railway.toml` - Main deployment configuration
+- `nixpacks.toml` - Build configuration
+- `Procfile` - Process commands (used as fallback)
+
+**Key settings in `railway.toml`:**
+
+```toml
+[deploy]
+# Runs migrations, seeds data, initializes Brightway2, then starts server
+startCommand = "sh -c 'PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py && PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT'"
+
+healthcheckPath = "/health"
+```
+
+### 5. Database URL Format
+
+Railway provides `DATABASE_URL` in `postgres://` format:
+
+```
+postgres://user:password@host.railway.internal:5432/railway
+```
+
+The application automatically normalizes this to `postgresql://` for SQLAlchemy compatibility.
+
+### 6. Verify Deployment
+
+After deployment, verify the database connection:
+
+```bash
+# Health check
+curl https://your-app.up.railway.app/health
+
+# API test
+curl https://your-app.up.railway.app/api/v1/emission-factors?limit=5
+```
+
+### 7. Troubleshooting Railway
+
+**Build Fails:**
+- Check Railway logs for Python dependency issues
+- Ensure `requirements.txt` is in `backend/` directory
+
+**Database Connection Issues:**
+- Verify PostgreSQL service is running in Railway dashboard
+- Check that `DATABASE_URL` is properly set (Railway does this automatically)
+- The app handles both `postgres://` and `postgresql://` URL formats
+
+**Migration Errors:**
+- Migrations run automatically on deploy via `railway.toml`
+- Check Railway logs for Alembic output
+- If needed, run migrations manually via Railway CLI:
+  ```bash
+  railway run alembic -c backend/alembic.ini upgrade head
+  ```
 
 ## Supabase Setup
 

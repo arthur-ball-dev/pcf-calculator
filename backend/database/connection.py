@@ -57,15 +57,19 @@ def _create_engine():
     PostgreSQL Configuration:
     - Connection pooling with configurable pool size
     - pool_pre_ping for connection health checks
+    - Uses sync_database_url for URL normalization (handles Railway's postgres://)
     """
+    # Use sync_database_url which normalizes postgres:// to postgresql://
+    db_url = settings.sync_database_url
+
     if settings.is_sqlite:
         # SQLite configuration
-        is_memory_db = "memory" in settings.database_url
+        is_memory_db = "memory" in db_url
 
         if is_memory_db:
             # In-memory SQLite requires StaticPool for connection sharing
             engine = create_engine(
-                settings.database_url,
+                db_url,
                 connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
                 pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
                 poolclass=StaticPool,
@@ -74,7 +78,7 @@ def _create_engine():
         else:
             # File-based SQLite can use QueuePool
             engine = create_engine(
-                settings.database_url,
+                db_url,
                 connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
                 pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
                 poolclass=QueuePool,
@@ -103,7 +107,7 @@ def _create_engine():
     elif settings.is_postgresql:
         # PostgreSQL configuration with full pooling support
         engine = create_engine(
-            settings.database_url,
+            db_url,
             poolclass=QueuePool,
             pool_size=POOL_CONFIG["pool_size"],
             max_overflow=POOL_CONFIG["max_overflow"],
@@ -118,7 +122,7 @@ def _create_engine():
         # Fallback for unknown database types
         raise ValueError(
             f"Unsupported database URL: {settings.database_url}. "
-            "Use sqlite:// or postgresql:// prefix."
+            "Use sqlite://, postgresql://, or postgres:// prefix."
         )
 
 
