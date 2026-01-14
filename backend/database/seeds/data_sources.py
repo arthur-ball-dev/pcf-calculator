@@ -7,7 +7,6 @@ TASK-DATA-P7-001: Seed Data Sources Table
 Initial data sources for emission factors:
 - EPA GHG Emission Factors Hub
 - DEFRA Conversion Factors
-- Exiobase
 
 Usage:
     from backend.database.seeds.data_sources import seed_data_sources
@@ -55,29 +54,12 @@ SEED_DATA_SOURCES: List[Dict[str, Any]] = [
         "requires_attribution": True,
         "requires_share_alike": False,
     },
-    {
-        "name": "Exiobase",
-        "source_type": "file",
-        "base_url": "https://zenodo.org/record/5589597",
-        "api_key_env_var": None,
-        "sync_frequency": "monthly",
-        "is_active": True,
-        # License: CC-BY-SA-4.0 (Zenodo version)
-        "license_type": "CC-BY-SA-4.0",
-        "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
-        "attribution_text": "EXIOBASE 3 data is licensed under Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). Credit: EXIOBASE Consortium.",
-        "attribution_url": "https://zenodo.org/records/5589597",
-        "allows_commercial_use": True,
-        "requires_attribution": True,
-        "requires_share_alike": True,
-    },
 ]
 
 # Expected data source names for verification
 EXPECTED_DATA_SOURCE_NAMES = {
     "EPA GHG Emission Factors Hub",
     "DEFRA Conversion Factors",
-    "Exiobase",
 }
 
 
@@ -200,7 +182,7 @@ def verify_data_sources(session: Session) -> bool:
     """
     Verify that all expected data sources are present in the database.
 
-    Checks that EPA, DEFRA, and Exiobase data sources all exist.
+    Checks that EPA and DEFRA data sources exist.
 
     Args:
         session: SQLAlchemy database session

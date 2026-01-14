@@ -4,7 +4,7 @@ Data synchronization Celery tasks for PCF Calculator.
 TASK-BE-P5-001: Celery + Redis Setup
 
 This module contains Celery tasks for synchronizing emission factor data
-from external sources (EPA, DEFRA, Exiobase).
+from external sources (EPA, DEFRA).
 
 Tasks:
 - sync_data_source: Sync emission factors from a data source
@@ -44,11 +44,9 @@ from backend.services.data_ingestion import (
 
 
 # Mapping of data source names to ingestion classes
-# ExiobaseEmissionFactorsIngestion will be added when implemented
 INGESTION_CLASSES: Dict[str, type] = {
     "EPA_GHG_HUB": EPAEmissionFactorsIngestion,
     "DEFRA_CONVERSION": DEFRAEmissionFactorsIngestion,
-    # "EXIOBASE": ExiobaseEmissionFactorsIngestion,  # TODO: Implement in TASK-DATA-P5-004
 }
 
 
@@ -88,7 +86,7 @@ def sync_data_source(
     Sync emission factors from a data source.
 
     This task fetches, parses, transforms, and loads emission factor data
-    from external sources (EPA, DEFRA, Exiobase).
+    from external sources (EPA, DEFRA).
 
     Args:
         self: Celery task instance (bound task)

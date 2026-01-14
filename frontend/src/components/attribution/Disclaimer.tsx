@@ -32,13 +32,13 @@ interface DisclaimerProps {
 /**
  * Full disclaimer text for legal compliance
  */
-const FULL_DISCLAIMER = `This application uses emission factor data from multiple public sources including the U.S. EPA, UK Government (DEFRA/DESNZ), and EXIOBASE.
+const FULL_DISCLAIMER = `This application uses emission factor data from multiple public sources including the U.S. EPA and UK Government (DEFRA/DESNZ).
 
 The emission factors and calculations provided are for informational purposes only. While we strive for accuracy, no warranty is provided regarding the accuracy, completeness, or fitness for any particular purpose of the calculations or underlying data.
 
 Users are responsible for verifying results and should consult qualified professionals for regulatory compliance, financial reporting, or legally-binding carbon accounting purposes.
 
-The data providers (EPA, UK Government, EXIOBASE) make no warranty regarding data accuracy. See individual data source licenses for details.`;
+The data providers (EPA, UK Government) make no warranty regarding data accuracy. See individual data source licenses for details.`;
 
 /**
  * Condensed disclaimer for inline display

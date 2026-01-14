@@ -98,7 +98,7 @@ export const TOUR_STEPS: Step[] = [
     content: (
       <StepContent
         title="Step 3: Calculate"
-        description="Click Calculate to run the PCF calculation. This uses emission factors from EPA, DEFRA, and Exiobase databases to compute the carbon footprint."
+        description="Click Calculate to run the PCF calculation. This uses emission factors from EPA and DEFRA databases to compute the carbon footprint."
       />
     ),
     placement: 'top',

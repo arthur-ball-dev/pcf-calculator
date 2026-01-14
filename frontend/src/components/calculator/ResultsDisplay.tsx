@@ -66,7 +66,7 @@ export default function ResultsDisplay() {
   // Calculate category totals from breakdown items for consistent classification
   // This ensures percentages add up correctly (avoiding double-counting with backend totals)
   const breakdown = calculation.breakdown || {};
-  const categoryTotals = { materials: 0, energy: 0, transport: 0, other: 0 };
+  const categoryTotals = { materials: 0, energy: 0, transport: 0, combustion: 0, other: 0 };
 
   if (Object.keys(breakdown).length > 0) {
     // Calculate totals from breakdown items using frontend classification
@@ -100,6 +100,12 @@ export default function ResultsDisplay() {
       category: 'Transport',
       emissions: categoryTotals.transport,
       percentage: totalCO2e > 0 ? (categoryTotals.transport / totalCO2e) * 100 : 0,
+    },
+    {
+      scope: 'Scope 1',
+      category: 'Combustion',
+      emissions: categoryTotals.combustion,
+      percentage: totalCO2e > 0 ? (categoryTotals.combustion / totalCO2e) * 100 : 0,
     },
     {
       scope: 'Scope 3',

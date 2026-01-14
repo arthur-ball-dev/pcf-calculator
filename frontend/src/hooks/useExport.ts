@@ -34,12 +34,6 @@ const DEFAULT_DATA_SOURCES: DataSourceInfo[] = [
     attribution_required: true,
     attribution_text: 'Contains UK Government GHG Conversion Factors for Company Reporting. (c) Crown copyright, licensed under the Open Government Licence v3.0.',
   },
-  {
-    code: 'EXIOBASE',
-    name: 'EXIOBASE 3.8',
-    attribution_required: true,
-    attribution_text: 'EXIOBASE 3.8 is licensed under Creative Commons Attribution-ShareAlike 4.0. Citation: Stadler et al. 2018.',
-  },
 ];
 
 // Extended results type with optional breakdown fields and data sources

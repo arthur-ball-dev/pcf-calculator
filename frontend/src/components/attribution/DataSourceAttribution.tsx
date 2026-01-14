@@ -4,7 +4,7 @@
  * Displays attribution information for data sources used in calculations.
  * Shows source name, license type, and required attribution text.
  *
- * CRITICAL: DEFRA (OGL v3.0) and EXIOBASE (CC-BY-SA 4.0) require attribution.
+ * CRITICAL: DEFRA (OGL v3.0) requires attribution.
  * This is a legal compliance requirement.
  *
  * @see knowledge/db_compliance/External_Data_Source_Compliance_Guide.md
@@ -59,15 +59,16 @@ export const SOURCE_CONFIG: Record<
     shortName: 'DEF',
     color: 'text-blue-700',
   },
-  EXIOBASE: {
-    anchor: 'exiobase-attribution',
-    shortName: 'EXI',
-    color: 'text-purple-700',
-  },
   PROXY: {
     anchor: 'proxy-attribution',
     shortName: 'PRX',
     color: 'text-gray-600',
+  },
+  // Ecoinvent - Life Cycle Inventory Database
+  Ecoinvent: {
+    anchor: 'ecoinvent-attribution',
+    shortName: 'ECO',
+    color: 'text-amber-700',
   },
 };
 

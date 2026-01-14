@@ -13,7 +13,7 @@
  * - Category badges with color coding
  * - Empty state messaging
  * - Read-only mode support
- * - SourceBadge for data source attribution (EPA, DEFRA, EXIOBASE, PROXY)
+ * - SourceBadge for data source attribution (EPA, DEFRA, PROXY)
  *
  * Uses:
  * - shadcn/ui Card, Button, Input, Badge, AlertDialog
@@ -48,7 +48,7 @@ interface BOMItem {
   unit: string;
   category: 'material' | 'energy' | 'transport' | 'other';
   emissionFactorId?: string | null;
-  /** TASK-FE-P8-005: Data source code for SourceBadge (EPA, DEFRA, EXIOBASE, PROXY) */
+  /** TASK-FE-P8-005: Data source code for SourceBadge (EPA, DEFRA, PROXY) */
   data_source?: string;
 }
 

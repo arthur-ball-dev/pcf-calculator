@@ -2,12 +2,13 @@
  * SourceBadge Component
  *
  * Inline source indicator with link to attribution section.
- * Displays a short code like [EPA], [DEF], [EXI] that links
+ * Displays a short code like [EPA], [DEF] that links
  * to the corresponding attribution anchor.
  *
  * Used in BOM tables and emission factor displays.
  *
  * TASK-FE-P8-004: Attribution & Compliance UI
+ * TASK-FIX-P8-003: Support for derived factors with multiple sources
  */
 
 import React from 'react';
@@ -15,24 +16,21 @@ import { cn } from '@/lib/utils';
 import { SOURCE_CONFIG } from './DataSourceAttribution';
 
 interface SourceBadgeProps {
-  /** Source code (e.g., 'EPA', 'DEFRA', 'EXIOBASE', 'PROXY') */
+  /** Source code (e.g., 'EPA', 'DEFRA') or comma-separated sources for derived factors */
   sourceCode: string;
   /** Optional className for additional styling */
   className?: string;
 }
 
 /**
- * SourceBadge Component
- *
- * Renders a clickable badge that links to the data source attribution section.
- * Unknown source codes are displayed as plain text without a link.
+ * Single source badge - renders one clickable badge
  */
-export const SourceBadge: React.FC<SourceBadgeProps> = ({ sourceCode, className }) => {
-  const config = SOURCE_CONFIG[sourceCode];
+const SingleBadge: React.FC<{ source: string; className?: string }> = ({ source, className }) => {
+  const trimmedSource = source.trim();
+  const config = SOURCE_CONFIG[trimmedSource] || SOURCE_CONFIG[trimmedSource.toUpperCase()];
 
-  // Unknown source - render as plain text
   if (!config) {
-    return <span className={className}>{sourceCode}</span>;
+    return <span className={className}>{trimmedSource}</span>;
   }
 
   return (
@@ -43,11 +41,50 @@ export const SourceBadge: React.FC<SourceBadgeProps> = ({ sourceCode, className 
         config.color,
         className
       )}
-      title={`View ${sourceCode} data source attribution`}
+      title={`View ${trimmedSource} data source attribution`}
     >
       [{config.shortName}]
     </a>
   );
+};
+
+/**
+ * SourceBadge Component
+ *
+ * Renders clickable badges that link to data source attribution sections.
+ * Supports single sources and comma-separated multiple sources for derived factors.
+ *
+ * For derived factors (e.g., "DEFRA, EPA"):
+ * - Renders badges for each source
+ * - Shows a derived indicator (*)
+ */
+export const SourceBadge: React.FC<SourceBadgeProps> = ({ sourceCode, className }) => {
+  // Check if this is a derived factor with multiple sources
+  const sources = sourceCode.split(',').map(s => s.trim()).filter(s => s);
+  const isDerived = sources.length > 1;
+
+  if (isDerived) {
+    // Render multiple badges with derived indicator
+    return (
+      <span className={cn('inline-flex items-center gap-0.5', className)}>
+        {sources.map((source, index) => (
+          <React.Fragment key={source}>
+            <SingleBadge source={source} />
+            {index < sources.length - 1 && <span className="text-muted-foreground">/</span>}
+          </React.Fragment>
+        ))}
+        <span
+          className="text-amber-600 ml-0.5 cursor-help"
+          title="Derived factor: calculated from multiple emission factor sources"
+        >
+          *
+        </span>
+      </span>
+    );
+  }
+
+  // Single source - use simple rendering
+  return <SingleBadge source={sourceCode} className={className} />;
 };
 
 export default SourceBadge;

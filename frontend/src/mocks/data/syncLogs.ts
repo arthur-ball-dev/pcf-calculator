@@ -47,10 +47,6 @@ const dataSources = {
     id: '550e8400-e29b-41d4-a716-446655440002',
     name: 'DEFRA Conversion Factors',
   },
-  EXIOBASE: {
-    id: '550e8400-e29b-41d4-a716-446655440003',
-    name: 'Exiobase',
-  },
 };
 
 // Generate UUID
@@ -135,47 +131,6 @@ function generateSyncLogs(): MockSyncLog[] {
         file_size_bytes: 2500000 + Math.floor(Math.random() * 200000),
         api_calls_made: null,
         triggered_by: i === 5 ? 'admin_user@example.com' : 'celery_beat',
-      },
-      created_at: startDate.toISOString(),
-    });
-  }
-
-  // EXIOBASE syncs - some failures
-  for (let i = 0; i < 8; i++) {
-    const startDate = new Date(now.getTime() - (i * 30 + 5) * 24 * 60 * 60 * 1000);
-    const isFailed = i === 0 || i === 2;
-    const duration = isFailed ? 900 : 1800 + Math.floor(Math.random() * 600);
-    const endDate = new Date(startDate.getTime() + duration * 1000);
-
-    logs.push({
-      id: generateUUID(),
-      data_source: dataSources.EXIOBASE,
-      sync_type: i === 4 ? 'manual' : 'scheduled',
-      status: isFailed ? 'failed' : 'completed',
-      celery_task_id: `celery-task-exio-${generateUUID().slice(0, 8)}`,
-      started_at: startDate.toISOString(),
-      completed_at: endDate.toISOString(),
-      duration_seconds: duration,
-      records_processed: isFailed ? 500 : 1200 + Math.floor(Math.random() * 100),
-      records_created: isFailed ? 0 : 20 + Math.floor(Math.random() * 30),
-      records_updated: isFailed ? 0 : 50 + Math.floor(Math.random() * 50),
-      records_skipped: isFailed ? 0 : 1100 + Math.floor(Math.random() * 50),
-      records_failed: isFailed ? 500 : Math.floor(Math.random() * 5),
-      error_message: isFailed ? 'Connection timeout while downloading file' : null,
-      error_details: isFailed
-        ? [
-            {
-              record_id: null,
-              field: null,
-              message: 'HTTP 504: Gateway timeout after 5 retries',
-            },
-          ]
-        : null,
-      metadata: {
-        file_name: 'exiobase_v3.8.2.zip',
-        file_size_bytes: isFailed ? null : 85000000,
-        api_calls_made: isFailed ? 5 : 1,
-        triggered_by: i === 4 ? 'admin_user@example.com' : 'celery_beat',
       },
       created_at: startDate.toISOString(),
     });

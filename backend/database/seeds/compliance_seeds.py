@@ -3,7 +3,7 @@ Seed data for compliance tracking tables.
 
 TASK-DB-P8-002: Compliance Tracking Schema (License & Provenance Tables)
 
-Seeds license information for EPA, DEFRA, and EXIOBASE data sources.
+Seeds license information for EPA and DEFRA data sources.
 
 Usage:
     from backend.database.seeds.compliance_seeds import seed_licenses
@@ -53,24 +53,6 @@ LICENSE_DATA: Dict[str, Dict[str, Any]] = {
         "effective_date": date(2024, 1, 1),
         "data_source_pattern": "DEFRA",
     },
-    "EXIOBASE": {
-        "license_type": "CC_BY_SA_4",
-        "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
-        "attribution_required": True,
-        "attribution_statement": (
-            "EXIOBASE 3 data is licensed under Creative Commons Attribution-ShareAlike 4.0 "
-            "International (CC BY-SA 4.0). Credit: EXIOBASE Consortium. "
-            "Any derivative works must be shared under the same license."
-        ),
-        "commercial_use_allowed": True,
-        "sharealike_required": True,
-        "additional_restrictions": (
-            "Derivative works must be shared under CC BY-SA 4.0 or compatible license."
-        ),
-        "license_version": "4.0",
-        "effective_date": None,
-        "data_source_pattern": "Exiobase",  # Case-sensitive pattern
-    },
 }
 
 
@@ -81,7 +63,7 @@ def seed_licenses(
     """
     Seed license records for known data sources.
 
-    Creates DataSourceLicense records for EPA, DEFRA, and EXIOBASE
+    Creates DataSourceLicense records for EPA and DEFRA
     data sources based on their licensing requirements.
 
     Args:

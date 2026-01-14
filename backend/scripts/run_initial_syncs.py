@@ -2,18 +2,16 @@
 """
 Initial Sync Script for External Data Connectors.
 
-TASK-DATA-P8-003: Activate External Data Connectors (EPA/DEFRA/Exiobase)
+TASK-DATA-P8-003: Activate External Data Connectors (EPA/DEFRA)
 
-This script runs the initial synchronization for all three external data sources:
+This script runs the initial synchronization for external data sources:
 - EPA GHG Emission Factors Hub
 - DEFRA Conversion Factors
-- Exiobase v3.8 (CRITICAL: Uses v3.8 for CC-BY-SA 4.0 compliance)
 
 Expected Emission Factor Counts:
 - EPA: 75-125 records
 - DEFRA: 200-400 records
-- EXIOBASE: 500-1000 records
-- Total: 775-1525 records
+- Total: 275-525 records
 
 Usage:
     # Run all syncs
@@ -22,7 +20,6 @@ Usage:
     # Run specific source
     python backend/scripts/run_initial_syncs.py --source epa
     python backend/scripts/run_initial_syncs.py --source defra
-    python backend/scripts/run_initial_syncs.py --source exiobase
 
     # Dry run (no database writes)
     python backend/scripts/run_initial_syncs.py --dry-run
@@ -54,14 +51,12 @@ from backend.database.seeds.data_sources import seed_data_sources, verify_data_s
 DATA_SOURCE_NAMES = {
     "epa": "EPA GHG Emission Factors Hub",
     "defra": "DEFRA Conversion Factors",
-    "exiobase": "Exiobase",
 }
 
 # Expected count ranges for validation
 EXPECTED_COUNTS = {
     "epa": (75, 125),
     "defra": (200, 400),
-    "exiobase": (500, 1000),
 }
 
 
@@ -102,7 +97,7 @@ class SyncRunner:
         Run sync for a specific data source.
 
         Args:
-            source_key: Key for the data source (epa, defra, exiobase)
+            source_key: Key for the data source (epa, defra)
             session: Async database session
 
         Returns:
@@ -172,22 +167,6 @@ class SyncRunner:
                     DEFRAEmissionFactorsIngestion
                 )
                 ingestion = DEFRAEmissionFactorsIngestion(
-                    db=session,
-                    data_source_id=data_source.id,
-                    sync_type="initial"
-                )
-                result = await ingestion.execute_sync(max_records=self.max_records)
-
-            elif source_key == "exiobase":
-                from backend.services.data_ingestion.exiobase_ingestion import (
-                    ExiobaseEmissionFactorsIngestion
-                )
-                # Verify using v3.8 URL
-                assert "5589597" in ExiobaseEmissionFactorsIngestion.ZENODO_URL, (
-                    "CRITICAL: Exiobase must use v3.8 (Zenodo 5589597) for CC-BY-SA compliance"
-                )
-
-                ingestion = ExiobaseEmissionFactorsIngestion(
                     db=session,
                     data_source_id=data_source.id,
                     sync_type="initial"
@@ -349,7 +328,7 @@ def parse_args():
     )
     parser.add_argument(
         "--source",
-        choices=["epa", "defra", "exiobase", "all"],
+        choices=["epa", "defra", "all"],
         default="all",
         help="Data source to sync (default: all)"
     )

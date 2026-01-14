@@ -35,7 +35,6 @@ def fix_emission_factor_data_sources(session) -> int:
     Maps:
     - EPA data source -> "EPA"
     - DEFRA data source -> "DEFRA"
-    - Exiobase data source -> "Exiobase"
     - Calculated Proxy Factors -> "PROXY"
 
     Returns:
@@ -50,8 +49,6 @@ def fix_emission_factor_data_sources(session) -> int:
             source_name_map[ds.id] = "EPA"
         elif "DEFRA" in ds.name:
             source_name_map[ds.id] = "DEFRA"
-        elif "Exiobase" in ds.name.lower():
-            source_name_map[ds.id] = "Exiobase"
         elif "Proxy" in ds.name:
             source_name_map[ds.id] = "PROXY"
         else:
@@ -323,7 +320,6 @@ def link_unlinked_factors(session) -> int:
     Maps data_source text to corresponding data_source_id:
     - 'EPA' -> EPA GHG Emission Factors Hub ID
     - 'DEFRA' -> DEFRA Conversion Factors ID
-    - 'Exiobase' -> Exiobase ID
     - 'PROXY' -> Calculated Proxy Factors ID
 
     Returns:
@@ -340,9 +336,6 @@ def link_unlinked_factors(session) -> int:
             source_id_map['EPA'] = ds.id
         elif "DEFRA" in ds.name:
             source_id_map['DEFRA'] = ds.id
-        elif "exiobase" in ds.name.lower():
-            source_id_map['Exiobase'] = ds.id
-            source_id_map['EXIOBASE'] = ds.id
         elif "Proxy" in ds.name:
             source_id_map['PROXY'] = ds.id
 

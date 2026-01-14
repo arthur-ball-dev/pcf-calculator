@@ -2,7 +2,7 @@
  * Mock Emission Factors Data
  * TASK-FE-P5-001: MSW Mock Server Setup
  *
- * Emission factors from EPA, DEFRA, and EXIOBASE sources
+ * Emission factors from EPA and DEFRA sources
  * with Phase 5 enhanced fields.
  */
 
@@ -11,7 +11,7 @@ export interface MockEmissionFactor {
   activity_name: string;
   co2e_factor: number;
   unit: string;
-  data_source: 'EPA_GHG_HUB' | 'DEFRA_CONVERSION' | 'EXIOBASE' | 'ECOINVENT' | 'CUSTOM';
+  data_source: 'EPA_GHG_HUB' | 'DEFRA_CONVERSION' | 'ECOINVENT' | 'CUSTOM';
   data_source_id: string | null;
   external_id: string | null;
   geography: string;
@@ -30,14 +30,12 @@ export interface MockEmissionFactor {
 const dataSourceIds = {
   EPA: '550e8400-e29b-41d4-a716-446655440001',
   DEFRA: '550e8400-e29b-41d4-a716-446655440002',
-  EXIOBASE: '550e8400-e29b-41d4-a716-446655440003',
 };
 
 // Sync batch IDs
 const syncBatchIds = {
   EPA: '770e8400-e29b-41d4-a716-446655440001',
   DEFRA: '770e8400-e29b-41d4-a716-446655440002',
-  EXIOBASE: '770e8400-e29b-41d4-a716-446655440003',
 };
 
 // Generate UUID
@@ -130,6 +128,83 @@ const epaFactors: MockEmissionFactor[] = [
     created_at: '2025-11-15T08:00:00Z',
     updated_at: '2025-11-15T08:00:00Z',
   },
+  // Additional EPA factors for materials
+  {
+    id: generateUUID(),
+    activity_name: 'Steel production, primary',
+    co2e_factor: 1.89,
+    unit: 'kg',
+    data_source: 'EPA_GHG_HUB',
+    data_source_id: dataSourceIds.EPA,
+    external_id: 'EPA-STEEL-PRIMARY-2023',
+    geography: 'US',
+    reference_year: 2023,
+    data_quality_rating: 0.88,
+    uncertainty_min: 1.70,
+    uncertainty_max: 2.08,
+    is_active: true,
+    relevance_score: null,
+    sync_batch_id: syncBatchIds.EPA,
+    created_at: '2025-11-15T08:00:00Z',
+    updated_at: '2025-11-15T08:00:00Z',
+  },
+  {
+    id: generateUUID(),
+    activity_name: 'Steel production, secondary',
+    co2e_factor: 0.42,
+    unit: 'kg',
+    data_source: 'EPA_GHG_HUB',
+    data_source_id: dataSourceIds.EPA,
+    external_id: 'EPA-STEEL-SECONDARY-2023',
+    geography: 'US',
+    reference_year: 2023,
+    data_quality_rating: 0.86,
+    uncertainty_min: 0.36,
+    uncertainty_max: 0.48,
+    is_active: true,
+    relevance_score: null,
+    sync_batch_id: syncBatchIds.EPA,
+    created_at: '2025-11-15T08:00:00Z',
+    updated_at: '2025-11-15T08:00:00Z',
+  },
+  {
+    id: generateUUID(),
+    activity_name: 'Aluminum production, primary',
+    co2e_factor: 8.24,
+    unit: 'kg',
+    data_source: 'EPA_GHG_HUB',
+    data_source_id: dataSourceIds.EPA,
+    external_id: 'EPA-ALUMINUM-PRIMARY-2023',
+    geography: 'US',
+    reference_year: 2023,
+    data_quality_rating: 0.84,
+    uncertainty_min: 7.42,
+    uncertainty_max: 9.06,
+    is_active: true,
+    relevance_score: null,
+    sync_batch_id: syncBatchIds.EPA,
+    created_at: '2025-11-15T08:00:00Z',
+    updated_at: '2025-11-15T08:00:00Z',
+  },
+  {
+    id: generateUUID(),
+    activity_name: 'Plastic production, HDPE',
+    co2e_factor: 1.92,
+    unit: 'kg',
+    data_source: 'EPA_GHG_HUB',
+    data_source_id: dataSourceIds.EPA,
+    external_id: 'EPA-PLASTIC-HDPE-2023',
+    geography: 'US',
+    reference_year: 2023,
+    data_quality_rating: 0.82,
+    uncertainty_min: 1.63,
+    uncertainty_max: 2.21,
+    is_active: true,
+    relevance_score: null,
+    sync_batch_id: syncBatchIds.EPA,
+    created_at: '2025-11-15T08:00:00Z',
+    updated_at: '2025-11-15T08:00:00Z',
+  },
 ];
 
 // DEFRA emission factors
@@ -210,67 +285,89 @@ const defraFactors: MockEmissionFactor[] = [
     created_at: '2025-11-20T10:30:00Z',
     updated_at: '2025-11-20T10:30:00Z',
   },
+  // Additional DEFRA factors for materials
+  {
+    id: generateUUID(),
+    activity_name: 'Glass production, container',
+    co2e_factor: 0.86,
+    unit: 'kg',
+    data_source: 'DEFRA_CONVERSION',
+    data_source_id: dataSourceIds.DEFRA,
+    external_id: 'DEFRA-2023-GLASS-CONTAINER',
+    geography: 'GB',
+    reference_year: 2023,
+    data_quality_rating: 0.85,
+    uncertainty_min: 0.73,
+    uncertainty_max: 0.99,
+    is_active: true,
+    relevance_score: null,
+    sync_batch_id: syncBatchIds.DEFRA,
+    created_at: '2025-11-20T10:30:00Z',
+    updated_at: '2025-11-20T10:30:00Z',
+  },
+  {
+    id: generateUUID(),
+    activity_name: 'Paper production, virgin',
+    co2e_factor: 1.29,
+    unit: 'kg',
+    data_source: 'DEFRA_CONVERSION',
+    data_source_id: dataSourceIds.DEFRA,
+    external_id: 'DEFRA-2023-PAPER-VIRGIN',
+    geography: 'GB',
+    reference_year: 2023,
+    data_quality_rating: 0.83,
+    uncertainty_min: 1.10,
+    uncertainty_max: 1.48,
+    is_active: true,
+    relevance_score: null,
+    sync_batch_id: syncBatchIds.DEFRA,
+    created_at: '2025-11-20T10:30:00Z',
+    updated_at: '2025-11-20T10:30:00Z',
+  },
+  {
+    id: generateUUID(),
+    activity_name: 'Cement production',
+    co2e_factor: 0.91,
+    unit: 'kg',
+    data_source: 'DEFRA_CONVERSION',
+    data_source_id: dataSourceIds.DEFRA,
+    external_id: 'DEFRA-2023-CEMENT',
+    geography: 'GB',
+    reference_year: 2023,
+    data_quality_rating: 0.87,
+    uncertainty_min: 0.77,
+    uncertainty_max: 1.05,
+    is_active: true,
+    relevance_score: null,
+    sync_batch_id: syncBatchIds.DEFRA,
+    created_at: '2025-11-20T10:30:00Z',
+    updated_at: '2025-11-20T10:30:00Z',
+  },
+  {
+    id: generateUUID(),
+    activity_name: 'Copper production',
+    co2e_factor: 3.81,
+    unit: 'kg',
+    data_source: 'DEFRA_CONVERSION',
+    data_source_id: dataSourceIds.DEFRA,
+    external_id: 'DEFRA-2023-COPPER',
+    geography: 'GB',
+    reference_year: 2023,
+    data_quality_rating: 0.80,
+    uncertainty_min: 3.24,
+    uncertainty_max: 4.38,
+    is_active: true,
+    relevance_score: null,
+    sync_batch_id: syncBatchIds.DEFRA,
+    created_at: '2025-11-20T10:30:00Z',
+    updated_at: '2025-11-20T10:30:00Z',
+  },
 ];
-
-// EXIOBASE emission factors (more extensive list)
-const exiobaseGeographies = ['US', 'CN', 'DE', 'JP', 'GB', 'FR', 'IT', 'KR', 'IN', 'BR', 'GLO'];
-const exiobaseActivities = [
-  { name: 'Steel production, primary', factor: 1.89, unit: 'kg' },
-  { name: 'Steel production, secondary', factor: 0.42, unit: 'kg' },
-  { name: 'Aluminum production, primary', factor: 8.24, unit: 'kg' },
-  { name: 'Aluminum production, secondary', factor: 0.65, unit: 'kg' },
-  { name: 'Plastic production, HDPE', factor: 1.92, unit: 'kg' },
-  { name: 'Plastic production, PET', factor: 2.73, unit: 'kg' },
-  { name: 'Glass production, container', factor: 0.86, unit: 'kg' },
-  { name: 'Paper production, virgin', factor: 1.29, unit: 'kg' },
-  { name: 'Paper production, recycled', factor: 0.67, unit: 'kg' },
-  { name: 'Cotton fabric production', factor: 8.5, unit: 'kg' },
-  { name: 'Polyester fabric production', factor: 5.5, unit: 'kg' },
-  { name: 'Cement production', factor: 0.91, unit: 'kg' },
-  { name: 'Concrete production', factor: 0.13, unit: 'kg' },
-  { name: 'Copper production', factor: 3.81, unit: 'kg' },
-  { name: 'Lithium-ion battery production', factor: 75.0, unit: 'kWh' },
-  { name: 'Semiconductor production', factor: 25.0, unit: 'kg' },
-  { name: 'Circuit board production', factor: 18.5, unit: 'kg' },
-  { name: 'Display panel production', factor: 45.0, unit: 'm2' },
-];
-
-const exiobaseFactors: MockEmissionFactor[] = [];
-let exiobaseIndex = 0;
-
-for (const activity of exiobaseActivities) {
-  for (const geo of exiobaseGeographies.slice(0, 5)) {
-    // Vary the factor by geography
-    const geoMultiplier = geo === 'CN' ? 1.2 : geo === 'DE' ? 0.85 : geo === 'US' ? 1.0 : 0.95;
-
-    exiobaseFactors.push({
-      id: generateUUID(),
-      activity_name: `${activity.name}`,
-      co2e_factor: Math.round(activity.factor * geoMultiplier * 100) / 100,
-      unit: activity.unit,
-      data_source: 'EXIOBASE',
-      data_source_id: dataSourceIds.EXIOBASE,
-      external_id: `EXIO-${exiobaseIndex.toString().padStart(5, '0')}`,
-      geography: geo,
-      reference_year: 2021,
-      data_quality_rating: 0.7 + Math.random() * 0.15,
-      uncertainty_min: Math.round(activity.factor * geoMultiplier * 0.85 * 100) / 100,
-      uncertainty_max: Math.round(activity.factor * geoMultiplier * 1.15 * 100) / 100,
-      is_active: true,
-      relevance_score: null,
-      sync_batch_id: syncBatchIds.EXIOBASE,
-      created_at: '2025-10-01T00:00:00Z',
-      updated_at: '2025-10-01T00:00:00Z',
-    });
-    exiobaseIndex++;
-  }
-}
 
 // Combined emission factors
 export const mockEmissionFactors: MockEmissionFactor[] = [
   ...epaFactors,
   ...defraFactors,
-  ...exiobaseFactors,
 ];
 
 // Filter helper for emission factors

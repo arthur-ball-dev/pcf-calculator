@@ -5,7 +5,6 @@
  * Required for compliance with:
  * - EPA: Public Domain (recommended attribution)
  * - DEFRA: Open Government Licence v3.0 (required attribution)
- * - Exiobase: CC-BY-SA-4.0 (required attribution with share-alike)
  */
 
 import { useState, useEffect } from 'react';
@@ -41,11 +40,24 @@ const getLicenseBadgeStyle = (licenseType: string | null): string => {
 };
 
 /**
+ * Map source names to anchor IDs for SourceBadge navigation
+ */
+const getAnchorId = (name: string): string => {
+  const nameLower = name.toLowerCase();
+  if (nameLower.includes('epa')) return 'epa-attribution';
+  if (nameLower.includes('defra')) return 'defra-attribution';
+  if (nameLower.includes('proxy')) return 'proxy-attribution';
+  if (nameLower.includes('ecoinvent')) return 'ecoinvent-attribution';
+  return `${nameLower.replace(/\s+/g, '-')}-attribution`;
+};
+
+/**
  * Single attribution item display
  */
 function AttributionItem({ attribution }: { attribution: DataSourceAttribution }) {
+  const anchorId = getAnchorId(attribution.name);
   return (
-    <div className="border-l-2 border-muted pl-3 py-2">
+    <div id={anchorId} className="border-l-2 border-muted pl-3 py-2 scroll-mt-20">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="font-medium text-sm">{attribution.name}</span>
         {attribution.license_type && (
@@ -115,6 +127,30 @@ export function DataSourceAttributions({
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(variant === 'expanded');
 
+  // Auto-expand when URL hash matches an attribution anchor
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.includes('-attribution')) {
+        setIsExpanded(true);
+        // Scroll to the element after a short delay to ensure it's rendered
+        setTimeout(() => {
+          const element = document.querySelector(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+    };
+
+    // Check on mount
+    handleHashChange();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   useEffect(() => {
     const fetchAttributions = async () => {
       try {
@@ -166,7 +202,7 @@ export function DataSourceAttributions({
         >
           <span className="flex items-center gap-2">
             <Info className="h-3 w-3" />
-            Data sources: EPA, DEFRA, Exiobase
+            Data sources: EPA, DEFRA
             {requiredAttributions.length > 0 && (
               <span className="text-amber-700">
                 ({requiredAttributions.length} require attribution)
@@ -222,7 +258,7 @@ export function DataSourceAttributions({
 export function AttributionNotice({ className }: { className?: string }) {
   return (
     <p className={cn('text-xs text-muted-foreground', className)}>
-      Emission factors sourced from EPA (Public Domain), DEFRA (OGL v3.0), and Exiobase (CC-BY-SA-4.0).{' '}
+      Emission factors sourced from EPA (Public Domain) and DEFRA (OGL v3.0).{' '}
       <a href="#attributions" className="text-primary hover:underline">
         View full attributions
       </a>

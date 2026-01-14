@@ -3,7 +3,7 @@
  *
  * Legal compliance components for data source attribution.
  *
- * CRITICAL: DEFRA (OGL v3.0) and EXIOBASE (CC-BY-SA 4.0) require attribution.
+ * CRITICAL: DEFRA (OGL v3.0) requires attribution.
  *
  * @see knowledge/db_compliance/External_Data_Source_Compliance_Guide.md
  *

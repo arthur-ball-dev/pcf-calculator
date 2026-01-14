@@ -28,7 +28,6 @@ from typing import Dict, Type
 from backend.services.data_ingestion.base import BaseDataIngestion
 from backend.services.data_ingestion.epa_ingestion import EPAEmissionFactorsIngestion
 from backend.services.data_ingestion.defra_ingestion import DEFRAEmissionFactorsIngestion
-from backend.services.data_ingestion.exiobase_ingestion import ExiobaseEmissionFactorsIngestion
 
 
 # Registry mapping data source names to connector classes
@@ -36,7 +35,6 @@ from backend.services.data_ingestion.exiobase_ingestion import ExiobaseEmissionF
 CONNECTOR_REGISTRY: Dict[str, Type[BaseDataIngestion]] = {
     "EPA GHG Emission Factors Hub": EPAEmissionFactorsIngestion,
     "DEFRA Conversion Factors": DEFRAEmissionFactorsIngestion,
-    "Exiobase": ExiobaseEmissionFactorsIngestion,
 }
 
 

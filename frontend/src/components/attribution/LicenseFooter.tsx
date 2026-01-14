@@ -40,10 +40,6 @@ export const LicenseFooter: React.FC<LicenseFooterProps> = ({ className }) => {
           DEFRA
         </a>
         {' | '}
-        <a href="#exiobase-attribution" className="hover:underline text-primary">
-          EXIOBASE
-        </a>
-        {' | '}
         <a href="/about#data-sources" className="hover:underline text-primary">
           Full Attribution
         </a>

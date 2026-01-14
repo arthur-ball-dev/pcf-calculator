@@ -2,7 +2,7 @@
  * Mock Data Sources Configuration
  * TASK-FE-P5-001: MSW Mock Server Setup
  *
- * EPA, DEFRA, and Exiobase data source configurations
+ * EPA and DEFRA data source configurations
  * with sync status and statistics.
  */
 
@@ -94,35 +94,6 @@ export const mockDataSources: MockDataSource[] = [
       newest_reference_year: 2024,
     },
     created_at: '2025-10-01T00:00:00Z',
-  },
-  {
-    id: '550e8400-e29b-41d4-a716-446655440003',
-    name: 'Exiobase',
-    source_type: 'file',
-    base_url: 'https://zenodo.org/record/5589597',
-    sync_frequency: 'monthly',
-    is_active: true,
-    last_sync: {
-      sync_id: '660e8400-e29b-41d4-a716-446655440003',
-      status: 'failed',
-      started_at: '2025-11-28T04:00:00Z',
-      completed_at: '2025-11-28T04:15:00Z',
-      records_processed: 500,
-      records_created: 0,
-      records_updated: 0,
-      records_failed: 500,
-      error_message: 'Connection timeout while downloading file',
-    },
-    next_scheduled_sync: '2025-12-05T04:00:00Z',
-    statistics: {
-      total_factors: 1250,
-      active_factors: 1200,
-      average_quality: 0.75,
-      geographies_covered: 49,
-      oldest_reference_year: 2019,
-      newest_reference_year: 2022,
-    },
-    created_at: '2025-10-15T00:00:00Z',
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440004',

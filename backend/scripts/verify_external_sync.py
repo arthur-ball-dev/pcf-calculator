@@ -2,20 +2,18 @@
 """
 Verification Script for External Data Sync.
 
-TASK-DATA-P8-003: Activate External Data Connectors (EPA/DEFRA/Exiobase)
+TASK-DATA-P8-003: Activate External Data Connectors (EPA/DEFRA)
 
 This script verifies that the external data sync completed successfully by:
 1. Checking emission factor counts by data source
 2. Validating data quality (positive values, valid units)
 3. Verifying sync logs exist and are successful
 4. Checking for orphaned records
-5. Verifying license compliance (Exiobase v3.8)
 
 Expected Emission Factor Counts:
 - EPA: 75-125 records
 - DEFRA: 200-400 records
-- EXIOBASE: 500-1000 records
-- Total: 775-1525 records
+- Total: 275-525 records
 
 Usage:
     # Full verification
@@ -59,12 +57,6 @@ DATA_SOURCES = {
         "expected_min": 200,
         "expected_max": 400,
         "geography": "GB",
-    },
-    "exiobase": {
-        "name": "Exiobase",
-        "expected_min": 500,
-        "expected_max": 1000,
-        "geography": None,  # Multiple geographies
     },
 }
 
@@ -114,10 +106,6 @@ class SyncVerifier:
         self.log("")
 
         with Session(self.engine) as session:
-            # Verify license compliance first
-            self.verify_license_compliance()
-            self.log("")
-
             # Verify each data source
             for source_key in sources:
                 self.verify_source(session, source_key)
@@ -133,58 +121,13 @@ class SyncVerifier:
 
         return self.results
 
-    def verify_license_compliance(self):
-        """Verify Exiobase uses v3.8 for license compliance."""
-        self.log("Checking license compliance...")
-
-        try:
-            from backend.services.data_ingestion.exiobase_ingestion import (
-                ExiobaseEmissionFactorsIngestion
-            )
-
-            url = ExiobaseEmissionFactorsIngestion.ZENODO_URL
-
-            if "5589597" in url:
-                self.log("  [OK] Exiobase uses v3.8 (CC-BY-SA 4.0)")
-                self.results["license_compliance"] = {
-                    "exiobase_version": "3.8",
-                    "license": "CC-BY-SA 4.0",
-                    "commercial_use": True,
-                    "status": "compliant",
-                }
-            elif "14614930" in url:
-                self.log("  [ERROR] Exiobase uses v3.9 (CC-BY-NC-SA)")
-                self.log("         Non-commercial restriction detected!")
-                self.results["license_compliance"] = {
-                    "exiobase_version": "3.9",
-                    "license": "CC-BY-NC-SA",
-                    "commercial_use": False,
-                    "status": "non_compliant",
-                }
-                self.results["errors"].append(
-                    "Exiobase v3.9 has NC license - cannot use commercially"
-                )
-            else:
-                self.log(f"  [WARN] Unknown Exiobase URL: {url}")
-                self.results["license_compliance"] = {
-                    "status": "unknown",
-                    "url": url,
-                }
-                self.results["warnings"].append(
-                    f"Unknown Exiobase URL: {url}"
-                )
-
-        except ImportError as e:
-            self.log(f"  [ERROR] Could not import Exiobase module: {e}")
-            self.results["errors"].append(f"Could not import Exiobase module: {e}")
-
     def verify_source(self, session: Session, source_key: str):
         """
         Verify a specific data source.
 
         Args:
             session: Database session
-            source_key: Key of source to verify (epa, defra, exiobase)
+            source_key: Key of source to verify (epa, defra)
         """
         config = DATA_SOURCES.get(source_key)
         if not config:
@@ -447,7 +390,7 @@ def parse_args():
     )
     parser.add_argument(
         "--source",
-        choices=["epa", "defra", "exiobase", "all"],
+        choices=["epa", "defra", "all"],
         default="all",
         help="Data source to verify (default: all)"
     )

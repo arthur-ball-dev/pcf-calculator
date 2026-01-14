@@ -505,7 +505,7 @@ export const phase5Handlers = [
       },
     ];
 
-    // Gaps
+    // Gaps data
     const gaps = {
       missing_geographies: [
         { geography: 'IN', products_affected: 35 },
@@ -524,13 +524,7 @@ export const phase5Handlers = [
           products_count: 12,
         },
       ],
-      outdated_factors: [
-        {
-          source_name: 'Exiobase',
-          count: 850,
-          oldest_year: 2019,
-        },
-      ],
+      outdated_factors: [],
     };
 
     return res(
