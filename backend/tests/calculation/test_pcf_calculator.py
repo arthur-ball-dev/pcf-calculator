@@ -29,6 +29,7 @@ This issue was part of a series of misdiagnoses:
 Pattern copied from test_emission_factor_sync.py (fixed in TASK-QA-004).
 """
 
+import os
 import pytest
 import brightway2 as bw
 from decimal import Decimal
@@ -37,38 +38,34 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 
+# TASK-DB-P9-008: Use PostgreSQL test database
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test"
+)
+
+
 @pytest.fixture(scope="function")
 def test_db_engine():
     """
-    Create in-memory SQLite database for testing.
+    Get PostgreSQL test database engine.
+
+    TASK-DB-P9-008: Migrated from SQLite in-memory to PostgreSQL.
 
     HISTORICAL NOTE: This fixture was created in TASK-CALC-007 to fix a critical
-    vulnerability where tests were using production database. The same pattern
-    was successfully implemented in TASK-QA-004 for test_emission_factor_sync.py.
-
-    This resolves the root cause identified in Phase 2 validation:
-    - TASK-CALC-005 diagnosis: Incorrect (not sync failure)
-    - TASK-CALC-006 diagnosis: Incorrect (not pickle corruption)
-    - TASK-QA-004 diagnosis: Correct (test database isolation)
-
-    REPLACED: Old fixture that used db_context() production database connection
-    NEW: In-memory SQLite database with full isolation
+    vulnerability where tests were using production database. Now uses PostgreSQL
+    test database with transaction rollback for isolation.
 
     Benefits:
     - Tests cannot corrupt production data
     - Tests pass in any order (no shared state)
-    - Faster execution (in-memory vs disk I/O)
+    - Matches production PostgreSQL behavior exactly
     - Parallel test execution is safe
     """
     from backend.models import Base
 
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine(TEST_DATABASE_URL, echo=False)
     Base.metadata.create_all(engine)
-
-    # Enable foreign keys for SQLite
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA foreign_keys = ON"))
-        conn.commit()
 
     return engine
 
@@ -76,28 +73,27 @@ def test_db_engine():
 @pytest.fixture(scope="function")
 def db_session(test_db_engine):
     """
-    Provide isolated TEST database session (in-memory, not production).
+    Provide isolated PostgreSQL database session with transaction rollback.
 
-    Replaces: db_context() which was using production database
-    Pattern: Identical to test_emission_factor_sync.py::db_session
-
-    This fixture creates a fresh in-memory database for each test function,
-    ensuring complete test isolation. No test can affect another test's data.
+    TASK-DB-P9-008: Migrated from SQLite to PostgreSQL.
+    Uses transaction rollback for complete test isolation.
     """
-    SessionLocal = sessionmaker(bind=test_db_engine)
-    session = SessionLocal()
+    # Start transaction for isolation
+    connection = test_db_engine.connect()
+    transaction = connection.begin()
 
-    # Enable foreign keys on session
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
+    SessionLocal = sessionmaker(bind=connection)
+    session = SessionLocal()
 
     # Seed test data with minimal emission factors
     _seed_test_emission_factors(session)
 
     yield session
 
-    # Cleanup
+    # Cleanup - rollback transaction
     session.close()
+    transaction.rollback()
+    connection.close()
 
 
 def _seed_test_emission_factors(session):

@@ -341,7 +341,7 @@ class TestDataSourceEmissionFactorRelationship:
         from backend.models import DataSource, EmissionFactor
 
         data_source = DataSource(
-            name="Exiobase",
+            name="Test Source",
             source_type="file"
         )
         db_session.add(data_source)
@@ -351,7 +351,7 @@ class TestDataSourceEmissionFactorRelationship:
             activity_name="Test Material",
             co2e_factor=Decimal("2.5"),
             unit="kg",
-            data_source="Exiobase",
+            data_source="Test",
             geography="EU",
             data_source_id=data_source.id
         )

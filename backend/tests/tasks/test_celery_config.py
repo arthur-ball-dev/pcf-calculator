@@ -5,7 +5,7 @@ TASK-BE-P5-001: Celery + Redis Setup - Phase A Tests
 
 Tests for backend/core/celery_app.py:
 - celery_app configuration correctness
-- Beat schedule defined for EPA, DEFRA, Exiobase
+- Beat schedule defined for EPA, DEFRA
 - Task routes configured
 - Worker settings correct
 
@@ -231,22 +231,6 @@ class TestBeatSchedule:
         assert defra_schedule["task"] == "backend.tasks.data_sync.sync_data_source"
         assert "DEFRA_CONVERSION" in defra_schedule.get("args", [])
 
-    def test_exiobase_sync_scheduled(self):
-        """Test that Exiobase sync task is scheduled."""
-        from backend.core.celery_app import celery_app
-
-        beat_schedule = celery_app.conf.beat_schedule
-
-        # Find Exiobase schedule entry
-        exiobase_schedule = None
-        for name, config in beat_schedule.items():
-            if "exiobase" in name.lower() or "EXIOBASE" in config.get("args", [""])[0]:
-                exiobase_schedule = config
-                break
-
-        assert exiobase_schedule is not None, "Exiobase sync task not found in beat schedule"
-        assert exiobase_schedule["task"] == "backend.tasks.data_sync.sync_data_source"
-        assert "EXIOBASE" in exiobase_schedule.get("args", [])
 
     def test_epa_schedule_is_biweekly(self):
         """Test that EPA sync is scheduled biweekly (Mon/Thu)."""
@@ -276,20 +260,6 @@ class TestBeatSchedule:
         schedule = defra_schedule["schedule"]
         assert isinstance(schedule, crontab)
 
-    def test_exiobase_schedule_is_monthly(self):
-        """Test that Exiobase sync is scheduled monthly."""
-        from backend.core.celery_app import celery_app
-
-        beat_schedule = celery_app.conf.beat_schedule
-
-        exiobase_schedule = beat_schedule.get("sync-exiobase-monthly")
-        assert exiobase_schedule is not None
-
-        schedule = exiobase_schedule["schedule"]
-        assert isinstance(schedule, crontab)
-
-        # Monthly schedule should have day_of_month set
-        assert schedule.day_of_month is not None
 
     def test_scheduled_tasks_have_queue_options(self):
         """Test that scheduled tasks specify queue options."""
@@ -423,15 +393,3 @@ class TestScheduleTiming:
         assert 3 in schedule.hour or schedule.hour == {3}
         assert 0 in schedule.minute or schedule.minute == {0}
 
-    def test_exiobase_sync_runs_at_4am(self):
-        """Test that Exiobase sync runs at 4:00 AM UTC."""
-        from backend.core.celery_app import celery_app
-
-        beat_schedule = celery_app.conf.beat_schedule
-        exiobase_schedule = beat_schedule.get("sync-exiobase-monthly")
-
-        assert exiobase_schedule is not None
-        schedule = exiobase_schedule["schedule"]
-
-        assert 4 in schedule.hour or schedule.hour == {4}
-        assert 0 in schedule.minute or schedule.minute == {0}

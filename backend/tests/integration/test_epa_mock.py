@@ -27,44 +27,13 @@ from decimal import Decimal
 from uuid import uuid4
 from io import BytesIO
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 
 # Mark all tests in this module as integration tests
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing."""
-    from backend.models import Base
-
-    Base.metadata.create_all(db_engine)
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
-
+# Uses db_session fixture from conftest.py (PostgreSQL with transaction rollback)
 
 @pytest.fixture
 def data_source(db_session):

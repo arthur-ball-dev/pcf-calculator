@@ -99,20 +99,24 @@ def count_queries(session: Session) -> Generator[QueryCounter, None, None]:
 # Test Fixtures
 # =============================================================================
 
+# TASK-DB-P9-008: Use PostgreSQL test database
+import os
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test"
+)
+
+
 @pytest.fixture(scope="function")
 def performance_db_engine():
     """
-    Create in-memory SQLite database for performance testing.
+    Get PostgreSQL test database engine for performance testing.
 
-    Uses a fresh in-memory database for each test to ensure isolation.
+    TASK-DB-P9-008: Migrated from SQLite in-memory to PostgreSQL.
+    Uses PostgreSQL for realistic performance measurements.
     """
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine(TEST_DATABASE_URL, echo=False)
     Base.metadata.create_all(engine)
-
-    # Enable foreign keys for SQLite
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA foreign_keys = ON"))
-        conn.commit()
 
     return engine
 
@@ -120,18 +124,23 @@ def performance_db_engine():
 @pytest.fixture(scope="function")
 def performance_db_session(performance_db_engine):
     """
-    Provide isolated test database session for performance tests.
-    """
-    SessionLocal = sessionmaker(bind=performance_db_engine)
-    session = SessionLocal()
+    Provide isolated PostgreSQL database session for performance tests.
 
-    # Enable foreign keys on session
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
+    TASK-DB-P9-008: Uses transaction rollback for test isolation.
+    """
+    # Start transaction for isolation
+    connection = performance_db_engine.connect()
+    transaction = connection.begin()
+
+    SessionLocal = sessionmaker(bind=connection)
+    session = SessionLocal()
 
     yield session
 
+    # Cleanup - rollback transaction
     session.close()
+    transaction.rollback()
+    connection.close()
 
 
 @pytest.fixture

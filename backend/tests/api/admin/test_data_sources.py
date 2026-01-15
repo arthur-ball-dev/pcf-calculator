@@ -20,53 +20,18 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from backend.models import Base, DataSource, DataSyncLog, EmissionFactor
 
 
 # ============================================================================
-# Test Fixtures
-# ============================================================================
-
-
-@pytest.fixture(scope="function")
-def test_engine():
-    """Create an in-memory SQLite test engine."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    # Enable foreign keys for SQLite
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    Base.metadata.create_all(bind=engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(test_engine) -> Generator[Session, None, None]:
-    """Provide a database session for testing."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=test_engine
-    )
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
+# Uses clean_db_session fixture from conftest.py (PostgreSQL with table truncation)
+# This ensures tests start with empty tables to avoid conflicts with seeded data
 
 @pytest.fixture
-def sample_data_source(db_session: Session) -> DataSource:
+def sample_data_source(clean_db_session: Session) -> DataSource:
     """Create a sample active data source."""
     data_source = DataSource(
         id=uuid.uuid4().hex,
@@ -77,14 +42,14 @@ def sample_data_source(db_session: Session) -> DataSource:
         is_active=True,
         last_sync_at=datetime.now(timezone.utc) - timedelta(days=2),
     )
-    db_session.add(data_source)
-    db_session.commit()
-    db_session.refresh(data_source)
+    clean_db_session.add(data_source)
+    clean_db_session.commit()
+    clean_db_session.refresh(data_source)
     return data_source
 
 
 @pytest.fixture
-def inactive_data_source(db_session: Session) -> DataSource:
+def inactive_data_source(clean_db_session: Session) -> DataSource:
     """Create an inactive data source."""
     data_source = DataSource(
         id=uuid.uuid4().hex,
@@ -94,14 +59,14 @@ def inactive_data_source(db_session: Session) -> DataSource:
         sync_frequency="manual",
         is_active=False,
     )
-    db_session.add(data_source)
-    db_session.commit()
-    db_session.refresh(data_source)
+    clean_db_session.add(data_source)
+    clean_db_session.commit()
+    clean_db_session.refresh(data_source)
     return data_source
 
 
 @pytest.fixture
-def multiple_data_sources(db_session: Session) -> list[DataSource]:
+def multiple_data_sources(clean_db_session: Session) -> list[DataSource]:
     """Create multiple data sources with different types and statuses."""
     sources = [
         DataSource(
@@ -124,14 +89,6 @@ def multiple_data_sources(db_session: Session) -> list[DataSource]:
         ),
         DataSource(
             id=uuid.uuid4().hex,
-            name="Exiobase",
-            source_type="database",
-            base_url="https://zenodo.org/record/5589597",
-            sync_frequency="monthly",
-            is_active=True,
-        ),
-        DataSource(
-            id=uuid.uuid4().hex,
             name="Legacy API",
             source_type="api",
             base_url="https://legacy.example.com",
@@ -140,15 +97,15 @@ def multiple_data_sources(db_session: Session) -> list[DataSource]:
         ),
     ]
     for source in sources:
-        db_session.add(source)
-    db_session.commit()
+        clean_db_session.add(source)
+    clean_db_session.commit()
     for source in sources:
-        db_session.refresh(source)
+        clean_db_session.refresh(source)
     return sources
 
 
 @pytest.fixture
-def data_source_with_sync_logs(db_session: Session) -> tuple[DataSource, list[DataSyncLog]]:
+def data_source_with_sync_logs(clean_db_session: Session) -> tuple[DataSource, list[DataSyncLog]]:
     """Create a data source with associated sync logs."""
     data_source = DataSource(
         id=uuid.uuid4().hex,
@@ -159,8 +116,8 @@ def data_source_with_sync_logs(db_session: Session) -> tuple[DataSource, list[Da
         is_active=True,
         last_sync_at=datetime.now(timezone.utc) - timedelta(hours=6),
     )
-    db_session.add(data_source)
-    db_session.flush()
+    clean_db_session.add(data_source)
+    clean_db_session.flush()
 
     # Create sync logs
     logs = [
@@ -197,14 +154,14 @@ def data_source_with_sync_logs(db_session: Session) -> tuple[DataSource, list[Da
         ),
     ]
     for log in logs:
-        db_session.add(log)
-    db_session.commit()
-    db_session.refresh(data_source)
+        clean_db_session.add(log)
+    clean_db_session.commit()
+    clean_db_session.refresh(data_source)
     return data_source, logs
 
 
 @pytest.fixture
-def data_source_with_emission_factors(db_session: Session) -> tuple[DataSource, list[EmissionFactor]]:
+def data_source_with_emission_factors(clean_db_session: Session) -> tuple[DataSource, list[EmissionFactor]]:
     """Create a data source with associated emission factors."""
     data_source = DataSource(
         id=uuid.uuid4().hex,
@@ -215,8 +172,8 @@ def data_source_with_emission_factors(db_session: Session) -> tuple[DataSource, 
         is_active=True,
         last_sync_at=datetime.now(timezone.utc) - timedelta(hours=6),
     )
-    db_session.add(data_source)
-    db_session.flush()
+    clean_db_session.add(data_source)
+    clean_db_session.flush()
 
     # Create emission factors
     factors = [
@@ -261,14 +218,14 @@ def data_source_with_emission_factors(db_session: Session) -> tuple[DataSource, 
         ),
     ]
     for factor in factors:
-        db_session.add(factor)
-    db_session.commit()
-    db_session.refresh(data_source)
+        clean_db_session.add(factor)
+    clean_db_session.commit()
+    clean_db_session.refresh(data_source)
     return data_source, factors
 
 
 @pytest.fixture
-def data_source_with_active_sync(db_session: Session) -> tuple[DataSource, DataSyncLog]:
+def data_source_with_active_sync(clean_db_session: Session) -> tuple[DataSource, DataSyncLog]:
     """Create a data source with an active (in_progress) sync."""
     data_source = DataSource(
         id=uuid.uuid4().hex,
@@ -278,8 +235,8 @@ def data_source_with_active_sync(db_session: Session) -> tuple[DataSource, DataS
         sync_frequency="biweekly",
         is_active=True,
     )
-    db_session.add(data_source)
-    db_session.flush()
+    clean_db_session.add(data_source)
+    clean_db_session.flush()
 
     active_log = DataSyncLog(
         id=uuid.uuid4().hex,
@@ -294,9 +251,9 @@ def data_source_with_active_sync(db_session: Session) -> tuple[DataSource, DataS
         records_skipped=143,
         records_failed=0,
     )
-    db_session.add(active_log)
-    db_session.commit()
-    db_session.refresh(data_source)
+    clean_db_session.add(active_log)
+    clean_db_session.commit()
+    clean_db_session.refresh(data_source)
     return data_source, active_log
 
 
@@ -308,47 +265,46 @@ def data_source_with_active_sync(db_session: Session) -> tuple[DataSource, DataS
 class TestListDataSources:
     """Tests for GET /admin/data-sources endpoint."""
 
-    def test_list_data_sources_empty(self, db_session: Session):
+    def test_list_data_sources_empty(self, clean_db_session: Session):
         """Test listing data sources when none exist returns empty list."""
         # Act - simulate API call
         # Expected behavior: return empty list with summary
-        result = db_session.query(DataSource).all()
+        result = clean_db_session.query(DataSource).all()
 
         # Assert
         assert len(result) == 0
 
     def test_list_data_sources_returns_all(
-        self, db_session: Session, multiple_data_sources: list[DataSource]
+        self, clean_db_session: Session, multiple_data_sources: list[DataSource]
     ):
         """Test listing all data sources returns complete list."""
         # Act
-        result = db_session.query(DataSource).all()
+        result = clean_db_session.query(DataSource).all()
 
-        # Assert
-        assert len(result) == 4
+        # Assert - EPA, DEFRA, Legacy API (3 sources after Exiobase removal)
+        assert len(result) == 3
         names = [ds.name for ds in result]
         assert "EPA GHG Emission Factors Hub" in names
         assert "DEFRA Conversion Factors" in names
-        assert "Exiobase" in names
         assert "Legacy API" in names
 
     def test_list_data_sources_filter_active_true(
-        self, db_session: Session, multiple_data_sources: list[DataSource]
+        self, clean_db_session: Session, multiple_data_sources: list[DataSource]
     ):
         """Test filtering data sources by is_active=true."""
         # Act
-        result = db_session.query(DataSource).filter(DataSource.is_active == True).all()
+        result = clean_db_session.query(DataSource).filter(DataSource.is_active == True).all()
 
-        # Assert
-        assert len(result) == 3
+        # Assert - EPA and DEFRA are active (2 after Exiobase removal)
+        assert len(result) == 2
         assert all(ds.is_active for ds in result)
 
     def test_list_data_sources_filter_active_false(
-        self, db_session: Session, multiple_data_sources: list[DataSource]
+        self, clean_db_session: Session, multiple_data_sources: list[DataSource]
     ):
         """Test filtering data sources by is_active=false."""
         # Act
-        result = db_session.query(DataSource).filter(DataSource.is_active == False).all()
+        result = clean_db_session.query(DataSource).filter(DataSource.is_active == False).all()
 
         # Assert
         assert len(result) == 1
@@ -356,45 +312,44 @@ class TestListDataSources:
         assert not result[0].is_active
 
     def test_list_data_sources_filter_source_type_file(
-        self, db_session: Session, multiple_data_sources: list[DataSource]
+        self, clean_db_session: Session, multiple_data_sources: list[DataSource]
     ):
         """Test filtering data sources by source_type=file."""
         # Act
-        result = db_session.query(DataSource).filter(DataSource.source_type == "file").all()
+        result = clean_db_session.query(DataSource).filter(DataSource.source_type == "file").all()
 
         # Assert
         assert len(result) == 2
         assert all(ds.source_type == "file" for ds in result)
 
     def test_list_data_sources_filter_source_type_api(
-        self, db_session: Session, multiple_data_sources: list[DataSource]
+        self, clean_db_session: Session, multiple_data_sources: list[DataSource]
     ):
         """Test filtering data sources by source_type=api."""
         # Act
-        result = db_session.query(DataSource).filter(DataSource.source_type == "api").all()
+        result = clean_db_session.query(DataSource).filter(DataSource.source_type == "api").all()
 
         # Assert
         assert len(result) == 1
         assert result[0].source_type == "api"
 
     def test_list_data_sources_filter_source_type_database(
-        self, db_session: Session, multiple_data_sources: list[DataSource]
+        self, clean_db_session: Session, multiple_data_sources: list[DataSource]
     ):
         """Test filtering data sources by source_type=database."""
         # Act
-        result = db_session.query(DataSource).filter(DataSource.source_type == "database").all()
+        result = clean_db_session.query(DataSource).filter(DataSource.source_type == "database").all()
 
-        # Assert
-        assert len(result) == 1
-        assert result[0].name == "Exiobase"
+        # Assert - no database sources in test fixture (EPA/DEFRA are file, Legacy is api)
+        assert len(result) == 0
 
     def test_list_data_sources_combined_filters(
-        self, db_session: Session, multiple_data_sources: list[DataSource]
+        self, clean_db_session: Session, multiple_data_sources: list[DataSource]
     ):
         """Test filtering by both is_active and source_type."""
         # Act
         result = (
-            db_session.query(DataSource)
+            clean_db_session.query(DataSource)
             .filter(DataSource.is_active == True, DataSource.source_type == "file")
             .all()
         )
@@ -404,13 +359,13 @@ class TestListDataSources:
         assert all(ds.is_active and ds.source_type == "file" for ds in result)
 
     def test_list_data_sources_includes_last_sync_info(
-        self, db_session: Session, data_source_with_sync_logs: tuple[DataSource, list[DataSyncLog]]
+        self, clean_db_session: Session, data_source_with_sync_logs: tuple[DataSource, list[DataSyncLog]]
     ):
         """Test that data source includes last sync information."""
         data_source, sync_logs = data_source_with_sync_logs
 
         # Act
-        result = db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
 
         # Assert
         assert result is not None
@@ -419,13 +374,13 @@ class TestListDataSources:
         assert len(result.sync_logs) == 2
 
     def test_list_data_sources_includes_statistics(
-        self, db_session: Session, data_source_with_emission_factors: tuple[DataSource, list[EmissionFactor]]
+        self, clean_db_session: Session, data_source_with_emission_factors: tuple[DataSource, list[EmissionFactor]]
     ):
         """Test that data source includes emission factor statistics."""
         data_source, factors = data_source_with_emission_factors
 
         # Act
-        result = db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
 
         # Assert
         assert result is not None
@@ -436,11 +391,11 @@ class TestListDataSources:
         assert active_count == 2
 
     def test_list_data_sources_response_structure(
-        self, db_session: Session, sample_data_source: DataSource
+        self, clean_db_session: Session, sample_data_source: DataSource
     ):
         """Test that response contains expected structure per contract."""
         # Act
-        result = db_session.query(DataSource).filter(DataSource.id == sample_data_source.id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == sample_data_source.id).first()
 
         # Assert - verify all required fields exist
         assert result.id is not None
@@ -455,11 +410,11 @@ class TestGetDataSourceById:
     """Tests for GET /admin/data-sources/{id} endpoint."""
 
     def test_get_data_source_by_id_success(
-        self, db_session: Session, sample_data_source: DataSource
+        self, clean_db_session: Session, sample_data_source: DataSource
     ):
         """Test getting a data source by valid ID returns correct data."""
         # Act
-        result = db_session.query(DataSource).filter(DataSource.id == sample_data_source.id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == sample_data_source.id).first()
 
         # Assert
         assert result is not None
@@ -467,23 +422,23 @@ class TestGetDataSourceById:
         assert result.name == sample_data_source.name
         assert result.source_type == sample_data_source.source_type
 
-    def test_get_data_source_by_id_not_found(self, db_session: Session):
+    def test_get_data_source_by_id_not_found(self, clean_db_session: Session):
         """Test getting a non-existent data source returns None (404)."""
         # Act
         non_existent_id = uuid.uuid4().hex
-        result = db_session.query(DataSource).filter(DataSource.id == non_existent_id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == non_existent_id).first()
 
         # Assert
         assert result is None
 
     def test_get_data_source_with_sync_logs(
-        self, db_session: Session, data_source_with_sync_logs: tuple[DataSource, list[DataSyncLog]]
+        self, clean_db_session: Session, data_source_with_sync_logs: tuple[DataSource, list[DataSyncLog]]
     ):
         """Test getting data source includes related sync logs."""
         data_source, expected_logs = data_source_with_sync_logs
 
         # Act
-        result = db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
 
         # Assert
         assert result is not None
@@ -494,24 +449,24 @@ class TestGetDataSourceById:
         assert completed_logs[0].records_processed == 285
 
     def test_get_data_source_with_emission_factors(
-        self, db_session: Session, data_source_with_emission_factors: tuple[DataSource, list[EmissionFactor]]
+        self, clean_db_session: Session, data_source_with_emission_factors: tuple[DataSource, list[EmissionFactor]]
     ):
         """Test getting data source includes related emission factors."""
         data_source, expected_factors = data_source_with_emission_factors
 
         # Act
-        result = db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
 
         # Assert
         assert result is not None
         assert len(result.emission_factors) == len(expected_factors)
 
     def test_get_inactive_data_source(
-        self, db_session: Session, inactive_data_source: DataSource
+        self, clean_db_session: Session, inactive_data_source: DataSource
     ):
         """Test getting an inactive data source returns it correctly."""
         # Act
-        result = db_session.query(DataSource).filter(DataSource.id == inactive_data_source.id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == inactive_data_source.id).first()
 
         # Assert
         assert result is not None
@@ -527,7 +482,7 @@ class TestTriggerSync:
     """Tests for POST /admin/data-sources/{id}/sync endpoint."""
 
     def test_trigger_sync_success(
-        self, db_session: Session, sample_data_source: DataSource
+        self, clean_db_session: Session, sample_data_source: DataSource
     ):
         """Test triggering sync on valid active source creates sync log."""
         # Arrange - verify source exists and is active
@@ -546,8 +501,8 @@ class TestTriggerSync:
             records_skipped=0,
             records_failed=0,
         )
-        db_session.add(sync_log)
-        db_session.commit()
+        clean_db_session.add(sync_log)
+        clean_db_session.commit()
 
         # Assert
         assert sync_log.id is not None
@@ -555,7 +510,7 @@ class TestTriggerSync:
         assert sync_log.status == "pending"
 
     def test_trigger_sync_inactive_source_fails(
-        self, db_session: Session, inactive_data_source: DataSource
+        self, clean_db_session: Session, inactive_data_source: DataSource
     ):
         """Test triggering sync on inactive source should fail (422)."""
         # Arrange
@@ -566,24 +521,24 @@ class TestTriggerSync:
         is_valid_for_sync = inactive_data_source.is_active
         assert not is_valid_for_sync
 
-    def test_trigger_sync_not_found(self, db_session: Session):
+    def test_trigger_sync_not_found(self, clean_db_session: Session):
         """Test triggering sync on non-existent source fails (404)."""
         # Act
         non_existent_id = uuid.uuid4().hex
-        result = db_session.query(DataSource).filter(DataSource.id == non_existent_id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == non_existent_id).first()
 
         # Assert
         assert result is None
 
     def test_trigger_sync_already_in_progress(
-        self, db_session: Session, data_source_with_active_sync: tuple[DataSource, DataSyncLog]
+        self, clean_db_session: Session, data_source_with_active_sync: tuple[DataSource, DataSyncLog]
     ):
         """Test triggering sync when already in progress fails (409)."""
         data_source, active_log = data_source_with_active_sync
 
         # Act - check for active sync
         has_active_sync = (
-            db_session.query(DataSyncLog)
+            clean_db_session.query(DataSyncLog)
             .filter(
                 DataSyncLog.data_source_id == data_source.id,
                 DataSyncLog.status == "in_progress",
@@ -597,7 +552,7 @@ class TestTriggerSync:
         assert active_log.status == "in_progress"
 
     def test_trigger_sync_with_force_refresh(
-        self, db_session: Session, sample_data_source: DataSource
+        self, clean_db_session: Session, sample_data_source: DataSource
     ):
         """Test triggering sync with force_refresh option."""
         # Act - create sync log with force_refresh metadata
@@ -614,15 +569,15 @@ class TestTriggerSync:
             records_failed=0,
             sync_metadata={"force_refresh": True},
         )
-        db_session.add(sync_log)
-        db_session.commit()
+        clean_db_session.add(sync_log)
+        clean_db_session.commit()
 
         # Assert
         assert sync_log.sync_metadata is not None
         assert sync_log.sync_metadata.get("force_refresh") is True
 
     def test_trigger_sync_with_dry_run(
-        self, db_session: Session, sample_data_source: DataSource
+        self, clean_db_session: Session, sample_data_source: DataSource
     ):
         """Test triggering sync with dry_run option."""
         # Act - create sync log with dry_run metadata
@@ -639,15 +594,15 @@ class TestTriggerSync:
             records_failed=0,
             sync_metadata={"dry_run": True},
         )
-        db_session.add(sync_log)
-        db_session.commit()
+        clean_db_session.add(sync_log)
+        clean_db_session.commit()
 
         # Assert
         assert sync_log.sync_metadata is not None
         assert sync_log.sync_metadata.get("dry_run") is True
 
     def test_trigger_sync_with_priority(
-        self, db_session: Session, sample_data_source: DataSource
+        self, clean_db_session: Session, sample_data_source: DataSource
     ):
         """Test triggering sync with priority option."""
         # Act - create sync log with priority metadata
@@ -664,15 +619,15 @@ class TestTriggerSync:
             records_failed=0,
             sync_metadata={"priority": "high"},
         )
-        db_session.add(sync_log)
-        db_session.commit()
+        clean_db_session.add(sync_log)
+        clean_db_session.commit()
 
         # Assert
         assert sync_log.sync_metadata is not None
         assert sync_log.sync_metadata.get("priority") == "high"
 
     def test_trigger_sync_response_structure(
-        self, db_session: Session, sample_data_source: DataSource
+        self, clean_db_session: Session, sample_data_source: DataSource
     ):
         """Test that sync trigger response matches contract (202 response)."""
         # Act
@@ -689,8 +644,8 @@ class TestTriggerSync:
             records_skipped=0,
             records_failed=0,
         )
-        db_session.add(sync_log)
-        db_session.commit()
+        clean_db_session.add(sync_log)
+        clean_db_session.commit()
 
         # Assert - verify response structure fields exist
         assert sync_log.id is not None  # sync_log_id
@@ -707,7 +662,7 @@ class TestTriggerSync:
 class TestErrorResponses:
     """Tests for error response formats."""
 
-    def test_invalid_source_type_filter(self, db_session: Session):
+    def test_invalid_source_type_filter(self, clean_db_session: Session):
         """Test that invalid source_type filter is rejected (400)."""
         # This test verifies the validation logic
         valid_source_types = ["api", "file", "database", "manual"]
@@ -716,7 +671,7 @@ class TestErrorResponses:
         # Assert
         assert invalid_type not in valid_source_types
 
-    def test_invalid_uuid_format(self, db_session: Session):
+    def test_invalid_uuid_format(self, clean_db_session: Session):
         """Test that invalid UUID format is handled properly."""
         # Arrange
         invalid_id = "not-a-valid-uuid"
@@ -724,7 +679,7 @@ class TestErrorResponses:
         # Act & Assert - UUID parsing should handle gracefully
         try:
             # This simulates what would happen with a malformed ID
-            result = db_session.query(DataSource).filter(DataSource.id == invalid_id).first()
+            result = clean_db_session.query(DataSource).filter(DataSource.id == invalid_id).first()
             # SQLite will just return None for non-matching string
             assert result is None
         except Exception:
@@ -741,36 +696,36 @@ class TestDataIntegrity:
     """Tests for data integrity and relationships."""
 
     def test_cascade_delete_sync_logs(
-        self, db_session: Session, data_source_with_sync_logs: tuple[DataSource, list[DataSyncLog]]
+        self, clean_db_session: Session, data_source_with_sync_logs: tuple[DataSource, list[DataSyncLog]]
     ):
         """Test that deleting data source cascades to sync logs."""
         data_source, sync_logs = data_source_with_sync_logs
         data_source_id = data_source.id
 
         # Verify logs exist
-        initial_logs = db_session.query(DataSyncLog).filter(
+        initial_logs = clean_db_session.query(DataSyncLog).filter(
             DataSyncLog.data_source_id == data_source_id
         ).count()
         assert initial_logs == 2
 
         # Act - delete data source
-        db_session.delete(data_source)
-        db_session.commit()
+        clean_db_session.delete(data_source)
+        clean_db_session.commit()
 
         # Assert - sync logs should be deleted via cascade
-        remaining_logs = db_session.query(DataSyncLog).filter(
+        remaining_logs = clean_db_session.query(DataSyncLog).filter(
             DataSyncLog.data_source_id == data_source_id
         ).count()
         assert remaining_logs == 0
 
     def test_emission_factor_relationship(
-        self, db_session: Session, data_source_with_emission_factors: tuple[DataSource, list[EmissionFactor]]
+        self, clean_db_session: Session, data_source_with_emission_factors: tuple[DataSource, list[EmissionFactor]]
     ):
         """Test data source to emission factor relationship."""
         data_source, factors = data_source_with_emission_factors
 
         # Act
-        result = db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
+        result = clean_db_session.query(DataSource).filter(DataSource.id == data_source.id).first()
 
         # Assert
         assert result is not None
@@ -787,7 +742,7 @@ class TestDataIntegrity:
 class TestPerformance:
     """Basic performance-related tests."""
 
-    def test_list_data_sources_with_many_records(self, db_session: Session):
+    def test_list_data_sources_with_many_records(self, clean_db_session: Session):
         """Test listing many data sources performs reasonably."""
         # Arrange - create multiple data sources
         for i in range(10):
@@ -799,11 +754,11 @@ class TestPerformance:
                 sync_frequency="daily",
                 is_active=True,
             )
-            db_session.add(data_source)
-        db_session.commit()
+            clean_db_session.add(data_source)
+        clean_db_session.commit()
 
         # Act
-        result = db_session.query(DataSource).all()
+        result = clean_db_session.query(DataSource).all()
 
         # Assert
         assert len(result) == 10

@@ -13,12 +13,20 @@ Following TDD methodology - tests written BEFORE implementation.
 TASK-CALC-002: Sync Emission Factors to Brightway2
 """
 
+import os
 import pytest
 import brightway2 as bw
 from sqlalchemy import text
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from decimal import Decimal
+
+
+# TASK-DB-P9-008: Use PostgreSQL test database
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test"
+)
 
 
 @pytest.fixture(scope="function")
@@ -60,16 +68,14 @@ def clean_brightway_project():
 @pytest.fixture(scope="function")
 def test_db_engine():
     """
-    Create in-memory SQLite database for testing.
+    Get PostgreSQL test database engine.
 
-    This ensures test isolation - tests use in-memory DB, not production DB.
-    Prevents test data deletion from contaminating production database.
-
-    TASK-QA-004: Fix test isolation issue
+    TASK-DB-P9-008: Migrated from SQLite in-memory to PostgreSQL.
+    TASK-QA-004: Fix test isolation issue (now using PostgreSQL)
     """
     from backend.models import Base
 
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine(TEST_DATABASE_URL, echo=False)
     Base.metadata.create_all(engine)
     return engine
 
@@ -77,23 +83,24 @@ def test_db_engine():
 @pytest.fixture(scope="function")
 def db_session(test_db_engine):
     """
-    Fixture to provide TEST database session (in-memory, isolated).
+    Provide isolated PostgreSQL database session with transaction rollback.
 
-    IMPORTANT: This fixture uses in-memory database, NOT production database.
-    Tests can safely delete/modify data without affecting production DB.
-
-    TASK-QA-004: Replaced production db_context() with in-memory test DB
+    TASK-DB-P9-008: Migrated from SQLite to PostgreSQL.
+    TASK-QA-004: Uses transaction rollback for test isolation.
     """
-    SessionLocal = sessionmaker(bind=test_db_engine)
-    session = SessionLocal()
+    # Start transaction for isolation
+    connection = test_db_engine.connect()
+    transaction = connection.begin()
 
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
+    SessionLocal = sessionmaker(bind=connection)
+    session = SessionLocal()
 
     yield session
 
+    # Cleanup - rollback transaction
     session.close()
+    transaction.rollback()
+    connection.close()
 
 
 @pytest.fixture(scope="function")

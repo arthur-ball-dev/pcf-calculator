@@ -9,6 +9,10 @@ This module provides common fixtures for all calculation tests, including:
 TASK-FIX-P5: Fix backend validation test failures by providing proper
 Brightway2 initialization for all calculation tests.
 
+TASK-DB-P9-008: Migrated from SQLite in-memory to PostgreSQL test database.
+All calculation tests now use the shared PostgreSQL test fixtures from the
+root conftest.py, with transaction rollback for test isolation.
+
 Historical Context:
 The validation tests (test_validation_expected_results.py) were failing with
 "Emission factor not found: cotton. Available factors: []" because they
@@ -27,41 +31,46 @@ The tests SHOULD use convert_realistic_json_to_calculator_format() from
 validation.py, but test modification requires TDD exception approval.
 """
 
+import os
 import pytest
 import brightway2 as bw
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 
+# TASK-DB-P9-008: Use PostgreSQL test database URL from environment
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test"
+)
+
 # Module-level cache to avoid re-seeding emission factors on every test
 _VALIDATION_FACTORS_SEEDED = False
 _VALIDATION_SESSION = None
+_VALIDATION_ENGINE = None
 _BRIGHTWAY_INITIALIZED = False
 
 
 def _get_validation_test_session():
     """
-    Get or create a test database session with emission factors for validation tests.
+    Get or create a PostgreSQL test database session with emission factors.
 
+    TASK-DB-P9-008: Migrated from SQLite in-memory to PostgreSQL.
     Uses module-level caching to avoid recreating the session for each test.
     """
-    global _VALIDATION_FACTORS_SEEDED, _VALIDATION_SESSION
+    global _VALIDATION_FACTORS_SEEDED, _VALIDATION_SESSION, _VALIDATION_ENGINE
 
     from backend.models import Base, EmissionFactor
 
-    # Create a new in-memory database if needed
+    # Create engine if needed (connects to PostgreSQL test database)
+    if _VALIDATION_ENGINE is None:
+        _VALIDATION_ENGINE = create_engine(TEST_DATABASE_URL, echo=False)
+        Base.metadata.create_all(_VALIDATION_ENGINE)
+
+    # Create session if needed
     if _VALIDATION_SESSION is None:
-        engine = create_engine("sqlite:///:memory:", echo=False)
-        Base.metadata.create_all(engine)
-
-        with engine.connect() as conn:
-            conn.execute(text("PRAGMA foreign_keys = ON"))
-            conn.commit()
-
-        SessionLocal = sessionmaker(bind=engine)
+        SessionLocal = sessionmaker(bind=_VALIDATION_ENGINE)
         _VALIDATION_SESSION = SessionLocal()
-        _VALIDATION_SESSION.execute(text("PRAGMA foreign_keys = ON"))
-        _VALIDATION_SESSION.commit()
 
     # Seed emission factors once
     if not _VALIDATION_FACTORS_SEEDED:
@@ -321,24 +330,20 @@ def pytest_collection_modifyitems(config, items):
 
 
 # Additional fixtures for tests that need explicit db_session access
+# TASK-DB-P9-008: Migrated from SQLite to PostgreSQL
 
 @pytest.fixture(scope="function")
 def test_db_engine():
     """
-    Create in-memory SQLite database for testing.
+    Get PostgreSQL test database engine.
 
-    This fixture creates a fresh in-memory database for each test function,
-    ensuring complete test isolation.
+    TASK-DB-P9-008: Migrated from SQLite in-memory to PostgreSQL.
+    This fixture provides a connection to the pcf_calculator_test database.
     """
     from backend.models import Base
 
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine(TEST_DATABASE_URL, echo=False)
     Base.metadata.create_all(engine)
-
-    # Enable foreign keys for SQLite
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA foreign_keys = ON"))
-        conn.commit()
 
     return engine
 
@@ -346,25 +351,27 @@ def test_db_engine():
 @pytest.fixture(scope="function")
 def db_session(test_db_engine):
     """
-    Provide isolated TEST database session (in-memory, not production).
+    Provide isolated PostgreSQL database session with transaction rollback.
 
-    This fixture creates a fresh in-memory database for each test function,
-    ensuring complete test isolation.
+    TASK-DB-P9-008: Migrated from SQLite in-memory to PostgreSQL.
+    Uses transaction rollback for test isolation.
     """
-    SessionLocal = sessionmaker(bind=test_db_engine)
-    session = SessionLocal()
+    # Start a connection and begin a transaction
+    connection = test_db_engine.connect()
+    transaction = connection.begin()
 
-    # Enable foreign keys on session
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
+    SessionLocal = sessionmaker(bind=connection)
+    session = SessionLocal()
 
     # Seed test data with pcf_calculator test emission factors
     _seed_pcf_calculator_emission_factors(session)
 
     yield session
 
-    # Cleanup
+    # Cleanup - rollback transaction
     session.close()
+    transaction.rollback()
+    connection.close()
 
 
 def _seed_pcf_calculator_emission_factors(session):

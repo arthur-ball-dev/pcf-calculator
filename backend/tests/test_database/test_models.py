@@ -29,27 +29,38 @@ from backend.models import (
 )
 
 
+# TASK-DB-P9-008: Use PostgreSQL test database
+import os
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test"
+)
+
+
 @pytest.fixture(scope="function")
 def db_engine():
-    """Create in-memory SQLite database for testing"""
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    """Get PostgreSQL test database engine. TASK-DB-P9-008: Migrated from SQLite."""
+    engine = create_engine(TEST_DATABASE_URL, echo=False)
     Base.metadata.create_all(engine)
     return engine
 
 
 @pytest.fixture(scope="function")
 def db_session(db_engine):
-    """Create database session for testing"""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
+    """Provide isolated PostgreSQL database session with transaction rollback."""
+    # Start transaction for isolation
+    connection = db_engine.connect()
+    transaction = connection.begin()
 
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
+    SessionLocal = sessionmaker(bind=connection)
+    session = SessionLocal()
 
     yield session
 
+    # Cleanup - rollback transaction
     session.close()
+    transaction.rollback()
+    connection.close()
 
 
 # ============================================================================

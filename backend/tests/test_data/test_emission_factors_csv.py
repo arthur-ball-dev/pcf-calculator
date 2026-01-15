@@ -9,7 +9,7 @@ Test Scenarios:
 2. Required materials presence (all 20 emission factors)
 3. Data quality validation (no nulls, positive values)
 4. Unit validation (valid units only)
-5. Data source attribution (EPA, DEFRA, Ecoinvent)
+5. Data source attribution (EPA, DEFRA)
 """
 
 import os
@@ -205,7 +205,7 @@ class TestEmissionFactorsDataSources:
     def test_all_data_sources_are_valid(self):
         """All data sources must be from the allowed list"""
         df = pd.read_csv(CSV_PATH)
-        valid_sources = ['EPA', 'DEFRA', 'Ecoinvent']
+        valid_sources = ['EPA', 'DEFRA']
 
         for source in df['data_source']:
             assert source in valid_sources, \

@@ -4,7 +4,7 @@ Test suite for data_sources seeding functionality.
 TASK-DATA-P7-001: Seed Data Sources Table
 
 This test suite validates:
-- Fresh database seeding creates all 3 data sources (EPA, DEFRA, Exiobase)
+- Fresh database seeding creates all 2 data sources (EPA, DEFRA)
 - Idempotency: calling seed multiple times doesn't create duplicates
 - Partial seeding: adds missing sources without duplicating existing ones
 - Data source fields are populated correctly with expected values
@@ -128,7 +128,7 @@ class TestSeedDataSourcesFreshDatabase:
         Input: Empty data_sources table
         Action: Call seed_data_sources(session)
         Expected:
-            - Returns 3 (number created)
+            - Returns 2 (number created)
             - data_sources table has 3 records
             - Records match SEED_DATA_SOURCES names
         """
@@ -136,14 +136,13 @@ class TestSeedDataSourcesFreshDatabase:
 
         count = seed_data_sources(empty_db_session)
 
-        assert count == 3, f"Expected 3 data sources created, got {count}"
+        assert count == 2, f"Expected 3 data sources created, got {count}"
         sources = empty_db_session.query(DataSource).all()
-        assert len(sources) == 3, f"Expected 3 sources in DB, got {len(sources)}"
+        assert len(sources) == 2, f"Expected 3 sources in DB, got {len(sources)}"
 
         names = {s.name for s in sources}
         assert "EPA GHG Emission Factors Hub" in names
         assert "DEFRA Conversion Factors" in names
-        assert "Exiobase" in names
 
     def test_seed_data_sources_returns_count(self, empty_db_session: Session):
         """Test that seed_data_sources returns the count of created records."""
@@ -152,7 +151,7 @@ class TestSeedDataSourcesFreshDatabase:
         count = seed_data_sources(empty_db_session)
 
         assert isinstance(count, int)
-        assert count == 3
+        assert count == 2
 
 
 # ============================================================================
@@ -177,7 +176,7 @@ class TestSeedDataSourcesIdempotency:
 
         assert count == 0, f"Expected 0 new records, got {count}"
         sources = seeded_db_session.query(DataSource).all()
-        assert len(sources) == 3, f"Expected 3 sources, got {len(sources)}"
+        assert len(sources) == 2, f"Expected 3 sources, got {len(sources)}"
 
     def test_seed_data_sources_no_duplicates_after_multiple_calls(
         self, empty_db_session: Session
@@ -214,8 +213,8 @@ class TestSeedDataSourcesPartialSeeding:
         Input: data_sources table has 1 record (EPA only)
         Action: Call seed_data_sources(session, skip_existing=True)
         Expected:
-            - Returns 2 (DEFRA and Exiobase created)
-            - Table now has 3 records total
+            - Returns 1 (DEFRA created)
+            - Table now has 2 records total
         """
         from backend.database.seeds.data_sources import seed_data_sources
 
@@ -227,15 +226,14 @@ class TestSeedDataSourcesPartialSeeding:
 
         count = seed_data_sources(partial_db_session, skip_existing=True)
 
-        assert count == 2, f"Expected 2 new sources created, got {count}"
+        assert count == 1, f"Expected 1 new sources created, got {count}"
         sources = partial_db_session.query(DataSource).all()
-        assert len(sources) == 3, f"Expected 3 total sources, got {len(sources)}"
+        assert len(sources) == 2, f"Expected 2 total sources, got {len(sources)}"
 
         # Verify all three exist
         names = {s.name for s in sources}
         assert "EPA GHG Emission Factors Hub" in names
         assert "DEFRA Conversion Factors" in names
-        assert "Exiobase" in names
 
 
 # ============================================================================
@@ -289,23 +287,6 @@ class TestSeedDataSourceRecordValidation:
         assert defra.sync_frequency == "biweekly"
         assert defra.is_active is True
         assert defra.created_at is not None
-
-    def test_seeded_exiobase_data_source_has_correct_fields(
-        self, seeded_db_session: Session
-    ):
-        """Test Exiobase data source has correct field values."""
-        exiobase = seeded_db_session.query(DataSource).filter(
-            DataSource.name == "Exiobase"
-        ).first()
-
-        assert exiobase is not None, "Exiobase data source should exist"
-        assert len(exiobase.id) == 32
-        assert exiobase.name == "Exiobase"
-        assert exiobase.source_type == "file"
-        assert "zenodo.org" in exiobase.base_url
-        assert exiobase.sync_frequency == "monthly"  # Different from others
-        assert exiobase.is_active is True
-        assert exiobase.created_at is not None
 
     def test_all_data_sources_have_unique_ids(self, seeded_db_session: Session):
         """Test that all seeded data sources have unique UUIDs."""
@@ -384,7 +365,7 @@ class TestStartupSeeding:
         try:
             sources = verify_session.query(DataSource).all()
             assert len(sources) == 3
-            assert count == 3
+            assert count == 2
         finally:
             verify_session.close()
 

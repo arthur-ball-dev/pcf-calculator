@@ -39,7 +39,7 @@ def seed_test_emission_factors(db_session):
     Seed test database with known emission factors for endpoint testing
 
     Creates:
-    - 10 emission factors from various sources (EPA, DEFRA, Ecoinvent)
+    - 10 emission factors from various sources (EPA, DEFRA)
     - Various geographies (GLO, US, EU)
     - Different units (kg, L, kWh)
     - Different activity types (materials, energy, transport)
@@ -80,7 +80,7 @@ def seed_test_emission_factors(db_session):
             activity_name="ABS Plastic",
             co2e_factor=Decimal("3.8"),
             unit="kg",
-            data_source="Ecoinvent",
+            data_source="EPA",
             geography="EU",
             reference_year=2022,
             data_quality_rating=Decimal("0.92")
@@ -120,7 +120,7 @@ def seed_test_emission_factors(db_session):
             activity_name="Steel",
             co2e_factor=Decimal("2.1"),
             unit="kg",
-            data_source="Ecoinvent",
+            data_source="EPA",
             geography="GLO",
             reference_year=2022,
             data_quality_rating=Decimal("0.89")
@@ -152,9 +152,9 @@ def seed_test_emission_factors(db_session):
 
     return {
         "total_count": 10,
-        "epa_count": 5,
+        "epa_count": 7,
         "defra_count": 3,
-        "ecoinvent_count": 2,
+        
         "glo_count": 6,
         "us_count": 2,
         "eu_count": 2,
@@ -317,7 +317,7 @@ class TestFilterByDataSource:
             assert item["data_source"] == "EPA", \
                 f"Factor {item['activity_name']} should be from EPA"
 
-        # Should return exactly 4 EPA factors from seed
+        # Should return exactly 7 EPA factors from seed
         assert len(data["items"]) == seed_test_emission_factors["epa_count"], \
             f"Expected {seed_test_emission_factors['epa_count']} EPA factors, got {len(data['items'])}"
 
@@ -337,21 +337,21 @@ class TestFilterByDataSource:
         assert len(data["items"]) == seed_test_emission_factors["defra_count"], \
             f"Expected {seed_test_emission_factors['defra_count']} DEFRA factors, got {len(data['items'])}"
 
-    def test_filter_by_ecoinvent_source(self, authenticated_client, seed_test_emission_factors):
-        """Test filtering for Ecoinvent emission factors only"""
-        response = authenticated_client.get("/api/v1/emission-factors?data_source=Ecoinvent")
+    def test_filter_by_epa_source_extended(self, authenticated_client, seed_test_emission_factors):
+        """Test filtering for additional EPA emission factors"""
+        response = authenticated_client.get("/api/v1/emission-factors?data_source=EPA")
         data = response.json()
 
         assert response.status_code == 200
 
-        # All returned items should be from Ecoinvent
+        # All returned items should be from EPA
         for item in data["items"]:
-            assert item["data_source"] == "Ecoinvent", \
-                f"Factor {item['activity_name']} should be from Ecoinvent"
+            assert item["data_source"] == "EPA", \
+                f"Factor {item['activity_name']} should be from EPA"
 
-        # Should return exactly 3 Ecoinvent factors from seed
-        assert len(data["items"]) == seed_test_emission_factors["ecoinvent_count"], \
-            f"Expected {seed_test_emission_factors['ecoinvent_count']} Ecoinvent factors, got {len(data['items'])}"
+        # Should return exactly 7 EPA factors from seed
+        assert len(data["items"]) == seed_test_emission_factors["epa_count"], \
+            f"Expected {seed_test_emission_factors['epa_count']} EPA factors, got {len(data['items'])}"
 
 
 # ============================================================================

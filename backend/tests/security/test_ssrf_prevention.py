@@ -43,8 +43,8 @@ def allowed_domains() -> List[str]:
         "www.epa.gov",
         "api.defra.gov.uk",
         "naei.beis.gov.uk",
-        "ecoquery.ecoinvent.org",
-        "v391.ecoquery.ecoinvent.org",
+        
+        
     ]
 
 
@@ -100,9 +100,9 @@ class TestAllowedURLValidation:
         result = url_validator.validate(url)
         assert result is True
 
-    def test_allowed_ecoinvent_url_passes(self, url_validator):
-        """Test that Ecoinvent URLs pass validation."""
-        url = "https://ecoquery.ecoinvent.org/3.8/cutoff/dataset"
+    def test_allowed_epa_api_url_passes(self, url_validator):
+        """Test that EPA API URLs pass validation."""
+        url = "https://api.epa.gov/v1/factors"
 
         result = url_validator.validate(url)
         assert result is True
@@ -1161,8 +1161,8 @@ class TestAllowedDomainsConfiguration:
         domains = get_allowed_domains()
         assert any("defra" in d or "beis" in d for d in domains)
 
-    def test_allowed_domains_contains_ecoinvent(self):
-        """Test that Ecoinvent domains are in allowed list."""
+    def test_allowed_domains_contains_only_epa_defra(self):
+        """Test that only EPA and DEFRA domains are allowed."""
         try:
             from backend.services.data_ingestion.security.allowed_domains import (
                 get_allowed_domains
@@ -1171,7 +1171,8 @@ class TestAllowedDomainsConfiguration:
             pytest.skip("get_allowed_domains not yet implemented")
 
         domains = get_allowed_domains()
-        assert any("ecoinvent" in d for d in domains)
+        # Only EPA and DEFRA domains should be in allowed list
+        assert all("epa.gov" in d or "defra" in d or "beis" in d for d in domains)
 
     def test_get_allowed_domains_returns_copy(self):
         """Test that get_allowed_domains returns a copy (not original list)."""

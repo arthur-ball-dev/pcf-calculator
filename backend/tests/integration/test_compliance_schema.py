@@ -17,49 +17,11 @@ Test-Driven Development Protocol:
 """
 
 import pytest
-from sqlalchemy import create_engine, text, inspect
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import StaticPool
-from datetime import datetime, date, timezone
-from decimal import Decimal
-import os
-import tempfile
-
+from sqlalchemy import text, inspect
+from sqlalchemy.orm import Session
 from backend.models import Base
+# Uses db_session fixture from conftest.py (PostgreSQL with transaction rollback)
 
-
-@pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing with all tables created."""
-    from backend.models import Base
-    try:
-        from backend.models import DataSourceLicense, EmissionFactorProvenance
-    except ImportError:
-        pytest.skip("Compliance models not yet implemented")
-
-    Base.metadata.create_all(db_engine)
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
 
 
 # ============================================================================
@@ -69,27 +31,27 @@ def db_session(db_engine):
 class TestTableStructure:
     """Test that tables are created with correct columns."""
 
-    def test_data_source_licenses_table_exists(self, db_engine):
+    def test_data_source_licenses_table_exists(self, test_engine):
         """Test that data_source_licenses table is created."""
         try:
             from backend.models import DataSourceLicense
         except ImportError:
             pytest.skip("DataSourceLicense model not yet implemented")
 
-        Base.metadata.create_all(db_engine)
-        inspector = inspect(db_engine)
+        Base.metadata.create_all(test_engine)
+        inspector = inspect(test_engine)
 
         assert "data_source_licenses" in inspector.get_table_names()
 
-    def test_data_source_licenses_columns(self, db_engine):
+    def test_data_source_licenses_columns(self, test_engine):
         """Test data_source_licenses has expected columns."""
         try:
             from backend.models import DataSourceLicense
         except ImportError:
             pytest.skip("DataSourceLicense model not yet implemented")
 
-        Base.metadata.create_all(db_engine)
-        inspector = inspect(db_engine)
+        Base.metadata.create_all(test_engine)
+        inspector = inspect(test_engine)
         columns = {col["name"] for col in inspector.get_columns("data_source_licenses")}
 
         expected_columns = {
@@ -111,27 +73,27 @@ class TestTableStructure:
         for col in expected_columns:
             assert col in columns, f"Missing column: {col}"
 
-    def test_emission_factor_provenance_table_exists(self, db_engine):
+    def test_emission_factor_provenance_table_exists(self, test_engine):
         """Test that emission_factor_provenance table is created."""
         try:
             from backend.models import EmissionFactorProvenance
         except ImportError:
             pytest.skip("EmissionFactorProvenance model not yet implemented")
 
-        Base.metadata.create_all(db_engine)
-        inspector = inspect(db_engine)
+        Base.metadata.create_all(test_engine)
+        inspector = inspect(test_engine)
 
         assert "emission_factor_provenance" in inspector.get_table_names()
 
-    def test_emission_factor_provenance_columns(self, db_engine):
+    def test_emission_factor_provenance_columns(self, test_engine):
         """Test emission_factor_provenance has expected columns."""
         try:
             from backend.models import EmissionFactorProvenance
         except ImportError:
             pytest.skip("EmissionFactorProvenance model not yet implemented")
 
-        Base.metadata.create_all(db_engine)
-        inspector = inspect(db_engine)
+        Base.metadata.create_all(test_engine)
+        inspector = inspect(test_engine)
         columns = {col["name"] for col in inspector.get_columns("emission_factor_provenance")}
 
         expected_columns = {
@@ -159,15 +121,15 @@ class TestTableStructure:
 class TestIndexes:
     """Test that indexes are created correctly."""
 
-    def test_data_source_licenses_data_source_id_index(self, db_engine):
+    def test_data_source_licenses_data_source_id_index(self, test_engine):
         """Test index on data_source_licenses.data_source_id."""
         try:
             from backend.models import DataSourceLicense
         except ImportError:
             pytest.skip("DataSourceLicense model not yet implemented")
 
-        Base.metadata.create_all(db_engine)
-        inspector = inspect(db_engine)
+        Base.metadata.create_all(test_engine)
+        inspector = inspect(test_engine)
         indexes = inspector.get_indexes("data_source_licenses")
 
         index_columns = []
@@ -177,15 +139,15 @@ class TestIndexes:
         # data_source_id should be indexed
         assert "data_source_id" in index_columns
 
-    def test_emission_factor_provenance_emission_factor_id_index(self, db_engine):
+    def test_emission_factor_provenance_emission_factor_id_index(self, test_engine):
         """Test index on emission_factor_provenance.emission_factor_id."""
         try:
             from backend.models import EmissionFactorProvenance
         except ImportError:
             pytest.skip("EmissionFactorProvenance model not yet implemented")
 
-        Base.metadata.create_all(db_engine)
-        inspector = inspect(db_engine)
+        Base.metadata.create_all(test_engine)
+        inspector = inspect(test_engine)
         indexes = inspector.get_indexes("emission_factor_provenance")
 
         index_columns = []
@@ -195,15 +157,15 @@ class TestIndexes:
         # emission_factor_id should be indexed
         assert "emission_factor_id" in index_columns
 
-    def test_emission_factor_provenance_license_id_index(self, db_engine):
+    def test_emission_factor_provenance_license_id_index(self, test_engine):
         """Test index on emission_factor_provenance.data_source_license_id."""
         try:
             from backend.models import EmissionFactorProvenance
         except ImportError:
             pytest.skip("EmissionFactorProvenance model not yet implemented")
 
-        Base.metadata.create_all(db_engine)
-        inspector = inspect(db_engine)
+        Base.metadata.create_all(test_engine)
+        inspector = inspect(test_engine)
         indexes = inspector.get_indexes("emission_factor_provenance")
 
         index_columns = []
@@ -268,7 +230,7 @@ class TestSeedDataLoading:
         assert callable(seed_licenses)
 
     def test_seed_license_data(self, db_session):
-        """Test seeding license data for EPA, DEFRA, EXIOBASE."""
+        """Test seeding license data for EPA, DEFRA."""
         try:
             from backend.database.seeds.compliance_seeds import seed_licenses, LICENSE_DATA
             from backend.models import DataSource, DataSourceLicense
@@ -340,32 +302,6 @@ class TestSeedDataLoading:
             assert defra_license.commercial_use_allowed is True
             assert defra_license.sharealike_required is False
 
-    def test_seed_exiobase_license(self, db_session):
-        """Test EXIOBASE license has correct values."""
-        try:
-            from backend.database.seeds.compliance_seeds import seed_licenses
-            from backend.models import DataSource, DataSourceLicense
-        except ImportError:
-            pytest.skip("compliance_seeds module not yet implemented")
-
-        # Seed data sources first
-        from backend.database.seeds.data_sources import seed_data_sources
-        seed_data_sources(db_session)
-
-        # Seed licenses
-        licenses = seed_licenses(db_session)
-
-        # Check EXIOBASE license (in data_sources it's named "Exiobase")
-        if "EXIOBASE" in licenses:
-            exio_license = licenses["EXIOBASE"]
-            assert exio_license.license_type == "CC_BY_SA_4"
-            assert exio_license.attribution_required is True
-            assert exio_license.sharealike_required is True
-
-
-# ============================================================================
-# Test Scenario 5: Cascade Delete Behavior
-# ============================================================================
 
 class TestCascadeDeleteBehavior:
     """Test cascade delete behaviors work correctly."""
@@ -585,7 +521,7 @@ class TestPydanticSchemas:
             "license_type": "CC_BY_SA_4",
             "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
             "attribution_required": True,
-            "attribution_statement": "EXIOBASE 3.8",
+            "attribution_statement": "Test Data",
             "commercial_use_allowed": True,
             "sharealike_required": True,
             "created_at": datetime.now()
@@ -645,7 +581,7 @@ class TestPydanticSchemas:
                 "OGL_V3": 35,
                 "CC_BY_SA_4": 25
             },
-            "attribution_required_sources": ["DEFRA Conversion Factors", "Exiobase"]
+            "attribution_required_sources": ["DEFRA Conversion Factors"]
         }
         schema = ComplianceReport(**data)
         assert schema.total_factors == 100

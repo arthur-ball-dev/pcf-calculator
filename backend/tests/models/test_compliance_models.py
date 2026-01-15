@@ -490,7 +490,7 @@ class TestEmissionFactorProvenanceRelationships:
             activity_name="Aluminum Production",
             co2e_factor=Decimal("8.5"),
             unit="kg",
-            data_source="EXIOBASE",
+            data_source="Test",
             geography="EU"
         )
         db_session.add(ef)
@@ -498,7 +498,7 @@ class TestEmissionFactorProvenanceRelationships:
 
         provenance = EmissionFactorProvenance(
             emission_factor_id=ef.id,
-            source_document="exiobase_v3.8.csv"
+            source_document="test_data.csv"
         )
         db_session.add(provenance)
         db_session.commit()
@@ -514,7 +514,7 @@ class TestEmissionFactorProvenanceRelationships:
             activity_name="Steel Production",
             co2e_factor=Decimal("1.85"),
             unit="kg",
-            data_source="EXIOBASE",
+            data_source="Test",
             geography="GLO"
         )
         db_session.add(ef)
@@ -522,7 +522,7 @@ class TestEmissionFactorProvenanceRelationships:
 
         provenance = EmissionFactorProvenance(
             emission_factor_id=ef.id,
-            source_document="exiobase_v3.8.csv"
+            source_document="test_data.csv"
         )
         db_session.add(provenance)
         db_session.commit()
@@ -530,7 +530,7 @@ class TestEmissionFactorProvenanceRelationships:
         db_session.refresh(ef)
         # One-to-one relationship
         assert ef.provenance is not None
-        assert ef.provenance.source_document == "exiobase_v3.8.csv"
+        assert ef.provenance.source_document == "test_data.csv"
 
     def test_provenance_references_license(self, db_session: Session):
         """Test provenance can reference license record."""
@@ -539,7 +539,7 @@ class TestEmissionFactorProvenanceRelationships:
         )
 
         data_source = DataSource(
-            name="EXIOBASE",
+            name="Test Source",
             source_type="file"
         )
         db_session.add(data_source)
@@ -556,7 +556,7 @@ class TestEmissionFactorProvenanceRelationships:
             activity_name="Copper Wire",
             co2e_factor=Decimal("3.5"),
             unit="kg",
-            data_source="EXIOBASE",
+            data_source="Test",
             geography="GLO"
         )
         db_session.add(ef)

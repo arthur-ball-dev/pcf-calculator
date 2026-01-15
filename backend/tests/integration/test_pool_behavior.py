@@ -31,6 +31,8 @@ from typing import List
 from fastapi.testclient import TestClient
 
 
+# Uses db_session fixture from conftest.py (PostgreSQL with transaction rollback)
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -54,45 +56,6 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture(scope="function")
-def test_engine():
-    """Create in-memory SQLite engine for testing."""
-    from sqlalchemy import create_engine, event
-    from sqlalchemy.pool import StaticPool
-    from backend.models import Base
-
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False,
-    )
-
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    Base.metadata.create_all(bind=engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(test_engine):
-    """Create database session for testing."""
-    from sqlalchemy.orm import sessionmaker
-
-    TestingSessionLocal = sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=test_engine
-    )
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
 
 
 # =============================================================================
