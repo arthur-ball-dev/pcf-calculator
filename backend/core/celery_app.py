@@ -7,7 +7,7 @@ This module configures Celery with Redis as the message broker for
 background task processing, including:
 - Task serialization and timezone settings
 - Task time limits and acknowledgment settings
-- Beat schedule for automated data syncs (EPA, DEFRA, Exiobase)
+- Beat schedule for automated data syncs (EPA, DEFRA)
 - Task routing to dedicated queues
 - Auto-discovery of task modules
 
@@ -148,12 +148,6 @@ celery_app.conf.update(
             "task": "backend.tasks.data_sync.sync_data_source",
             "schedule": crontab(day_of_week="tue,fri", hour=3, minute=0),
             "args": ("DEFRA_CONVERSION",),
-            "options": {"queue": "data_sync"},
-        },
-        "sync-exiobase-monthly": {
-            "task": "backend.tasks.data_sync.sync_data_source",
-            "schedule": crontab(day_of_month="1", hour=4, minute=0),
-            "args": ("EXIOBASE",),
             "options": {"queue": "data_sync"},
         },
     },

@@ -35,7 +35,7 @@ class EmissionFactorDTO:
         category: Material/process category (e.g., "steel", "aluminum")
         co2e_kg: CO2 equivalent in kg per unit
         unit: Unit of measurement (e.g., "kg", "kWh")
-        data_source: Data source name (e.g., "EPA", "DEFRA", "Ecoinvent")
+        data_source: Data source name (e.g., "EPA", "DEFRA")
         uncertainty: Optional uncertainty value (0.0-1.0)
 
     Example:

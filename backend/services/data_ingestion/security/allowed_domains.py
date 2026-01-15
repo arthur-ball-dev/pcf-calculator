@@ -24,10 +24,6 @@ ALLOWED_DOMAINS: List[str] = [
     # DEFRA (UK Department for Environment, Food & Rural Affairs)
     "api.defra.gov.uk",
     "naei.beis.gov.uk",
-
-    # Ecoinvent (Life Cycle Inventory Database)
-    "ecoquery.ecoinvent.org",
-    "v391.ecoquery.ecoinvent.org",
 ]
 
 

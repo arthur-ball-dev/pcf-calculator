@@ -377,6 +377,7 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
                 "activity_name": str(activity_name).strip(),
                 "co2e_factor": co2e_float,
                 "unit": unit,
+                "data_source": "DEFRA",  # Set data source for BOM display
                 "scope": config.get("scope", "Scope 3"),
                 "category": config.get("category", "other"),
                 "geography": "GB",

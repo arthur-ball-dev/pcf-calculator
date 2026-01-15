@@ -190,6 +190,7 @@ class ProductGenerator:
             name=product_name,
             description=f"{product_name} product generated from {template.name} template",
             unit="unit",
+            category=template.industry,  # Set category for product selector grouping
             is_finished_product=True,
             manufacturer=random.choice(["ProTech", "EcoSmart", "GreenEdge", "CorePro"]),
             country_of_origin=random.choice(["US", "CN", "DE", "JP", "GB", "KR"]),

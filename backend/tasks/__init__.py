@@ -4,7 +4,7 @@ Celery tasks package for PCF Calculator.
 TASK-BE-P5-001: Celery + Redis Setup
 
 This package contains Celery tasks for background processing:
-- data_sync: Data synchronization tasks for EPA, DEFRA, Exiobase
+- data_sync: Data synchronization tasks for EPA, DEFRA
 
 Usage:
     from backend.tasks.data_sync import sync_data_source, check_sync_status

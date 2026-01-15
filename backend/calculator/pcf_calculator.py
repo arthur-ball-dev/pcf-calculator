@@ -18,10 +18,12 @@ Features:
 - Integration with database products
 - Non-blocking async initialization (TASK-CALC-P7-016)
 - Decoupled from ORM via dependency injection (TASK-CALC-P7-022)
+- Robust sync with retry logic (TASK-BE-P9-010)
 
 TASK-CALC-003: Implement Simplified PCF Calculator
 TASK-CALC-P7-016: Make Brightway2 Initialization Non-Blocking
 TASK-CALC-P7-022: Decouple Calculator from ORM + Add Emission Factor Cache
+TASK-BE-P9-010: Fix emission factor sync failures due to database locks
 """
 
 import asyncio
@@ -116,6 +118,10 @@ def _initialize_brightway_sync() -> None:
     This is designed to be called via asyncio.to_thread() to avoid
     blocking the event loop during FastAPI startup.
 
+    TASK-BE-P9-010: Updated to use skip_if_synced=True for faster startup
+    when emission factors are already synced. Also includes retry logic
+    for database lock errors.
+
     Raises:
         Exception: If Brightway2 project or database not initialized
     """
@@ -136,9 +142,15 @@ def _initialize_brightway_sync() -> None:
     initialize_brightway()
 
     # Sync emission factors from database
+    # TASK-BE-P9-010: Use skip_if_synced=True for faster startup when data already synced
+    # This avoids re-syncing on every server restart, improving startup time.
+    # Also includes retry logic for database lock errors.
     with db_context() as session:
-        result = sync_emission_factors(db_session=session)
-        logger.info(f"Synced {result['synced_count']} emission factors to Brightway2")
+        result = sync_emission_factors(db_session=session, skip_if_synced=True)
+        if result.get("skipped"):
+            logger.info(f"Using existing {result['synced_count']} emission factors in Brightway2")
+        else:
+            logger.info(f"Synced {result['synced_count']} emission factors to Brightway2")
 
     # Create calculator instance (legacy mode without ef_provider)
     _calculator_instance = PCFCalculator()
@@ -311,6 +323,14 @@ class PCFCalculator:
             )
 
         self.ef_db = bw.Database("pcf_emission_factors")
+
+        # Check if database has activities (TASK-BE-P9-010)
+        activity_count = len(self.ef_db)
+        if activity_count == 0:
+            raise Exception(
+                "Emission factors database is empty. "
+                "Run sync_emission_factors() to populate it (TASK-CALC-002)."
+            )
 
         # Build name-based lookup cache for O(1) retrieval performance
         for activity in self.ef_db:

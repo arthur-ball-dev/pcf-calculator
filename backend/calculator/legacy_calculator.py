@@ -17,7 +17,7 @@ from typing import Any, Dict
 
 from sqlalchemy.orm import Session, selectinload
 
-from backend.models import BillOfMaterials, Product
+from backend.models import BillOfMaterials, EmissionFactor, Product
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +169,9 @@ def build_bom_tree_from_db(
             child_tree["quantity"] = float(bom_item.quantity)
             node["children"].append(child_tree)
         else:
-            material_name = map_product_to_emission_factor(calculator, child_product)
+            material_name = map_product_to_emission_factor(
+                calculator, child_product, db_session
+            )
 
             node["children"].append(
                 {
@@ -182,31 +184,74 @@ def build_bom_tree_from_db(
     return node
 
 
-def map_product_to_emission_factor(calculator, product) -> str:
+def map_product_to_emission_factor(
+    calculator, product, db_session: Session
+) -> str:
     """
     Map product code/name to emission factor activity name.
+
+    Priority:
+    1. Check product metadata for emission_factor_id (set by user or data ingestion)
+    2. Try exact name match (lowercase)
+    3. Try code-based match (normalized)
+    4. Try underscore-separated name match
+    5. Fall back to product name (will likely fail calculation)
 
     Args:
         calculator: PCFCalculator instance (for name lookup cache)
         product: Product model instance
+        db_session: SQLAlchemy database session for emission factor lookup
 
     Returns:
         Emission factor activity name
     """
+    # Priority 1: Check product metadata for emission_factor_id
+    # This is set when user selects emission factor in BOM Editor or by data ingestion
+    if product.metadata and isinstance(product.metadata, dict):
+        emission_factor_id = product.metadata.get("emission_factor_id")
+        if emission_factor_id:
+            # Look up emission factor by ID to get its activity_name
+            ef = db_session.query(EmissionFactor).filter(
+                EmissionFactor.id == emission_factor_id
+            ).first()
+            if ef:
+                activity_name = ef.activity_name.lower()
+                if activity_name in calculator._name_to_activity:
+                    logger.debug(
+                        f"Mapped product {product.code} via metadata emission_factor_id "
+                        f"to activity: {activity_name}"
+                    )
+                    return activity_name
+                else:
+                    logger.warning(
+                        f"Emission factor ID {emission_factor_id} found for product "
+                        f"{product.code}, but activity '{activity_name}' not in calculator cache. "
+                        f"Available: {list(calculator._name_to_activity.keys())[:5]}..."
+                    )
+            else:
+                logger.warning(
+                    f"Product {product.code} has emission_factor_id {emission_factor_id} "
+                    f"but emission factor not found in database"
+                )
+
+    # Priority 2: Exact name match (lowercase)
     name_exact = product.name.lower()
     if name_exact in calculator._name_to_activity:
         return name_exact
 
+    # Priority 3: Code-based match (normalized)
     code_normalized = product.code.lower().replace("-", "_")
     code_normalized = re.sub(r"_?\d+$", "", code_normalized)
 
     if code_normalized in calculator._name_to_activity:
         return code_normalized
 
+    # Priority 4: Underscore-separated name match
     name_underscored = product.name.lower().replace(" ", "_")
     if name_underscored in calculator._name_to_activity:
         return name_underscored
 
+    # Priority 5: Fall back to product name (will likely fail)
     logger.warning(
         f"Could not map product {product.code} ({product.name}) to emission factor. "
         f"Using name as-is: {name_exact}"

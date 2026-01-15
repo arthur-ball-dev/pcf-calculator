@@ -222,7 +222,7 @@ router = APIRouter(prefix="/api/v1", tags=["emission-factors"])
 def list_emission_factors(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
-    data_source: Optional[str] = Query(None, description="Filter by data source (EPA, DEFRA, Ecoinvent, etc.)"),
+    data_source: Optional[str] = Query(None, description="Filter by data source (EPA, DEFRA, etc.)"),
     geography: Optional[str] = Query(None, description="Filter by geography (GLO, US, EU, etc.)"),
     unit: Optional[str] = Query(None, description="Filter by unit (kg, L, kWh, etc.)"),
     activity_name: Optional[str] = Query(None, description="Filter by activity name (case-insensitive partial match)"),
@@ -545,7 +545,6 @@ def get_attributions(
     license requirements, including:
     - EPA GHG Emission Factors Hub (Public Domain)
     - DEFRA UK Conversion Factors (Open Government Licence v3.0)
-    - Exiobase 3.8 (CC-BY-SA-4.0)
 
     Returns:
     - attributions: List of data source attributions with license info

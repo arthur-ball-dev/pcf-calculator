@@ -711,7 +711,7 @@ def trigger_sync(
                     {
                         "field": "name",
                         "message": f"No connector is available to sync '{data_source.name}'. "
-                                   "Only EPA, DEFRA, and Exiobase sources are supported."
+                                   "Only EPA and DEFRA sources are supported."
                     }
                 ],
             ),

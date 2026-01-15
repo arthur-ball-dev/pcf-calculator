@@ -616,6 +616,7 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
             "activity_name": activity_str,
             "co2e_factor": co2e_value,
             "unit": unit_str,
+            "data_source": "EPA",  # Set data source for BOM display
             "scope": self._determine_scope(record),
             "category": self.file_config["type"],
             "geography": "US",
@@ -723,6 +724,7 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
             "activity_name": f"Grid Electricity - {subregion}",
             "co2e_factor": co2e_value,
             "unit": "kg CO2e/kWh",
+            "data_source": "EPA",  # Set data source for BOM display
             "scope": "Scope 2",
             "category": "electricity",
             "geography": "US",
