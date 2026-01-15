@@ -34,12 +34,37 @@ Or use the helper script:
 - Docker and Docker Compose
 - Python 3.13+
 - Virtual environment with project dependencies
+- PostgreSQL 15+ (for database tests)
 
 ### Verify Docker Installation
 
 ```bash
 docker --version
 docker-compose --version
+```
+
+### PostgreSQL Test Database Setup
+
+For running database integration tests locally:
+
+```bash
+# Start PostgreSQL with Docker
+docker-compose up -d postgres
+
+# Or use local PostgreSQL installation
+# Create test database
+createdb pcf_calculator_test
+
+# Create test user
+createuser pcf_test_user
+psql -c "ALTER USER pcf_test_user WITH PASSWORD 'pcf_test_password';"
+psql -c "GRANT ALL PRIVILEGES ON DATABASE pcf_calculator_test TO pcf_test_user;"
+```
+
+Set the test database URL in your environment:
+
+```bash
+export TEST_DATABASE_URL=postgresql+psycopg://pcf_test_user:pcf_test_password@localhost:5432/pcf_calculator_test
 ```
 
 ## Infrastructure Setup
@@ -159,6 +184,18 @@ def test_isolated(clean_redis):
     # Database is flushed after test
 ```
 
+### db_session
+
+Provides a PostgreSQL database session for integration tests:
+
+```python
+def test_database_query(db_session):
+    # Uses PostgreSQL test database
+    result = db_session.execute(select(Product))
+    products = result.scalars().all()
+    assert len(products) >= 0
+```
+
 ## Configuration
 
 ### Environment Variables
@@ -170,6 +207,8 @@ def test_isolated(clean_redis):
 | `REDIS_DB` | 1 | Redis database number for tests |
 | `CELERY_BROKER_URL` | redis://localhost:6379/0 | Celery broker URL |
 | `CELERY_RESULT_BACKEND` | redis://localhost:6379/1 | Celery result backend |
+| `DATABASE_URL` | postgresql+psycopg://... | PostgreSQL connection URL |
+| `TEST_DATABASE_URL` | postgresql+psycopg://... | Test database connection URL |
 
 ### Using docker-compose.test.yml
 
@@ -186,6 +225,8 @@ cd backend && pytest tests/integration/ -v
 docker-compose -f docker-compose.test.yml down -v
 ```
 
+> **Note:** The `docker-compose.test.yml` file is primarily for CI/CD pipelines. For local development, use the main `docker-compose.yml` with PostgreSQL. All integration tests expect a PostgreSQL database (configured via `TEST_DATABASE_URL` or the `db_session` fixture).
+
 ## Docker Compose Services
 
 ### redis
@@ -194,6 +235,13 @@ docker-compose -f docker-compose.test.yml down -v
 - Port: 6379
 - Volume: `redis_data` for persistence
 - Health check: `redis-cli ping`
+
+### postgres
+
+- Image: `postgres:15-alpine`
+- Port: 5432
+- Volume: `postgres_data` for persistence
+- Health check: `pg_isready`
 
 ### celery_worker
 
@@ -206,7 +254,6 @@ docker-compose -f docker-compose.test.yml down -v
 - Schedules periodic tasks
 - EPA sync: Biweekly (Mon/Thu 2:00 AM UTC)
 - DEFRA sync: Biweekly (Tue/Fri 3:00 AM UTC)
-- Exiobase sync: Monthly (1st day 4:00 AM UTC)
 
 ## Troubleshooting
 
@@ -217,6 +264,14 @@ ConnectionRefusedError: [Errno 111] Connection refused
 ```
 
 **Solution:** Start Redis with `docker-compose up -d redis`
+
+### PostgreSQL Connection Refused
+
+```
+OperationalError: connection refused
+```
+
+**Solution:** Start PostgreSQL with `docker-compose up -d postgres` or verify local PostgreSQL is running
 
 ### Tests Skipped
 
@@ -250,12 +305,31 @@ Located in `tests/test_*` directories:
 - `test_database/` - Database model tests
 - `test_data/` - Data validation tests
 
-### Integration Tests (Redis Required)
+### Integration Tests (Redis/PostgreSQL Required)
 
 Located in `tests/integration/`:
-- `test_celery.py` - Celery task execution tests
-- `test_postgresql_migration.py` - PostgreSQL migration tests
-- `test_ingestion_base.py` - Data ingestion pipeline tests
+
+**Core Infrastructure:**
+- `test_celery.py` - Celery task execution and worker tests
+- `test_postgresql_migration.py` - PostgreSQL migration and schema tests
+- `test_redis_fixtures.py` - Redis fixture functionality tests
+- `test_pool_behavior.py` - Connection pool behavior tests
+- `test_docker_postgres.py` - Docker PostgreSQL integration tests
+
+**ETL & Data Ingestion:**
+- `test_ingestion_base.py` - Base data ingestion pipeline tests
+- `test_epa_mock.py` - EPA GHG Hub data ingestion tests (mocked API)
+- `test_defra_mock.py` - DEFRA data ingestion tests (mocked API)
+- `test_external_sync.py` - External data sync verification tests
+- `test_factor_mapping.py` - Emission factor mapping tests
+
+**Product & Catalog:**
+- `test_catalog_generation.py` - Product catalog generation tests
+- `test_product_catalog.py` - Product catalog API tests
+- `test_product_search_performance.py` - Search performance benchmarks
+
+**Compliance:**
+- `test_compliance_schema.py` - Compliance schema validation tests
 
 ## CI/CD Integration
 
@@ -273,6 +347,20 @@ services:
       --health-timeout 5s
       --health-retries 5
 
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - 5432:5432
+    env:
+      POSTGRES_DB: pcf_calculator_test
+      POSTGRES_USER: pcf_test_user
+      POSTGRES_PASSWORD: pcf_test_password
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 10s
+      --health-timeout 5s
+      --health-retries 5
+
 steps:
   - name: Run integration tests
     run: |
@@ -281,6 +369,7 @@ steps:
     env:
       REDIS_HOST: localhost
       REDIS_PORT: 6379
+      DATABASE_URL: postgresql+psycopg://pcf_test_user:pcf_test_password@localhost:5432/pcf_calculator_test
 ```
 
 ## Best Practices
@@ -290,3 +379,4 @@ steps:
 3. **Timeouts**: Set reasonable timeouts for async operations
 4. **Skip Gracefully**: Use `require_redis` for proper skip messages
 5. **Mock External APIs**: Use `respx` or `responses` for HTTP mocking
+6. **Use PostgreSQL**: All tests should use PostgreSQL to match production

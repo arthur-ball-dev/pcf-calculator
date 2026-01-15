@@ -2,121 +2,106 @@
 
 ## Overview
 
-The PCF Calculator supports both SQLite (development) and PostgreSQL (production) databases.
-The application automatically detects the database type from the `DATABASE_URL` environment variable
-and configures the connection appropriately.
+The PCF Calculator uses PostgreSQL as its primary database for both development and production environments.
+The application automatically detects the database configuration from the `DATABASE_URL` environment variable.
 
-## Database Options
+**Note:** As of Phase 9 (2026-01-14), SQLite is no longer used. All environments use PostgreSQL.
 
-| Database | Use Case | Connection String Format |
-|----------|----------|--------------------------|
-| SQLite | Development, testing | `sqlite:///./pcf_calculator.db` |
-| PostgreSQL | Production, staging | `postgresql://user:pass@host:5432/db` |
-| Railway | Cloud deployment | `postgres://user:pass@host.railway.internal:5432/db` |
-| Supabase | Cloud PostgreSQL | `postgresql://postgres:pass@db.xxx.supabase.co:5432/postgres?sslmode=require` |
+## Database Environments
 
-**Note:** Both `postgres://` and `postgresql://` URL formats are supported. Railway uses `postgres://` which is automatically normalized.
+| Environment | Database | Connection String Format |
+|-------------|----------|--------------------------|
+| Development | PostgreSQL (Docker) | `postgresql://user:pass@localhost:5432/db` |
+| Production | PostgreSQL (Railway) | `postgres://user:pass@host.railway.internal:5432/db` |
+| Testing | PostgreSQL | `postgresql://user:pass@localhost:5432/pcf_calculator_test` |
+
+**Note:** Both `postgres://` and `postgresql://` URL formats are supported. Railway uses `postgres://` which is automatically normalized to `postgresql+psycopg://` for SQLAlchemy compatibility.
 
 ## Quick Start
 
-### Development (SQLite - Default)
-
-No configuration needed. The application defaults to SQLite:
+### Development (PostgreSQL via Docker)
 
 ```bash
-# Default - uses sqlite:///./pcf_calculator.db
-cd backend && uvicorn main:app --reload
+# Start PostgreSQL container
+docker compose up -d postgres
+
+# Run migrations
+cd backend && alembic upgrade head
+
+# Seed data
+python scripts/seed_data.py
+
+# Start server
+uvicorn main:app --reload
 ```
 
-### Production (PostgreSQL)
+### Production (Railway PostgreSQL)
 
-Set the `DATABASE_URL` environment variable:
+Railway automatically provisions and configures the PostgreSQL database. The `DATABASE_URL` is auto-injected into the environment.
 
 ```bash
-export DATABASE_URL=postgresql://user:password@localhost:5432/pcf_calculator
-cd backend && uvicorn main:app --host 0.0.0.0 --port 8000
+# Railway provides DATABASE_URL automatically
+# The app handles URL normalization (postgres:// to postgresql+psycopg://)
 ```
 
 ## PostgreSQL Setup
 
-### Local PostgreSQL Installation
+### Local PostgreSQL (Docker Compose)
 
-#### Ubuntu/Debian
+The project includes a `docker-compose.yml` that configures PostgreSQL:
 
-```bash
-# Install PostgreSQL
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-
-# Start the service
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pcf_user
+      POSTGRES_PASSWORD: DB_PASSWORD
+      POSTGRES_DB: pcf_calculator
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/database/init:/docker-entrypoint-initdb.d
 ```
 
-#### macOS (Homebrew)
-
+**Start the database:**
 ```bash
-# Install PostgreSQL
-brew install postgresql@16
-
-# Start the service
-brew services start postgresql@16
+docker compose up -d postgres
 ```
 
-### Create Database and User
+### Test Database Setup
 
+The application uses a separate test database (`pcf_calculator_test`) for E2E and integration tests.
+
+**Automatic setup via script:**
+```bash
+cd backend
+python scripts/setup_test_db.py
+```
+
+**Manual setup:**
 ```sql
 -- Connect as postgres superuser
-sudo -u postgres psql
+psql -U pcf_user -d pcf_calculator
 
--- Create database
-CREATE DATABASE pcf_calculator;
-
--- Create user with password
-CREATE USER pcf_user WITH ENCRYPTED PASSWORD 'your_secure_password';
+-- Create test database
+CREATE DATABASE pcf_calculator_test;
 
 -- Grant privileges
-GRANT ALL PRIVILEGES ON DATABASE pcf_calculator TO pcf_user;
-
--- Grant schema privileges (PostgreSQL 15+)
-\c pcf_calculator
-GRANT ALL ON SCHEMA public TO pcf_user;
-
--- Exit
-\q
+GRANT ALL PRIVILEGES ON DATABASE pcf_calculator_test TO pcf_user;
 ```
 
 ### Configure Environment
 
-Create a `.env` file from the template:
+Create a `.env` file:
 
 ```bash
-cp .env.sample .env
-```
+# Development
+DATABASE_URL=postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator
 
-Update the `DATABASE_URL`:
-
-```bash
-# .env
-DATABASE_URL=postgresql://pcf_user:your_secure_password@localhost:5432/pcf_calculator
-```
-
-### Run Migrations
-
-```bash
-cd backend
-source ../.venv/bin/activate
-alembic upgrade head
-```
-
-### Verify Setup
-
-```bash
-# Run validation script
-python scripts/validate_database.py
-
-# Or verify manually
-python -c "from backend.database.connection import get_engine; e = get_engine(); print(f'Connected to: {e.url}')"
+# Testing
+TEST_DATABASE_URL=postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test
 ```
 
 ## Railway Deployment
@@ -131,11 +116,27 @@ python -c "from backend.database.connection import get_engine; e = get_engine();
 
 ### 2. Add PostgreSQL Service
 
-1. In your Railway project, click "New Service" → "Database" → "PostgreSQL"
+1. In your Railway project, click "New Service" -> "Database" -> "PostgreSQL"
 2. Railway automatically provisions a PostgreSQL 16 instance
 3. The `DATABASE_URL` environment variable is auto-injected
 
-### 3. Configure Environment Variables
+### 3. URL Normalization
+
+Railway provides `DATABASE_URL` in `postgres://` format:
+
+```
+postgres://user:password@host.railway.internal:5432/railway
+```
+
+The application automatically normalizes this to `postgresql+psycopg://` for SQLAlchemy compatibility:
+
+```python
+# In backend/database/connection.py
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
+```
+
+### 4. Environment Variables
 
 Railway provides `DATABASE_URL` automatically. Add these additional variables:
 
@@ -151,33 +152,23 @@ RAILWAY_PUBLIC_URL=https://your-backend.up.railway.app
 REDIS_URL=redis://default:xxx@your-redis.railway.internal:6379
 ```
 
-### 4. Deployment Configuration
+### 5. Deployment Configuration
 
-The repository includes these Railway configuration files:
+The repository includes Railway configuration files:
 
 - `railway.toml` - Main deployment configuration
 - `nixpacks.toml` - Build configuration
-- `Procfile` - Process commands (used as fallback)
+- `Procfile` - Process commands (fallback)
 
 **Key settings in `railway.toml`:**
 
 ```toml
 [deploy]
-# Runs migrations, seeds data, initializes Brightway2, then starts server
+# Runs migrations, seeds data, then starts server
 startCommand = "sh -c 'PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini upgrade head && PYTHONPATH=/app python3 backend/scripts/seed_data.py && PYTHONPATH=/app python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT'"
 
 healthcheckPath = "/health"
 ```
-
-### 5. Database URL Format
-
-Railway provides `DATABASE_URL` in `postgres://` format:
-
-```
-postgres://user:password@host.railway.internal:5432/railway
-```
-
-The application automatically normalizes this to `postgresql://` for SQLAlchemy compatibility.
 
 ### 6. Verify Deployment
 
@@ -210,50 +201,6 @@ curl https://your-app.up.railway.app/api/v1/emission-factors?limit=5
   railway run alembic -c backend/alembic.ini upgrade head
   ```
 
-## Supabase Setup
-
-[Supabase](https://supabase.com) provides managed PostgreSQL with additional features like
-authentication, storage, and real-time subscriptions.
-
-### 1. Create Supabase Project
-
-1. Sign up at [supabase.com](https://supabase.com)
-2. Create a new project
-3. Note your project reference ID (e.g., `abcdefghijklmnop`)
-
-### 2. Get Connection String
-
-1. Go to Project Settings > Database
-2. Copy the Connection String (URI format)
-3. Replace `[YOUR-PASSWORD]` with your database password
-
-### 3. Configure Environment
-
-```bash
-# .env
-DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require
-
-# Optional: For Supabase API access
-SUPABASE_URL=https://[PROJECT-REF].supabase.co
-SUPABASE_KEY=your-anon-key
-```
-
-### 4. Connection Pooling (Recommended for Serverless)
-
-For serverless deployments, use the pooler connection (port 6543):
-
-```bash
-# Use pooler for serverless/edge functions
-DATABASE_URL_POOLED=postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:6543/postgres?pgbouncer=true
-```
-
-### 5. Run Migrations
-
-```bash
-cd backend
-alembic upgrade head
-```
-
 ## Database Configuration Options
 
 ### Connection Pool Settings
@@ -271,7 +218,6 @@ DB_MAX_OVERFLOW=10
 **Recommendations:**
 - Development: `pool_size=5`, `max_overflow=10`
 - Production: `pool_size=10`, `max_overflow=20`
-- Serverless: Use Supabase pooler with smaller pool size
 
 ### How Pooling Works
 
@@ -320,6 +266,23 @@ alembic upgrade +1
 alembic downgrade -1
 ```
 
+### Dialect-Aware Migrations
+
+Some migrations contain dialect-specific SQL. The migrations use context detection:
+
+```python
+from alembic import context
+
+def upgrade():
+    dialect = context.get_context().dialect.name
+    if dialect == 'postgresql':
+        # PostgreSQL-specific SQL
+        op.execute("ALTER TABLE ... SET ... DEFAULT TRUE")
+    else:
+        # SQLite fallback (deprecated but maintained for compatibility)
+        op.execute("ALTER TABLE ... SET ... DEFAULT 1")
+```
+
 ### Reset Database (Development Only)
 
 ```bash
@@ -328,30 +291,72 @@ alembic downgrade base
 alembic upgrade head
 ```
 
+## Test Database Configuration
+
+### Backend Tests
+
+All backend tests now use PostgreSQL (`pcf_calculator_test` database) instead of SQLite in-memory.
+
+**Transaction rollback pattern:**
+```python
+@pytest.fixture(scope="function")
+def db_session(test_engine):
+    # Start a connection and begin a transaction
+    connection = test_engine.connect()
+    transaction = connection.begin()
+
+    # Create session bound to the connection
+    session = sessionmaker(bind=connection)()
+
+    yield session
+
+    # Cleanup - rollback transaction
+    session.close()
+    transaction.rollback()
+    connection.close()
+```
+
+**Benefits:**
+- Production parity: Tests run against PostgreSQL like production
+- Fast isolation: Transaction rollback is faster than schema recreation
+- Dialect consistency: No SQLite-specific quirks
+
+### E2E Tests
+
+E2E tests use an isolated test database with dedicated test data:
+
+```bash
+# Setup test database
+cd frontend && npm run test:e2e:setup
+
+# Run E2E tests with isolated database
+npm run test:e2e:isolated
+```
+
+The test database contains:
+- 3 E2E-specific products
+- E2E test user
+- Pre-seeded data sources (EPA, DEFRA)
+
 ## Troubleshooting
 
 ### Connection Refused
 
-**Symptoms:** `psycopg2.OperationalError: connection refused`
+**Symptoms:** `psycopg.OperationalError: connection refused`
 
 **Solutions:**
 1. Verify PostgreSQL is running:
    ```bash
-   sudo systemctl status postgresql
+   docker compose ps
    # or
    pg_isready
    ```
 
-2. Check pg_hba.conf allows connections:
-   ```bash
-   # /etc/postgresql/16/main/pg_hba.conf
-   # Add this line for local development:
-   host    all    all    127.0.0.1/32    md5
-   ```
+2. Check connection parameters in `.env`
 
-3. Restart PostgreSQL after changes:
+3. Restart PostgreSQL container:
    ```bash
-   sudo systemctl restart postgresql
+   docker compose restart postgres
    ```
 
 ### SSL Connection Required
@@ -364,9 +369,9 @@ alembic upgrade head
    DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
    ```
 
-2. For self-signed certificates:
+2. For local development without SSL:
    ```bash
-   DATABASE_URL=postgresql://user:pass@host/db?sslmode=prefer
+   DATABASE_URL=postgresql://user:pass@host/db?sslmode=disable
    ```
 
 ### Migration Errors
@@ -425,7 +430,8 @@ alembic upgrade head
 
 ```bash
 # .env
-DATABASE_URL=sqlite:///./pcf_calculator.db
+DATABASE_URL=postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator
+TEST_DATABASE_URL=postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test
 DEBUG=true
 ```
 
@@ -441,8 +447,7 @@ DB_POOL_SIZE=5
 ### Production
 
 ```bash
-# .env
-DATABASE_URL=postgresql://pcf_prod:password@prod-db.internal:5432/pcf_prod?sslmode=require
+# .env (Railway auto-injects DATABASE_URL)
 DEBUG=false
 DB_POOL_SIZE=10
 DB_MAX_OVERFLOW=20
@@ -454,4 +459,9 @@ DB_MAX_OVERFLOW=20
 - [.env.sample](../.env.sample) - Environment variable template
 - [SQLAlchemy Documentation](https://docs.sqlalchemy.org/en/20/)
 - [Alembic Documentation](https://alembic.sqlalchemy.org/en/latest/)
-- [Supabase Documentation](https://supabase.com/docs)
+- [Railway Documentation](https://docs.railway.app/)
+
+---
+
+**Document Owner:** Technical-Lead / Database-Architect
+**Last Updated:** 2026-01-14

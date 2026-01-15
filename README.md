@@ -1,14 +1,14 @@
 # Product Carbon Footprint Calculator
 
-Calculate cradle-to-gate carbon emissions for products using Bill of Materials (BOM) data and emission factors from EPA, DEFRA, and Ecoinvent. Implements ISO 14067 and GHG Protocol standards.
+Calculate cradle-to-gate carbon emissions for products using Bill of Materials (BOM) data and emission factors from EPA and DEFRA. Implements ISO 14067 and GHG Protocol standards.
 
 ## Tech Stack
 
-**Backend:** Python 3.13, FastAPI, SQLAlchemy 2.0, Brightway2 LCA, SQLite/PostgreSQL
+**Backend:** Python 3.13, FastAPI, SQLAlchemy 2.0, Brightway2 LCA, PostgreSQL
 
 **Frontend:** React 19, TypeScript, Vite, Zustand, TanStack Query, shadcn/ui, Nivo charts, Playwright
 
-**Project Status:** Phase 7 - Production Hardening & Data Quality
+**Project Status:** Phase 9 - Final MVP Validation
 
 ## Project Milestones
 
@@ -20,6 +20,8 @@ Calculate cradle-to-gate carbon emissions for products using Bill of Materials (
 - **Phase 5 (Complete):** MVP feature completion and polish
 - **Phase 6 (Complete):** Deployment and CI/CD pipeline
 - **Phase 7 (Complete):** Production hardening, data quality, and documentation
+- **Phase 8 (Complete):** Performance optimization and caching
+- **Phase 9 (In Progress):** Final MVP validation and documentation
 
 ## Quick Start
 
@@ -78,7 +80,7 @@ npm run test:e2e
 - **Export Options:** PDF reports and Excel data export
 
 ### Data Management
-- **Emission Factors:** EPA, DEFRA, and Ecoinvent databases
+- **Emission Factors:** EPA and DEFRA databases
 - **Product Catalog:** Pre-loaded products with complete BOMs
 - **Calculation History:** Track and compare previous calculations
 
@@ -155,7 +157,7 @@ See `CLAUDE.md` for comprehensive development documentation including:
 Copy `.env.sample` to `.env` and configure:
 
 ```bash
-DATABASE_URL=sqlite:///./pcf_calculator.db
+DATABASE_URL=postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator
 CORS_ORIGINS=http://localhost:5173
 ```
 
