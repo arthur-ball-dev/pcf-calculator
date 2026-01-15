@@ -139,42 +139,86 @@ def upgrade() -> None:
     op.create_index('idx_detail_component', 'calculation_details', ['component_id'])
 
     # Create v_bom_explosion view for recursive BOM traversal
-    op.execute("""
-        CREATE VIEW v_bom_explosion AS
-        WITH RECURSIVE bom_tree AS (
-            -- Base case: Start with finished products
-            SELECT
-                p.id AS root_id,
-                p.name AS root_name,
-                p.id AS component_id,
-                p.name AS component_name,
-                0 AS level,
-                1.0 AS cumulative_quantity,
-                p.unit,
-                p.id AS path
-            FROM products p
-            WHERE p.is_finished_product = 1
+    # Use dialect-aware SQL for PostgreSQL vs SQLite compatibility
+    from alembic import context
+    dialect = context.get_context().dialect.name
 
-            UNION ALL
+    if dialect == 'postgresql':
+        # PostgreSQL: use TRUE and POSITION()
+        op.execute("""
+            CREATE VIEW v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    CAST(p.id AS TEXT) AS path
+                FROM products p
+                WHERE p.is_finished_product = TRUE
 
-            -- Recursive case: Traverse BOM
-            SELECT
-                bt.root_id,
-                bt.root_name,
-                child.id AS component_id,
-                child.name AS component_name,
-                bt.level + 1,
-                bt.cumulative_quantity * bom.quantity,
-                COALESCE(bom.unit, child.unit) AS unit,
-                bt.path || '/' || child.id AS path
-            FROM bom_tree bt
-            JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
-            JOIN products child ON bom.child_product_id = child.id
-            WHERE bt.level < 10  -- Prevent infinite recursion
-              AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
-        )
-        SELECT * FROM bom_tree
-    """)
+                UNION ALL
+
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND POSITION(child.id IN bt.path) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
+    else:
+        # SQLite: use 1 and INSTR()
+        op.execute("""
+            CREATE VIEW v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    p.id AS path
+                FROM products p
+                WHERE p.is_finished_product = 1
+
+                UNION ALL
+
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
 
 
 def downgrade() -> None:

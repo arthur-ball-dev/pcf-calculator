@@ -9,10 +9,14 @@ and updates existing transport products to use the correct unit.
 
 Transport emission factors (transport_truck, transport_ship) are measured in
 tonne-kilometers (tkm) which represents the transport of one tonne over one kilometer.
+
+Notes:
+- Boolean comparisons use TRUE/FALSE for PostgreSQL, 1/0 for SQLite
+- String search uses POSITION() for PostgreSQL, INSTR() for SQLite
 """
 from typing import Sequence, Union
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 
@@ -33,6 +37,8 @@ def upgrade() -> None:
     3. Drop old constraint and create new constraint with 'tkm' included
     4. Recreate v_bom_explosion view
     """
+    dialect = context.get_context().dialect.name
+
     # Step 1: Drop the view before altering the products table
     # SQLite batch_alter_table will recreate the table, which breaks view references
     op.execute("DROP VIEW IF EXISTS v_bom_explosion")
@@ -58,43 +64,83 @@ def upgrade() -> None:
             "unit IN ('unit', 'kg', 'g', 'L', 'mL', 'm', 'cm', 'kWh', 'MJ', 'tkm')"
         )
 
-    # Step 4: Recreate v_bom_explosion view
-    op.execute("""
-        CREATE VIEW v_bom_explosion AS
-        WITH RECURSIVE bom_tree AS (
-            -- Base case: Start with finished products
-            SELECT
-                p.id AS root_id,
-                p.name AS root_name,
-                p.id AS component_id,
-                p.name AS component_name,
-                0 AS level,
-                1.0 AS cumulative_quantity,
-                p.unit,
-                p.id AS path
-            FROM products p
-            WHERE p.is_finished_product = 1
+    # Step 4: Recreate v_bom_explosion view with dialect-aware SQL
+    if dialect == 'postgresql':
+        # PostgreSQL: use TRUE and POSITION()
+        op.execute("""
+            CREATE VIEW v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    CAST(p.id AS TEXT) AS path
+                FROM products p
+                WHERE p.is_finished_product = TRUE
 
-            UNION ALL
+                UNION ALL
 
-            -- Recursive case: Traverse BOM
-            SELECT
-                bt.root_id,
-                bt.root_name,
-                child.id AS component_id,
-                child.name AS component_name,
-                bt.level + 1,
-                bt.cumulative_quantity * bom.quantity,
-                COALESCE(bom.unit, child.unit) AS unit,
-                bt.path || '/' || child.id AS path
-            FROM bom_tree bt
-            JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
-            JOIN products child ON bom.child_product_id = child.id
-            WHERE bt.level < 10  -- Prevent infinite recursion
-              AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
-        )
-        SELECT * FROM bom_tree
-    """)
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND POSITION(child.id IN bt.path) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
+    else:
+        # SQLite: use 1 and INSTR()
+        op.execute("""
+            CREATE VIEW v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    p.id AS path
+                FROM products p
+                WHERE p.is_finished_product = 1
+
+                UNION ALL
+
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
 
 
 def downgrade() -> None:
@@ -107,6 +153,8 @@ def downgrade() -> None:
     3. Drop new constraint and create old constraint without 'tkm'
     4. Recreate v_bom_explosion view
     """
+    dialect = context.get_context().dialect.name
+
     # Step 1: Drop the view before altering the products table
     op.execute("DROP VIEW IF EXISTS v_bom_explosion")
 
@@ -129,40 +177,80 @@ def downgrade() -> None:
             "unit IN ('unit', 'kg', 'g', 'L', 'mL', 'm', 'cm', 'kWh', 'MJ')"
         )
 
-    # Step 4: Recreate v_bom_explosion view with old constraint
-    op.execute("""
-        CREATE VIEW v_bom_explosion AS
-        WITH RECURSIVE bom_tree AS (
-            -- Base case: Start with finished products
-            SELECT
-                p.id AS root_id,
-                p.name AS root_name,
-                p.id AS component_id,
-                p.name AS component_name,
-                0 AS level,
-                1.0 AS cumulative_quantity,
-                p.unit,
-                p.id AS path
-            FROM products p
-            WHERE p.is_finished_product = 1
+    # Step 4: Recreate v_bom_explosion view with dialect-aware SQL
+    if dialect == 'postgresql':
+        # PostgreSQL: use TRUE and POSITION()
+        op.execute("""
+            CREATE VIEW v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    CAST(p.id AS TEXT) AS path
+                FROM products p
+                WHERE p.is_finished_product = TRUE
 
-            UNION ALL
+                UNION ALL
 
-            -- Recursive case: Traverse BOM
-            SELECT
-                bt.root_id,
-                bt.root_name,
-                child.id AS component_id,
-                child.name AS component_name,
-                bt.level + 1,
-                bt.cumulative_quantity * bom.quantity,
-                COALESCE(bom.unit, child.unit) AS unit,
-                bt.path || '/' || child.id AS path
-            FROM bom_tree bt
-            JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
-            JOIN products child ON bom.child_product_id = child.id
-            WHERE bt.level < 10  -- Prevent infinite recursion
-              AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
-        )
-        SELECT * FROM bom_tree
-    """)
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND POSITION(child.id IN bt.path) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
+    else:
+        # SQLite: use 1 and INSTR()
+        op.execute("""
+            CREATE VIEW v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    p.id AS path
+                FROM products p
+                WHERE p.is_finished_product = 1
+
+                UNION ALL
+
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)

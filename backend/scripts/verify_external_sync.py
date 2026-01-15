@@ -72,7 +72,7 @@ class SyncVerifier:
             verbose: Print detailed output
         """
         self.verbose = verbose
-        self.engine = create_engine(settings.DATABASE_URL, echo=False)
+        self.engine = create_engine(settings.database_url, echo=False)
         self.results: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "status": "pending",

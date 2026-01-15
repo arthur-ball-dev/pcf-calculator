@@ -78,7 +78,7 @@ CREATE TABLE emission_factors (
     -- Unit of measurement for the factor
     unit VARCHAR(20) NOT NULL,
 
-    -- Data source (e.g., 'EPA', 'DEFRA', 'Ecoinvent')
+    -- Data source (e.g., 'EPA', 'DEFRA')
     data_source VARCHAR(100) NOT NULL,
 
     -- Geographic scope (e.g., 'GLO', 'US', 'EU')

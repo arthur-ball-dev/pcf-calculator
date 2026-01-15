@@ -215,12 +215,8 @@ class SyncRunner:
         self.log("")
 
         # Create async database engine
-        database_url = settings.DATABASE_URL
-        if database_url.startswith("sqlite://"):
-            # SQLite needs different async handling
-            database_url = database_url.replace("sqlite://", "sqlite+aiosqlite://")
-        elif database_url.startswith("postgresql://"):
-            database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+        # Use the async_database_url property which handles driver conversion
+        database_url = settings.async_database_url
 
         engine = create_async_engine(database_url, echo=False)
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -231,7 +227,7 @@ class SyncRunner:
             from sqlalchemy.orm import Session as SyncSession
             from sqlalchemy import create_engine as create_sync_engine
 
-            sync_engine = create_sync_engine(settings.DATABASE_URL, echo=False)
+            sync_engine = create_sync_engine(settings.database_url, echo=False)
             with SyncSession(sync_engine) as sync_session:
                 if not verify_data_sources(sync_session):
                     self.log("Seeding data sources...")

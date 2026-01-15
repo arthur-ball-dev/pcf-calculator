@@ -18,10 +18,12 @@ Notes:
 - search_vector columns are TEXT in SQLite (TSVECTOR in PostgreSQL)
 - GIN indexes for full-text search are PostgreSQL-specific and handled conditionally
 - Migration is idempotent - checks for existence before creating
+- Boolean comparisons use TRUE/FALSE for PostgreSQL, 1/0 for SQLite
+- String search uses POSITION() for PostgreSQL, INSTR() for SQLite
 """
 from typing import Sequence, Union
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
@@ -70,6 +72,13 @@ def index_exists(table_name: str, index_name: str) -> bool:
     return index_name in indexes
 
 
+def get_boolean_server_default() -> str:
+    """Get the appropriate boolean server default for the current dialect."""
+    if is_postgresql():
+        return 'true'
+    return '1'
+
+
 def upgrade() -> None:
     """
     Add Phase 5 schema extensions.
@@ -80,6 +89,9 @@ def upgrade() -> None:
     - Sync operation audit trail (DataSyncLog)
     - Full-text search support (search_vector columns)
     """
+    dialect = context.get_context().dialect.name
+    boolean_default = get_boolean_server_default()
+
     # Step 1: Drop the view before altering tables
     op.execute("DROP VIEW IF EXISTS v_bom_explosion")
 
@@ -94,7 +106,7 @@ def upgrade() -> None:
             sa.Column('api_key_env_var', sa.String(100), nullable=True),
             sa.Column('sync_frequency', sa.String(20), server_default='biweekly'),
             sa.Column('last_sync_at', sa.DateTime(timezone=True), nullable=True),
-            sa.Column('is_active', sa.Boolean(), server_default='1'),
+            sa.Column('is_active', sa.Boolean(), server_default=boolean_default),
             sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
             sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         )
@@ -177,7 +189,7 @@ def upgrade() -> None:
         ('data_source_id', sa.Column('data_source_id', sa.String(32), nullable=True)),
         ('external_id', sa.Column('external_id', sa.String(255), nullable=True)),
         ('sync_batch_id', sa.Column('sync_batch_id', sa.String(32), nullable=True)),
-        ('is_active', sa.Column('is_active', sa.Boolean(), server_default='1')),
+        ('is_active', sa.Column('is_active', sa.Boolean(), server_default=boolean_default)),
         ('search_vector', sa.Column('search_vector', sa.Text(), nullable=True)),
     ]
 
@@ -194,57 +206,99 @@ def upgrade() -> None:
     if not index_exists('emission_factors', 'idx_ef_active'):
         op.create_index('idx_ef_active', 'emission_factors', ['is_active'])
 
-    # Step 7: Recreate v_bom_explosion view
-    op.execute("""
-        CREATE VIEW IF NOT EXISTS v_bom_explosion AS
-        WITH RECURSIVE bom_tree AS (
-            -- Base case: Start with finished products
-            SELECT
-                p.id AS root_id,
-                p.name AS root_name,
-                p.id AS component_id,
-                p.name AS component_name,
-                0 AS level,
-                1.0 AS cumulative_quantity,
-                p.unit,
-                p.id AS path
-            FROM products p
-            WHERE p.is_finished_product = 1
+    # Step 7: Recreate v_bom_explosion view with dialect-aware SQL
+    if dialect == 'postgresql':
+        # PostgreSQL: use TRUE and POSITION()
+        op.execute("""
+            CREATE VIEW v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    CAST(p.id AS TEXT) AS path
+                FROM products p
+                WHERE p.is_finished_product = TRUE
 
-            UNION ALL
+                UNION ALL
 
-            -- Recursive case: Traverse BOM
-            SELECT
-                bt.root_id,
-                bt.root_name,
-                child.id AS component_id,
-                child.name AS component_name,
-                bt.level + 1,
-                bt.cumulative_quantity * bom.quantity,
-                COALESCE(bom.unit, child.unit) AS unit,
-                bt.path || '/' || child.id AS path
-            FROM bom_tree bt
-            JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
-            JOIN products child ON bom.child_product_id = child.id
-            WHERE bt.level < 10  -- Prevent infinite recursion
-              AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
-        )
-        SELECT * FROM bom_tree
-    """)
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND POSITION(child.id IN bt.path) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
+    else:
+        # SQLite: use 1 and INSTR()
+        op.execute("""
+            CREATE VIEW IF NOT EXISTS v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    p.id AS path
+                FROM products p
+                WHERE p.is_finished_product = 1
+
+                UNION ALL
+
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
 
     # Step 8: PostgreSQL-specific: Create GIN indexes and triggers for full-text search
     if is_postgresql():
         # Create GIN indexes for TSVECTOR columns
+        # Note: Removed CONCURRENTLY to allow running inside transaction (Alembic default)
+        # CONCURRENTLY is only needed for production hot-reloads
         op.execute("""
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_search_gin
+            CREATE INDEX IF NOT EXISTS idx_products_search_gin
             ON products USING GIN(to_tsvector('english', COALESCE(name, '') || ' ' || COALESCE(code, '') || ' ' || COALESCE(description, '')))
         """)
         op.execute("""
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ef_search_gin
+            CREATE INDEX IF NOT EXISTS idx_ef_search_gin
             ON emission_factors USING GIN(to_tsvector('english', COALESCE(activity_name, '')))
         """)
         op.execute("""
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_category_search_gin
+            CREATE INDEX IF NOT EXISTS idx_category_search_gin
             ON product_categories USING GIN(to_tsvector('english', COALESCE(name, '') || ' ' || COALESCE(code, '')))
         """)
 
@@ -316,6 +370,8 @@ def downgrade() -> None:
 
     Drops new tables and removes columns added to existing tables.
     """
+    dialect = context.get_context().dialect.name
+
     # Step 1: Drop the view before altering tables
     op.execute("DROP VIEW IF EXISTS v_bom_explosion")
 
@@ -403,40 +459,80 @@ def downgrade() -> None:
     if table_exists('data_sources'):
         op.drop_table('data_sources')
 
-    # Step 12: Recreate v_bom_explosion view
-    op.execute("""
-        CREATE VIEW IF NOT EXISTS v_bom_explosion AS
-        WITH RECURSIVE bom_tree AS (
-            -- Base case: Start with finished products
-            SELECT
-                p.id AS root_id,
-                p.name AS root_name,
-                p.id AS component_id,
-                p.name AS component_name,
-                0 AS level,
-                1.0 AS cumulative_quantity,
-                p.unit,
-                p.id AS path
-            FROM products p
-            WHERE p.is_finished_product = 1
+    # Step 12: Recreate v_bom_explosion view with dialect-aware SQL
+    if dialect == 'postgresql':
+        # PostgreSQL: use TRUE and POSITION()
+        op.execute("""
+            CREATE VIEW v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    CAST(p.id AS TEXT) AS path
+                FROM products p
+                WHERE p.is_finished_product = TRUE
 
-            UNION ALL
+                UNION ALL
 
-            -- Recursive case: Traverse BOM
-            SELECT
-                bt.root_id,
-                bt.root_name,
-                child.id AS component_id,
-                child.name AS component_name,
-                bt.level + 1,
-                bt.cumulative_quantity * bom.quantity,
-                COALESCE(bom.unit, child.unit) AS unit,
-                bt.path || '/' || child.id AS path
-            FROM bom_tree bt
-            JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
-            JOIN products child ON bom.child_product_id = child.id
-            WHERE bt.level < 10  -- Prevent infinite recursion
-              AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
-        )
-        SELECT * FROM bom_tree
-    """)
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND POSITION(child.id IN bt.path) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
+    else:
+        # SQLite: use 1 and INSTR()
+        op.execute("""
+            CREATE VIEW IF NOT EXISTS v_bom_explosion AS
+            WITH RECURSIVE bom_tree AS (
+                -- Base case: Start with finished products
+                SELECT
+                    p.id AS root_id,
+                    p.name AS root_name,
+                    p.id AS component_id,
+                    p.name AS component_name,
+                    0 AS level,
+                    1.0 AS cumulative_quantity,
+                    p.unit,
+                    p.id AS path
+                FROM products p
+                WHERE p.is_finished_product = 1
+
+                UNION ALL
+
+                -- Recursive case: Traverse BOM
+                SELECT
+                    bt.root_id,
+                    bt.root_name,
+                    child.id AS component_id,
+                    child.name AS component_name,
+                    bt.level + 1,
+                    bt.cumulative_quantity * bom.quantity,
+                    COALESCE(bom.unit, child.unit) AS unit,
+                    bt.path || '/' || child.id AS path
+                FROM bom_tree bt
+                JOIN bill_of_materials bom ON bt.component_id = bom.parent_product_id
+                JOIN products child ON bom.child_product_id = child.id
+                WHERE bt.level < 10  -- Prevent infinite recursion
+                  AND INSTR(bt.path, child.id) = 0  -- Prevent cycles
+            )
+            SELECT * FROM bom_tree
+        """)
