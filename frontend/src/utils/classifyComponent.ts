@@ -5,7 +5,7 @@
  * Used consistently across BreakdownTable, SankeyDiagram, and exports.
  */
 
-export type EmissionCategory = 'materials' | 'energy' | 'transport' | 'other';
+export type EmissionCategory = 'materials' | 'energy' | 'transport' | 'combustion' | 'other';
 
 /**
  * Classify a component name into an emission category based on naming patterns.
@@ -13,6 +13,7 @@ export type EmissionCategory = 'materials' | 'energy' | 'transport' | 'other';
  * Categories:
  * - Energy: contains "electricity", "power", "energy", "kwh"
  * - Transport: contains "transport", "truck", "ship", "freight", "logistics"
+ * - Combustion: contains "combustion", "fuel", "diesel", "gasoline", "natural_gas", "propane", "burning"
  * - Other/Processing: contains "process", "coating", "treatment", "welding", "machining",
  *   "assembly", "packaging", "testing", "finishing", "curing", "molding", "casting"
  * - Materials: everything else (default)
@@ -42,6 +43,19 @@ export function classifyComponent(name: string): EmissionCategory {
     nameLower.includes('logistics')
   ) {
     return 'transport';
+  }
+
+  // Combustion patterns (fuel burning)
+  if (
+    nameLower.includes('combustion') ||
+    nameLower.includes('fuel') ||
+    nameLower.includes('diesel') ||
+    nameLower.includes('gasoline') ||
+    nameLower.includes('natural_gas') ||
+    nameLower.includes('propane') ||
+    nameLower.includes('burning')
+  ) {
+    return 'combustion';
   }
 
   // Processing/Other patterns

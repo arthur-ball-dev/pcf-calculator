@@ -157,13 +157,24 @@ export function transformAPIBOMToFrontend(
       continue;
     }
 
-    // Normalize component name: lowercase, trim, replace spaces with underscores
-    // This handles component names like "Plastic Abs" matching "plastic_abs"
-    const componentKey = apiItem.child_product_name.toLowerCase().trim().replace(/\s+/g, '_');
-    const matchedFactor = emissionFactorLookup.get(componentKey);
+    // UPDATED: First check if API provides emission_factor_id directly
+    // This is set when child product has emission factor in metadata
+    let emissionFactorId: string | null = apiItem.emission_factor_id || null;
+    let matchedFactor: EmissionFactorListItem | undefined;
+
+    if (emissionFactorId) {
+      // API provided emission_factor_id - find the factor for category inference
+      matchedFactor = emissionFactors.find(ef => ef.id === emissionFactorId);
+    } else {
+      // Fallback to name-based matching
+      // Normalize component name: lowercase, trim, replace spaces with underscores
+      const componentKey = apiItem.child_product_name.toLowerCase().trim().replace(/\s+/g, '_');
+      matchedFactor = emissionFactorLookup.get(componentKey);
+      emissionFactorId = matchedFactor?.id || null;
+    }
 
     // Log warning if no emission factor found
-    if (!matchedFactor) {
+    if (!emissionFactorId) {
       console.warn(
         `No emission factor found for component: "${apiItem.child_product_name}". ` +
         'User will need to manually select emission factor in BOM Editor.'
@@ -172,14 +183,6 @@ export function transformAPIBOMToFrontend(
 
     // Infer category
     const category = inferCategory(matchedFactor ?? null, apiItem.child_product_name);
-
-    // UPDATED: Preserve emission factor ID as string (no parseInt)
-    // Backend sends UUID strings like '471fe408a2604386bae572d9fc9a6b5c'
-    // Previously: parseInt(matchedFactor.id, 10) truncated to 471
-    // Now: Keep full UUID string
-    const emissionFactorId = matchedFactor
-      ? matchedFactor.id // Keep as string UUID
-      : null;
 
     // Transform to frontend format
     // UPDATED: Include notes field (convert null to undefined)

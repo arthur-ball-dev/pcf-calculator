@@ -63,7 +63,7 @@ export const bomItemSchema = z.object({
   unit: z.string()
     .min(1, 'Unit is required'),
 
-  category: z.enum(['material', 'energy', 'transport', 'other'], {
+  category: z.enum(['material', 'energy', 'transport', 'combustion', 'other'], {
     errorMap: () => ({ message: 'Please select a valid category' })
   }),
 

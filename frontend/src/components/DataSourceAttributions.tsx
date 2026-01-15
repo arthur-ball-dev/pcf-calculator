@@ -47,7 +47,6 @@ const getAnchorId = (name: string): string => {
   if (nameLower.includes('epa')) return 'epa-attribution';
   if (nameLower.includes('defra')) return 'defra-attribution';
   if (nameLower.includes('proxy')) return 'proxy-attribution';
-  if (nameLower.includes('ecoinvent')) return 'ecoinvent-attribution';
   return `${nameLower.replace(/\s+/g, '-')}-attribution`;
 };
 

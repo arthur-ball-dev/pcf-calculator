@@ -18,6 +18,7 @@ export interface BOMItemResponse {
   quantity: number;
   unit: string | null;
   notes: string | null;
+  emission_factor_id: string | null;  // From child product metadata
 }
 
 export interface ProductListItem {

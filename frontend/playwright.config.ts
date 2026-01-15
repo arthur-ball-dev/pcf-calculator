@@ -5,6 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Phase 4 - API Integration Validation
  *
  * TASK-QA-P7-032: Added global setup for JWT authentication
+ * TASK-BE-P9-xxx: Added isolated test database configuration
  *
  * Tests validate:
  * - API calls to real backend (http://localhost:8000)
@@ -19,9 +20,22 @@ import { defineConfig, devices } from '@playwright/test';
  * - Auth token is cached and reused across all tests
  * - Avoids hitting rate limit (5 attempts per 5 minutes)
  *
+ * Test Database (Isolated):
+ * - E2E tests use `pcf_calculator_test` PostgreSQL database
+ * - Isolated from development database to prevent data pollution
+ * - Setup: `npm run test:e2e:setup` creates and seeds the test database
+ * - Run isolated: `npm run test:e2e:isolated` runs setup + tests
+ * - Connection: postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test
+ *
+ * Available npm scripts:
+ * - test:e2e          - Run E2E tests (uses whatever DB backend is configured)
+ * - test:e2e:ui       - Run E2E tests with interactive UI
+ * - test:e2e:setup    - Setup/reset test database only
+ * - test:e2e:isolated - Setup test DB and run tests against it
+ *
  * NOTE: Both servers must be running before tests:
- * - Backend: http://localhost:8000
- * - Frontend: http://localhost:5173
+ * - Backend: DATABASE_URL=<test-db-url> uvicorn backend.main:app --reload --port 8000
+ * - Frontend: npm run dev (http://localhost:5173)
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -83,6 +97,15 @@ export default defineConfig({
 
   // NOTE: Servers must be manually started before running tests
   // This ensures we test against real production-like environment
-  // Backend: cd backend && source ../.venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000
-  // Frontend: cd frontend && npm run dev
+  //
+  // For isolated E2E testing with test database:
+  // 1. Setup test database: npm run test:e2e:setup
+  // 2. Start backend with test DB:
+  //    export DATABASE_URL=postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test
+  //    cd backend && source ../.venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+  // 3. Start frontend: cd frontend && npm run dev
+  // 4. Run tests: npm run test:e2e
+  //
+  // Or use the combined script: npm run test:e2e:isolated
+  // (requires backend to be started with DATABASE_URL already set to test DB)
 });

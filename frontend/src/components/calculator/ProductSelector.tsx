@@ -68,16 +68,40 @@ const INDUSTRY_LABELS: Record<string, string> = {
 const INDUSTRY_ORDER = ['electronics', 'apparel', 'automotive', 'construction', 'food_beverage', 'other'];
 
 /**
- * Group products by their category (industry)
+ * Category type for product search results
+ * Can be a CategoryInfo object or null
  */
-function groupProductsByIndustry<T extends { category?: string | null }>(
+interface CategoryInfo {
+  id: string;
+  code: string;
+  name: string;
+  industry_sector: string | null;
+}
+
+/**
+ * Group products by their category (industry)
+ * Handles both CategoryInfo objects and legacy string categories
+ */
+function groupProductsByIndustry<T extends { category?: CategoryInfo | string | null }>(
   products: T[]
 ): Map<string, T[]> {
   const groups = new Map<string, T[]>();
 
   for (const product of products) {
-    // Normalize category to lowercase, default to 'other'
-    const category = product.category?.toLowerCase().trim() || 'other';
+    // Extract industry from CategoryInfo object or use string directly
+    let category = 'other';
+    if (product.category) {
+      if (typeof product.category === 'string') {
+        // Legacy string category
+        category = product.category.toLowerCase().trim();
+      } else if (product.category.industry_sector) {
+        // CategoryInfo object with industry_sector
+        category = product.category.industry_sector.toLowerCase().trim();
+      } else if (product.category.code) {
+        // Fallback to code if industry_sector not set
+        category = product.category.code.toLowerCase().trim();
+      }
+    }
 
     if (!groups.has(category)) {
       groups.set(category, []);
@@ -184,6 +208,9 @@ const ProductSelector: React.FC = () => {
   // BOM filter state - default to showing only products with BOMs
   const [showOnlyWithBom, setShowOnlyWithBom] = useState(true);
 
+  // Industry filter state - null means all industries
+  const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
+
   // Products state
   const [products, setProducts] = useState<ProductDetail[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -246,7 +273,7 @@ const ProductSelector: React.FC = () => {
    * from overwriting newer ones. Each search gets a unique ID, and we only
    * process results if the ID matches the current request.
    */
-  const searchProducts = useCallback(async (query: string, hasBom: boolean) => {
+  const searchProducts = useCallback(async (query: string, hasBom: boolean, industry?: string | null) => {
     // Increment request ID to invalidate any in-flight requests
     const requestId = ++currentRequestIdRef.current;
 
@@ -261,6 +288,7 @@ const ProductSelector: React.FC = () => {
         offset: 0,
         is_finished_product: true,
         has_bom: hasBom || undefined, // Only pass has_bom when filtering for products with BOMs
+        industry: industry || undefined, // Filter by industry if selected
       });
 
       // Only update state if this is still the current request
@@ -292,12 +320,13 @@ const ProductSelector: React.FC = () => {
    * - Initial load when popover opens (open becomes true)
    * - Search query changes (debouncedSearch changes)
    * - BOM filter changes (showOnlyWithBom changes)
+   * - Industry filter changes (selectedIndustry changes)
    */
   useEffect(() => {
     if (open) {
-      searchProducts(debouncedSearch, showOnlyWithBom);
+      searchProducts(debouncedSearch, showOnlyWithBom, selectedIndustry);
     }
-  }, [open, debouncedSearch, showOnlyWithBom, searchProducts]);
+  }, [open, debouncedSearch, showOnlyWithBom, selectedIndustry, searchProducts]);
 
   /**
    * Effect to handle immediate search when search query is cleared
@@ -311,10 +340,10 @@ const ProductSelector: React.FC = () => {
     // If query was cleared (went from non-empty to empty) while popover is open
     if (open && prevSearchQueryRef.current !== '' && searchQuery === '') {
       // Trigger search immediately with empty query
-      searchProducts('', showOnlyWithBom);
+      searchProducts('', showOnlyWithBom, selectedIndustry);
     }
     prevSearchQueryRef.current = searchQuery;
-  }, [searchQuery, open, showOnlyWithBom, searchProducts]);
+  }, [searchQuery, open, showOnlyWithBom, selectedIndustry, searchProducts]);
 
   /**
    * Sync wizard step completion based on selection
@@ -409,7 +438,7 @@ const ProductSelector: React.FC = () => {
    */
   const retryLoad = () => {
     setError(null);
-    searchProducts(debouncedSearch, showOnlyWithBom);
+    searchProducts(debouncedSearch, showOnlyWithBom, selectedIndustry);
   };
 
   /**
@@ -468,6 +497,25 @@ const ProductSelector: React.FC = () => {
             >
               All Products
             </button>
+          </div>
+
+          {/* Industry Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Industry:</span>
+            <select
+              value={selectedIndustry || ''}
+              onChange={(e) => setSelectedIndustry(e.target.value || null)}
+              className="h-8 px-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label="Filter by industry"
+              data-testid="industry-filter"
+            >
+              <option value="">All Industries</option>
+              {INDUSTRY_ORDER.map((industry) => (
+                <option key={industry} value={industry}>
+                  {INDUSTRY_LABELS[industry] || industry}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

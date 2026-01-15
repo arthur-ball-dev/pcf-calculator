@@ -11,7 +11,7 @@ export interface MockEmissionFactor {
   activity_name: string;
   co2e_factor: number;
   unit: string;
-  data_source: 'EPA_GHG_HUB' | 'DEFRA_CONVERSION' | 'ECOINVENT' | 'CUSTOM';
+  data_source: 'EPA_GHG_HUB' | 'DEFRA_CONVERSION' | 'CUSTOM';
   data_source_id: string | null;
   external_id: string | null;
   geography: string;

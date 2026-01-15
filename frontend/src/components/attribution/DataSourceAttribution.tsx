@@ -64,12 +64,6 @@ export const SOURCE_CONFIG: Record<
     shortName: 'PRX',
     color: 'text-gray-600',
   },
-  // Ecoinvent - Life Cycle Inventory Database
-  Ecoinvent: {
-    anchor: 'ecoinvent-attribution',
-    shortName: 'ECO',
-    color: 'text-amber-700',
-  },
 };
 
 /**

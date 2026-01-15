@@ -48,7 +48,7 @@ export interface SankeyData {
 /**
  * Category mapping for emission breakdown
  */
-type EmissionCategory = 'materials' | 'energy' | 'transport' | 'other' | 'process' | 'waste' | 'total';
+type EmissionCategory = 'materials' | 'energy' | 'transport' | 'combustion' | 'other' | 'process' | 'waste' | 'total';
 
 /**
  * Get color for a specific category
@@ -112,7 +112,7 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
 
   // Calculate ALL category totals from breakdown items for consistent classification
   // This ensures percentages add up correctly (avoiding double-counting with backend totals)
-  let categoryTotals = { materials: 0, energy: 0, transport: 0, other: 0 };
+  let categoryTotals = { materials: 0, energy: 0, transport: 0, combustion: 0, other: 0 };
   let breakdownProcessed = false;
 
   if (calculation.breakdown && Object.keys(calculation.breakdown).length > 0) {
@@ -132,6 +132,7 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
     categoryTotals.materials > 0 ||
     categoryTotals.energy > 0 ||
     categoryTotals.transport > 0 ||
+    categoryTotals.combustion > 0 ||
     categoryTotals.other > 0;
 
   if (!breakdownProcessed || !hasValidCategoryTotals) {
@@ -140,6 +141,7 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
       materials: calculation.materials_co2e || 0,
       energy: calculation.energy_co2e || 0,
       transport: calculation.transport_co2e || 0,
+      combustion: 0, // Backend may not have combustion_co2e yet
       other: 0,
     };
   }
@@ -164,6 +166,11 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
       id: 'transport',
       label: 'Transport',
       value: categoryTotals.transport,
+    },
+    {
+      id: 'combustion',
+      label: 'Combustion',
+      value: categoryTotals.combustion,
     },
     {
       id: 'other',

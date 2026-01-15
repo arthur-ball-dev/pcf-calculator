@@ -95,25 +95,6 @@ export const mockDataSources: MockDataSource[] = [
     },
     created_at: '2025-10-01T00:00:00Z',
   },
-  {
-    id: '550e8400-e29b-41d4-a716-446655440004',
-    name: 'Ecoinvent (Manual)',
-    source_type: 'manual',
-    base_url: null,
-    sync_frequency: 'manual',
-    is_active: false,
-    last_sync: null,
-    next_scheduled_sync: null,
-    statistics: {
-      total_factors: 0,
-      active_factors: 0,
-      average_quality: null,
-      geographies_covered: 0,
-      oldest_reference_year: null,
-      newest_reference_year: null,
-    },
-    created_at: '2025-11-01T00:00:00Z',
-  },
 ];
 
 // Filter helper for data sources

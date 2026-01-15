@@ -21,10 +21,10 @@ export interface EmissionFactor {
   activity_name: string;
   co2e_factor: number;
   unit: string;
-  category: 'material' | 'energy' | 'transport' | 'other';
+  category: 'material' | 'energy' | 'transport' | 'combustion' | 'other';
   data_source: string;
   geography: string;
-  reference_year: number;
+  reference_year?: number; // Optional - some derived factors may not have this
 }
 
 /**

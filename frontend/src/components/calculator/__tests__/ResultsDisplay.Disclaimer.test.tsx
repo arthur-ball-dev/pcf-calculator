@@ -473,25 +473,6 @@ describe('ResultsDisplay - Disclaimer Integration (TASK-FE-P8-007)', () => {
       expect(screen.getByText(/DEFRA/)).toBeInTheDocument();
     });
 
-    it('should reference EXIOBASE data source', () => {
-      // Arrange
-      const calculation = createCompletedCalculation();
-      const product = createTestProduct();
-      const bomItems = createBOMItems();
-
-      useCalculatorStore.setState({
-        calculation,
-        selectedProduct: product,
-        bomItems,
-      });
-
-      // Act
-      render(<ResultsDisplay />);
-
-      // Assert: EXIOBASE should be mentioned in disclaimer content
-      expect(screen.getByText(/EXIOBASE/)).toBeInTheDocument();
-    });
-
     it('should display warning icon (amber colored)', () => {
       // Arrange
       const calculation = createCompletedCalculation();

@@ -142,10 +142,9 @@ describe('ResultsDisplay - LicenseFooter Integration', () => {
       // Verify footer contains expected data source text
       expect(screen.getByText(/Data sources:/i)).toBeInTheDocument();
 
-      // Verify footer contains links to EPA, DEFRA, EXIOBASE
+      // Verify footer contains links to EPA, DEFRA
       expect(screen.getByRole('link', { name: /EPA/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /DEFRA/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /EXIOBASE/i })).toBeInTheDocument();
 
       // Verify footer contains disclaimer link
       expect(screen.getByRole('link', { name: /Disclaimer/i })).toBeInTheDocument();
@@ -243,26 +242,6 @@ describe('ResultsDisplay - LicenseFooter Integration', () => {
       expect(defraLink).toHaveAttribute('href', '#defra-attribution');
     });
 
-    it('should have EXIOBASE link with href="#exiobase-attribution"', () => {
-      // Arrange
-      const calculation = createCompletedCalculation();
-      const product = createTestProduct();
-      const bomItems = createBOMItems();
-
-      useCalculatorStore.setState({
-        calculation,
-        selectedProduct: product,
-        bomItems,
-      });
-
-      // Act
-      render(<ResultsDisplay />);
-
-      // Assert
-      const exiobaseLink = screen.getByRole('link', { name: /EXIOBASE/i });
-      expect(exiobaseLink).toHaveAttribute('href', '#exiobase-attribution');
-    });
-
     it('should have Disclaimer link with href="#disclaimer"', () => {
       // Arrange
       const calculation = createCompletedCalculation();
@@ -302,7 +281,6 @@ describe('ResultsDisplay - LicenseFooter Integration', () => {
       const expectedLinks = [
         { name: /EPA/i, href: '#epa-attribution' },
         { name: /DEFRA/i, href: '#defra-attribution' },
-        { name: /EXIOBASE/i, href: '#exiobase-attribution' },
         { name: /Disclaimer/i, href: '#disclaimer' },
       ];
 
@@ -335,7 +313,6 @@ describe('ResultsDisplay - LicenseFooter Integration', () => {
       // Attribution links should NOT be present
       expect(screen.queryByRole('link', { name: /EPA/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: /DEFRA/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: /EXIOBASE/i })).not.toBeInTheDocument();
     });
 
     it('should NOT render LicenseFooter when calculation status is not completed', () => {
@@ -440,7 +417,6 @@ describe('ResultsDisplay - LicenseFooter Integration', () => {
       // All expected links are present
       expect(screen.getByRole('link', { name: /EPA/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /DEFRA/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /EXIOBASE/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /Disclaimer/i })).toBeInTheDocument();
     });
 

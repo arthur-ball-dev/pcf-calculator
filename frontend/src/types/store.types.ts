@@ -44,7 +44,7 @@ export interface WizardState {
 // Calculator Store Types
 // ============================================================================
 
-export type BOMItemCategory = 'material' | 'energy' | 'transport' | 'other';
+export type BOMItemCategory = 'material' | 'energy' | 'transport' | 'combustion' | 'other';
 
 export type UnitType = 'unit' | 'kg' | 'g' | 'L' | 'mL' | 'm' | 'cm' | 'kWh' | 'MJ' | 'tkm';
 

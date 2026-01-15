@@ -27,7 +27,7 @@ describe('bomTransform Service', () => {
       category: 'materials',
         co2e_factor: 5.89,
         unit: 'kg CO2e/kg',
-        data_source: 'Ecoinvent',
+        data_source: 'EPA',
         geography: 'Global',
         reference_year: 2020,
         data_quality_rating: 4,
@@ -39,7 +39,7 @@ describe('bomTransform Service', () => {
       category: 'materials',
         co2e_factor: 3.36,
         unit: 'kg CO2e/kg',
-        data_source: 'Ecoinvent',
+        data_source: 'EPA',
         geography: 'Global',
         reference_year: 2020,
         data_quality_rating: 4,
@@ -122,7 +122,7 @@ describe('bomTransform Service', () => {
 
       expect(lookup.size).toBe(3); // Still 3 unique names
       expect(lookup.get('cotton')?.id).toBe('1'); // First one kept
-      expect(lookup.get('cotton')?.data_source).toBe('Ecoinvent');
+      expect(lookup.get('cotton')?.data_source).toBe('EPA');
     });
 
     it('should handle empty emission factors array', () => {
