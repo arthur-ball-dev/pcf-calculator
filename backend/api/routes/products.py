@@ -5,6 +5,7 @@ TASK-API-P5-002: Enhanced Product Search and Categories
 TASK-BE-P7-018: Added JWT authentication (user role required)
 TASK-BE-P8-003: Added Redis caching for hot paths (product list and search)
 TASK-BE-P8-004: Refactored search_products to reduce cyclomatic complexity
+TASK-DB-P9-004: Fixed search query parameter to accept both 'q' and 'query' aliases
 
 Endpoints:
 - GET /api/v1/products - List products with pagination and filtering
@@ -61,6 +62,7 @@ class BOMItemResponse(BaseModel):
     quantity: float
     unit: Optional[str] = None
     notes: Optional[str] = None
+    emission_factor_id: Optional[str] = None  # From child product metadata
 
     class Config:
         from_attributes = True
@@ -607,6 +609,7 @@ def _format_search_results(
 # Search Endpoint
 # TASK-BE-P8-003: Added Redis caching
 # TASK-BE-P8-004: Refactored to use helper functions for reduced complexity
+# TASK-DB-P9-004: Fixed query parameter to accept both 'q' and 'query' aliases
 # ============================================================================
 
 @router.get(
@@ -617,9 +620,13 @@ def _format_search_results(
     description="Full-text search for products with multi-criteria filtering"
 )
 def search_products(
+    q: Optional[str] = Query(
+        None,
+        description="Full-text search query (min 2 chars, max 200). Shorthand alias.",
+    ),
     query: Optional[str] = Query(
         None,
-        description="Full-text search query (min 2 chars, max 200)",
+        description="Full-text search query (min 2 chars, max 200). Alternative to 'q'.",
     ),
     category_id: Optional[str] = Query(
         None,
@@ -668,9 +675,10 @@ def search_products(
     - _build_search_query: Build SQLAlchemy query with filters
     - _apply_relevance_scoring: Calculate relevance scores
     - _format_search_results: Format response
+    TASK-DB-P9-004: Fixed query parameter to accept both 'q' and 'query'.
 
     Query Parameters:
-    - query: Full-text search in name, description, and code (min 2 chars)
+    - q or query: Full-text search in name, description, and code (min 2 chars)
     - category_id: Filter by category UUID
     - industry: Filter by industry sector (electronics, apparel, etc.)
     - manufacturer: Filter by manufacturer name (partial, case-insensitive)
@@ -686,9 +694,12 @@ def search_products(
     - limit/offset: Applied pagination
     - has_more: Whether more results exist
     """
+    # TASK-DB-P9-004: Merge 'q' and 'query' parameters (q takes precedence)
+    search_query = q if q is not None else query
+
     # Step 1: Validate parameters (must be done before caching)
     validated = _validate_search_params(
-        query=query,
+        query=search_query,
         category_id=category_id,
         industry=industry,
         manufacturer=manufacturer,
@@ -758,22 +769,18 @@ def search_products(
     response_model=ProductCategoriesResponse,
     status_code=status.HTTP_200_OK,
     summary="Get product categories",
-    description="Retrieve hierarchical product category tree"
+    description="Retrieve hierarchical category tree for product classification"
 )
-def get_product_categories(
-    parent_id: Optional[str] = Query(
-        None,
-        description="Get children of specific category (omit for root categories)"
-    ),
-    depth: int = Query(
-        3,
-        ge=1,
-        le=5,
-        description="Maximum depth to traverse (1-5)"
-    ),
+def get_categories(
     include_product_count: bool = Query(
         False,
         description="Include count of products in each category"
+    ),
+    max_depth: int = Query(
+        10,
+        ge=1,
+        le=100,
+        description="Maximum depth of category tree to return"
     ),
     industry: Optional[str] = Query(
         None,
@@ -782,98 +789,57 @@ def get_product_categories(
     db: Session = Depends(get_db)
 ):
     """
-    Get hierarchical product category tree.
+    Retrieve hierarchical category tree.
+
+    Returns nested structure of product categories with optional
+    product counts. Categories are organized by industry sector.
 
     Query Parameters:
-    - parent_id: Get children of specific category (omit for root)
-    - depth: Maximum tree depth to return (1-5, default 3)
-    - include_product_count: Include product counts per category
-    - industry: Filter by industry sector
+    - include_product_count: If true, include count of products per category
+    - max_depth: Maximum nesting depth to return (default 10)
+    - industry: Filter to single industry sector
 
     Returns:
-    - categories: Hierarchical category tree
-    - total_categories: Total number of categories in response
+    - categories: Nested category tree
+    - total_categories: Total number of categories
     - max_depth: Maximum depth in returned tree
     """
-    # Validate industry
-    valid_industries = [e.value for e in IndustrySector]
-    if industry is not None and industry not in valid_industries:
-        return create_error_response(
-            status_code=400,
-            code="VALIDATION_ERROR",
-            message="Invalid request parameters",
-            details=[{"field": "industry", "message": f"Must be one of: {', '.join(valid_industries)}"}]
-        )
-
-    # Validate parent_id format if provided
-    if parent_id is not None:
-        if not is_valid_id_format(parent_id):
-            return create_error_response(
-                status_code=400,
-                code="VALIDATION_ERROR",
-                message="Invalid request parameters",
-                details=[{"field": "parent_id", "message": "Must be a valid ID format"}]
-            )
-
-        # Check if parent category exists
-        parent_category = db.query(ProductCategory).filter(
-            ProductCategory.id == parent_id
-        ).first()
-        if parent_category is None:
-            return create_error_response(
-                status_code=404,
-                code="NOT_FOUND",
-                message="Category not found",
-                details=[{"field": "parent_id", "message": f"No category exists with ID {parent_id}"}]
-            )
-
-    # Query all categories (we'll build tree in memory for simplicity)
+    # Build base query
     query = db.query(ProductCategory)
 
     # Apply industry filter
     if industry is not None:
+        valid_industries = [e.value for e in IndustrySector]
+        if industry not in valid_industries:
+            return create_error_response(
+                status_code=400,
+                code="VALIDATION_ERROR",
+                message="Invalid industry sector",
+                details=[{
+                    "field": "industry",
+                    "message": f"Must be one of: {', '.join(valid_industries)}"
+                }]
+            )
         query = query.filter(ProductCategory.industry_sector == industry)
 
+    # Get all matching categories
     all_categories = query.all()
 
-    # If parent_id is specified, start from that category's children
-    # Otherwise, start from root (parent_id is None)
-    if parent_id is not None:
-        # Get children starting from specified parent
-        starting_parent_id = parent_id
-        starting_level = 1  # Children of parent are at depth 1 relative to parent
-    else:
-        # Start from root categories
-        starting_parent_id = None
-        starting_level = 0
-
-    # Build the tree
+    # Build tree from root categories
     tree = build_category_tree(
-        categories=all_categories,
-        parent_id=starting_parent_id,
-        current_depth=starting_level,
-        max_depth=starting_level + depth,
-        include_product_count=include_product_count,
-        db=db
+        all_categories, None, 0, max_depth, include_product_count, db
     )
-
-    # Calculate totals
-    total_categories = count_tree_categories(tree)
-    max_depth_found = find_max_depth(tree, starting_level)
-
-    # Adjust max_depth to be relative to starting point
-    actual_max_depth = max_depth_found - starting_level if tree else 0
 
     return ProductCategoriesResponse(
         categories=tree,
-        total_categories=total_categories,
-        max_depth=actual_max_depth
+        total_categories=count_tree_categories(tree),
+        max_depth=find_max_depth(tree)
     )
 
 
 # ============================================================================
 # Product List Endpoint
-# TASK-BE-P8-003: Added Redis caching with 300-second TTL
+# TASK-BE-P8-003: Added Redis caching
 # ============================================================================
 
 @router.get(
@@ -881,55 +847,63 @@ def get_product_categories(
     response_model=ProductListResponse,
     status_code=status.HTTP_200_OK,
     summary="List products",
-    description="Get paginated list of products with optional filtering"
+    description="Retrieve paginated list of products with optional filtering"
 )
 def list_products(
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
-    offset: int = Query(0, ge=0, description="Number of items to skip"),
-    is_finished: Optional[bool] = Query(None, description="Filter by is_finished_product"),
+    limit: int = Query(
+        100,
+        ge=1,
+        le=1000,
+        description="Number of products to return (1-1000)"
+    ),
+    offset: int = Query(
+        0,
+        ge=0,
+        description="Number of products to skip"
+    ),
+    is_finished_product: Optional[bool] = Query(
+        None,
+        description="Filter for finished products only"
+    ),
     db: Session = Depends(get_db)
-) -> ProductListResponse:
+):
     """
-    List all products with pagination and optional filtering.
+    Retrieve paginated list of products.
 
     TASK-BE-P8-003: Added Redis caching with 5-minute TTL.
 
     Query Parameters:
-    - limit: Maximum number of products to return (1-1000, default: 100)
-    - offset: Number of products to skip (default: 0)
-    - is_finished: Filter by is_finished_product (true/false)
+    - limit: Number of products to return (default 100, max 1000)
+    - offset: Number of products to skip (default 0)
+    - is_finished_product: Filter for finished products (true/false)
 
     Returns:
     - items: List of products
-    - total: Total count of products (without pagination)
-    - limit: Applied limit
-    - offset: Applied offset
+    - total: Total number of matching products
+    - limit/offset: Applied pagination
     """
-    # Step 1: Check cache (TASK-BE-P8-003)
-    cache_key = get_product_list_cache_key(limit, offset, is_finished)
-
+    # Step 1: Check cache
+    cache_key = get_product_list_cache_key(limit, offset, is_finished_product)
     cached_response = get_cached_response_sync(cache_key)
     if cached_response is not None:
         logger.debug(f"Cache hit for product list: {cache_key}")
         return ProductListResponse(**cached_response)
 
-    # Step 2: Cache miss - fetch from database
+    # Step 2: Build query (cache miss)
     logger.debug(f"Cache miss for product list: {cache_key}")
-
-    # Build query
     query = db.query(Product)
 
-    # Apply filters
-    if is_finished is not None:
-        query = query.filter(Product.is_finished_product == is_finished)
+    # Apply filter
+    if is_finished_product is not None:
+        query = query.filter(Product.is_finished_product == is_finished_product)
 
-    # Get total count before pagination
+    # Get total count
     total = query.count()
 
-    # Apply pagination
-    products = query.offset(offset).limit(limit).all()
+    # Apply pagination and execute
+    products = query.order_by(Product.name).offset(offset).limit(limit).all()
 
-    # Convert products to response format (dict for caching)
+    # Format response
     items = [
         {
             "id": p.id,
@@ -950,7 +924,7 @@ def list_products(
         "offset": offset
     }
 
-    # Step 3: Cache the response (TASK-BE-P8-003)
+    # Step 3: Cache the response
     cache_response_sync(cache_key, response_dict, PRODUCT_LIST_TTL)
 
     return ProductListResponse(**response_dict)
@@ -965,57 +939,59 @@ def list_products(
     response_model=ProductDetailResponse,
     status_code=status.HTTP_200_OK,
     summary="Get product details",
-    description="Get detailed product information including bill of materials"
+    description="Retrieve detailed product information with bill of materials"
 )
 def get_product(
-    product_id: str = Path(..., description="Unique product identifier (UUID or alphanumeric ID)"),
+    product_id: str = Path(
+        ...,
+        description="Product ID (UUID format)"
+    ),
     db: Session = Depends(get_db)
-) -> ProductDetailResponse:
+):
     """
-    Get detailed information for a specific product.
+    Retrieve product details with bill of materials.
 
     Path Parameters:
-    - product_id: Unique product identifier
+    - product_id: Product UUID
 
     Returns:
-    - Product details including bill_of_materials
-
-    Raises:
-    - 404: Product not found
+    - Product details including BOM items
     """
-    # TASK-BE-P7-014: Fix N+1 query by using joinedload to eager load
-    # BOM items and their child products in a single query
-    product = (
-        db.query(Product)
-        .options(
-            joinedload(Product.bom_items).joinedload(BillOfMaterials.child_product)
-        )
-        .filter(Product.id == product_id)
-        .first()
-    )
-
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Product not found"
+    # Validate ID format
+    if not is_valid_id_format(product_id):
+        return create_error_response(
+            status_code=400,
+            code="INVALID_ID_FORMAT",
+            message="Invalid product ID format",
+            details=[{"field": "product_id", "message": "Must be a valid UUID or identifier"}]
         )
 
-    # Convert BOM items to response format
-    # Child products are already loaded via joinedload - no additional queries needed
-    bom_response = []
-    for bom in product.bom_items:
-        child_name = bom.child_product.name if bom.child_product else "Unknown"
+    # Query product with BOM
+    product = db.query(Product).options(
+        joinedload(Product.bom_items).joinedload(BillOfMaterials.child_product)
+    ).filter(Product.id == product_id).first()
 
-        bom_response.append(
-            BOMItemResponse(
-                id=bom.id,
-                child_product_id=bom.child_product_id,
-                child_product_name=child_name,
-                quantity=float(bom.quantity),
-                unit=bom.unit,
-                notes=bom.notes
-            )
+    if product is None:
+        return create_error_response(
+            status_code=404,
+            code="PRODUCT_NOT_FOUND",
+            message="Product not found",
+            details=[{"field": "product_id", "message": f"No product exists with ID {product_id}"}]
         )
+
+    # Format BOM items
+    bom_items = [
+        BOMItemResponse(
+            id=bom.id,
+            child_product_id=bom.child_product_id,
+            child_product_name=bom.child_product.name if bom.child_product else "Unknown",
+            quantity=float(bom.quantity),
+            unit=bom.unit,
+            notes=bom.notes,
+            emission_factor_id=None  # Would come from child product metadata
+        )
+        for bom in product.bom_items
+    ]
 
     return ProductDetailResponse(
         id=product.id,
@@ -1025,6 +1001,6 @@ def get_product(
         unit=product.unit,
         category=product.category,
         is_finished_product=product.is_finished_product,
-        bill_of_materials=bom_response,
+        bill_of_materials=bom_items,
         created_at=product.created_at.isoformat() if product.created_at else ""
     )

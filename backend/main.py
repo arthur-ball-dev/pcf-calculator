@@ -55,7 +55,7 @@ app = FastAPI(
     description=(
         "Product Carbon Footprint Calculator MVP - A full-stack application for calculating "
         "cradle-to-gate carbon emissions using Bill of Materials (BOM) data and emission factors "
-        "from EPA, DEFRA, and Ecoinvent databases. Implements ISO 14067 and GHG Protocol standards."
+        "from EPA and DEFRA databases. Implements ISO 14067 and GHG Protocol standards."
     )
 )
 
@@ -66,7 +66,7 @@ async def startup_event():
     Initialize application on server startup.
 
     Performs the following initialization steps:
-    1. Seeds data_sources table with EPA, DEFRA, Exiobase entries (idempotent)
+    1. Seeds data_sources table with EPA, DEFRA entries (idempotent)
     2. Initializes Brightway2 for LCA calculations (non-blocking via thread pool)
 
     TASK-CALC-P7-016: Brightway2 initialization now uses asyncio.to_thread()
@@ -77,7 +77,7 @@ async def startup_event():
         with db_context() as session:
             count = seed_data_sources(session, skip_existing=True)
             if count > 0:
-                logger.info(f"Seeded {count} new data sources (EPA, DEFRA, Exiobase)")
+                logger.info(f"Seeded {count} new data sources (EPA, DEFRA)")
             else:
                 logger.info("Data sources already seeded, skipping")
 

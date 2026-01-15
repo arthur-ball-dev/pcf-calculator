@@ -168,7 +168,7 @@ class EmissionFactorListItemResponse(BaseModel):
     category: Optional[str] = Field(None, description="Category (material, energy, transport, other)")
     co2e_factor: float = Field(..., ge=0, description="CO2e emission factor (kg CO2e per unit)")
     unit: str = Field(..., description="Unit of measurement")
-    data_source: str = Field(..., description="Data source (EPA, DEFRA, Ecoinvent, etc.)")
+    data_source: str = Field(..., description="Data source (EPA, DEFRA, etc.)")
     geography: str = Field(..., description="Geographic scope (GLO, US, EU, etc.)")
     reference_year: Optional[int] = Field(None, description="Reference year for data")
     data_quality_rating: Optional[float] = Field(None, ge=0, le=1, description="Data quality rating (0-1)")
