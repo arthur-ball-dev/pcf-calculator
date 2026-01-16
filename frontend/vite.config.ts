@@ -85,12 +85,13 @@ export default defineConfig({
           }
 
           // Charts chunk: Nivo and D3 dependencies
+          // Include React dependencies to avoid useLayoutEffect errors
           if (id.includes('node_modules/@nivo') ||
               id.includes('node_modules/d3-') ||
               id.includes('node_modules/internmap') ||
               id.includes('node_modules/robust-predicates') ||
               id.includes('node_modules/delaunator')) {
-            return 'charts';
+            return 'vendor-react'; // Bundle with React to ensure hooks work
           }
 
           // Export chunk: xlsx library (loaded on demand)
