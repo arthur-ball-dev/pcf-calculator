@@ -58,6 +58,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 const INDUSTRY_LABELS: Record<string, string> = {
   'electronics': 'Electronics',
   'apparel': 'Apparel & Textiles',
+  'consumer goods': 'Consumer Goods',
+  'sports': 'Sports & Recreation',
   'automotive': 'Automotive',
   'construction': 'Construction',
   'food_beverage': 'Food & Beverage',
@@ -65,7 +67,7 @@ const INDUSTRY_LABELS: Record<string, string> = {
 };
 
 // Order for industry groups (most common first)
-const INDUSTRY_ORDER = ['electronics', 'apparel', 'automotive', 'construction', 'food_beverage', 'other'];
+const INDUSTRY_ORDER = ['electronics', 'apparel', 'consumer goods', 'sports', 'automotive', 'construction', 'food_beverage', 'other'];
 
 /**
  * Category type for product search results

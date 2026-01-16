@@ -166,7 +166,8 @@ def get_or_create_component(
 
 def load_product_from_json(
     session: Session,
-    json_path: Path
+    json_path: Path,
+    category: Optional[str] = None
 ) -> Tuple[Optional[Product], int]:
     """
     Load a single product and its BOM from JSON file.
@@ -174,6 +175,7 @@ def load_product_from_json(
     Args:
         session: Database session
         json_path: Path to JSON BOM file
+        category: Industry category for the product (e.g., 'electronics', 'apparel')
 
     Returns:
         Tuple of (Product, number of BOM items created)
@@ -200,15 +202,20 @@ def load_product_from_json(
     ).first()
 
     if existing_product:
-        # Product already exists, skip
+        # Product already exists - update category if not set and we have one
+        if category and not existing_product.category:
+            existing_product.category = category
+            session.commit()
+            print(f"Updated category for {existing_product.code}: {category}")
         return existing_product, 0
 
-    # Create product
+    # Create product with category for industry filtering
     product = Product(
         code=product_data['code'],
         name=product_data['name'],
         unit=product_data['unit'],
-        is_finished_product=product_data['is_finished_product']
+        is_finished_product=product_data['is_finished_product'],
+        category=category  # Industry category for filtering
     )
 
     session.add(product)
@@ -311,26 +318,31 @@ def load_products_and_boms(session: Session) -> int:
     """
     data_dir = get_project_root() / "data"
 
-    # List of BOM JSON files to load
-    bom_files = [
-        # Original 3 products
-        'bom_tshirt_realistic.json',
-        'bom_water_bottle_realistic.json',
-        'bom_phone_case_realistic.json',
+    # Mapping of BOM files to their industry categories
+    # This enables proper filtering in the product selector
+    bom_files_with_categories = [
+        # Apparel
+        ('bom_tshirt_realistic.json', 'apparel'),
+        ('bom_running_shoes.json', 'apparel'),
+        ('bom_backpack.json', 'apparel'),
+        # Consumer Goods
+        ('bom_water_bottle_realistic.json', 'consumer goods'),
+        ('bom_phone_case_realistic.json', 'consumer goods'),
+        ('bom_coffee_mug.json', 'consumer goods'),
+        ('bom_sunglasses.json', 'consumer goods'),
         # Electronics
-        'bom_laptop.json',
-        'bom_smartphone.json',
-        'bom_desk_lamp.json',
-        'bom_wireless_earbuds.json',
-        # Apparel & Accessories
-        'bom_running_shoes.json',
-        'bom_backpack.json',
-        'bom_sunglasses.json',
-        'bom_bicycle_helmet.json',
-        # Home & Fitness
-        'bom_coffee_mug.json',
-        'bom_yoga_mat.json',
+        ('bom_laptop.json', 'electronics'),
+        ('bom_smartphone.json', 'electronics'),
+        ('bom_desk_lamp.json', 'electronics'),
+        ('bom_wireless_earbuds.json', 'electronics'),
+        # Sports & Recreation
+        ('bom_bicycle_helmet.json', 'sports'),
+        ('bom_yoga_mat.json', 'sports'),
     ]
+
+    # For backwards compatibility, also support old format
+    bom_files = [item[0] if isinstance(item, tuple) else item for item in bom_files_with_categories]
+    category_map = {item[0]: item[1] for item in bom_files_with_categories if isinstance(item, tuple)}
 
     products_loaded = 0
     total_bom_items = 0
@@ -342,12 +354,15 @@ def load_products_and_boms(session: Session) -> int:
             print(f"Warning: BOM file not found: {json_path}")
             continue
 
-        product, bom_count = load_product_from_json(session, json_path)
+        # Get category for this product (if mapped)
+        category = category_map.get(filename)
+
+        product, bom_count = load_product_from_json(session, json_path, category=category)
 
         if product and bom_count > 0:
             products_loaded += 1
             total_bom_items += bom_count
-            print(f"Loaded: {product.code} with {bom_count} BOM items")
+            print(f"Loaded: {product.code} [{category or 'other'}] with {bom_count} BOM items")
 
     return products_loaded
 
