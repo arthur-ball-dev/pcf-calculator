@@ -1,18 +1,17 @@
 """
-Seed script for product catalog test data.
+Seed script for product catalog data.
 
-TASK-DATA-P5-005: Product Catalog Expansion - Bug Fix
+TASK-DATA-P5-005: Product Catalog Expansion
 
-This script seeds the product catalog with categories and products
-for integration testing. It can be run standalone or imported
-as a pytest hook.
+This script seeds the product catalog with categories and products.
+It creates 800+ products across multiple industries for demonstration.
 
 Usage:
-    # Standalone seeding of a database
-    python -m backend.scripts.seed_test_catalog --db-url postgresql://user:pass@localhost/pcf_test
+    # Standalone seeding (uses DATABASE_URL from environment)
+    python -m backend.scripts.seed_product_catalog
 
-    # Via pytest conftest hook
-    pytest_plugins = ["backend.scripts.seed_test_catalog"]
+    # With options
+    python -m backend.scripts.seed_product_catalog --products-per-category 5
 """
 
 import sys
@@ -69,12 +68,6 @@ def main():
 
     parser = argparse.ArgumentParser(description="Seed product catalog data")
     parser.add_argument(
-        "--db-url",
-        type=str,
-        default="postgresql://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator",
-        help="Database URL (default: PostgreSQL local dev database)"
-    )
-    parser.add_argument(
         "--products-per-category",
         type=int,
         default=3,
@@ -94,38 +87,33 @@ def main():
 
     args = parser.parse_args()
 
-    # Create database connection
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    from backend.models import Base
-
-    engine = create_engine(args.db_url)
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    # Use the standard database connection (reads DATABASE_URL from env)
+    from backend.database.connection import db_context
 
     try:
-        result = seed_catalog_sync(
-            session,
-            products_per_category=args.products_per_category,
-            min_category_level=args.min_level,
-            verbose=not args.quiet
-        )
+        with db_context() as session:
+            result = seed_catalog_sync(
+                session,
+                products_per_category=args.products_per_category,
+                min_category_level=args.min_level,
+                verbose=not args.quiet
+            )
 
-        if not args.quiet:
-            print(f"\nSeed complete:")
-            print(f"  Categories: {result['categories']}")
-            print(f"  Products: {result['products']}")
-            if result.get('skipped'):
-                print("  (Database already had data)")
+            if not args.quiet:
+                print(f"\nSeed complete:")
+                print(f"  Categories: {result['categories']}")
+                print(f"  Products: {result['products']}")
+                if result.get('skipped'):
+                    print("  (Database already had data)")
 
     except Exception as e:
         print(f"Error seeding database: {e}", file=sys.stderr)
-        session.rollback()
-        raise
-    finally:
-        session.close()
+        import traceback
+        traceback.print_exc()
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
