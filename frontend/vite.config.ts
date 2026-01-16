@@ -70,31 +70,28 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Manual chunk splitting for optimal bundle sizes
+        // All React-dependent libraries go in vendor-react to avoid hook errors
         manualChunks: (id: string) => {
-          // Vendor chunk: React and React DOM
+          // Vendor chunk: React, React DOM, and ALL React-dependent libraries
+          // This prevents "Cannot read properties of undefined" errors in production
           if (id.includes('node_modules/react-dom') ||
               id.includes('node_modules/react/') ||
-              id.includes('node_modules/scheduler')) {
-            return 'vendor-react';
-          }
-
-          // React Router chunk
-          if (id.includes('node_modules/react-router') ||
-              id.includes('node_modules/@remix-run/router')) {
-            return 'vendor-router';
-          }
-
-          // Charts chunk: Nivo and D3 dependencies
-          // Include React dependencies to avoid useLayoutEffect errors
-          if (id.includes('node_modules/@nivo') ||
+              id.includes('node_modules/scheduler') ||
+              id.includes('node_modules/react-router') ||
+              id.includes('node_modules/@remix-run/router') ||
+              id.includes('node_modules/@nivo') ||
               id.includes('node_modules/d3-') ||
-              id.includes('node_modules/internmap') ||
-              id.includes('node_modules/robust-predicates') ||
-              id.includes('node_modules/delaunator')) {
-            return 'vendor-react'; // Bundle with React to ensure hooks work
+              id.includes('node_modules/zustand') ||
+              id.includes('node_modules/immer') ||
+              id.includes('node_modules/@tanstack/react-query') ||
+              id.includes('node_modules/@radix-ui') ||
+              id.includes('node_modules/react-hook-form') ||
+              id.includes('node_modules/@hookform') ||
+              id.includes('node_modules/lucide-react')) {
+            return 'vendor';
           }
 
-          // Export chunk: xlsx library (loaded on demand)
+          // Export chunk: xlsx library (loaded on demand) - no React dependency
           if (id.includes('node_modules/xlsx') ||
               id.includes('node_modules/cfb') ||
               id.includes('node_modules/codepage') ||
@@ -106,28 +103,9 @@ export default defineConfig({
             return 'export';
           }
 
-          // State management chunk
-          if (id.includes('node_modules/zustand') ||
-              id.includes('node_modules/immer') ||
-              id.includes('node_modules/@tanstack/react-query')) {
-            return 'state';
-          }
-
-          // UI components chunk: Radix UI primitives
-          if (id.includes('node_modules/@radix-ui')) {
-            return 'vendor-ui';
-          }
-
-          // Forms chunk: react-hook-form and related
-          if (id.includes('node_modules/react-hook-form') ||
-              id.includes('node_modules/@hookform') ||
-              id.includes('node_modules/zod')) {
-            return 'forms';
-          }
-
-          // Icons chunk
-          if (id.includes('node_modules/lucide-react')) {
-            return 'icons';
+          // Zod validation library - no React dependency
+          if (id.includes('node_modules/zod')) {
+            return 'validation';
           }
         },
       },
