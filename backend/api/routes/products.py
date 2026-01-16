@@ -24,7 +24,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload, Query as SQLAQuery
-from sqlalchemy import or_, func, exists, select, not_
+from sqlalchemy import or_, and_, func, exists, select, not_
 from pydantic import BaseModel, Field
 
 from backend.database.connection import get_db
@@ -451,17 +451,43 @@ def _build_search_query(db: Session, params: ValidatedParams) -> SQLAQuery:
 
     # Apply industry filter (via category relationship OR string category field)
     if params.industry is not None:
-        base_query = base_query.filter(
-            or_(
-                exists(
-                    select(ProductCategory.id).where(
-                        ProductCategory.id == Product.category_id,
-                        ProductCategory.industry_sector == params.industry
+        industry_lower = params.industry.lower()
+
+        # Special handling for "other" - match NULL/empty categories
+        if industry_lower == "other":
+            base_query = base_query.filter(
+                or_(
+                    Product.category.is_(None),
+                    func.trim(Product.category) == "",
+                    func.lower(Product.category) == "other",
+                    # Also check category relationship with NULL/empty industry_sector
+                    and_(
+                        Product.category_id.isnot(None),
+                        exists(
+                            select(ProductCategory.id).where(
+                                ProductCategory.id == Product.category_id,
+                                or_(
+                                    ProductCategory.industry_sector.is_(None),
+                                    func.trim(ProductCategory.industry_sector) == "",
+                                    func.lower(ProductCategory.industry_sector) == "other"
+                                )
+                            )
+                        )
                     )
-                ),
-                func.lower(Product.category) == params.industry.lower()
+                )
             )
-        )
+        else:
+            base_query = base_query.filter(
+                or_(
+                    exists(
+                        select(ProductCategory.id).where(
+                            ProductCategory.id == Product.category_id,
+                            func.lower(ProductCategory.industry_sector) == industry_lower
+                        )
+                    ),
+                    func.lower(Product.category) == industry_lower
+                )
+            )
 
     # Apply manufacturer filter (case-insensitive partial match)
     if params.manufacturer is not None:
