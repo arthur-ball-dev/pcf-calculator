@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from backend.models import Product, ProductCategory
 from backend.services.data_ingestion.category_loader import CategoryLoader
-from backend.services.data_ingestion.product_generator import ProductGenerator
+from backend.services.data_ingestion.product_generator import LegacyProductGenerator
 
 
 class SyncCatalogLoader:
@@ -361,7 +361,7 @@ class SyncCatalogLoader:
     def __init__(self):
         """Initialize with CategoryLoader for tree generation."""
         self._category_loader = CategoryLoader()
-        self._product_generator = ProductGenerator()
+        self._product_generator = LegacyProductGenerator()
 
     def _normalize_unit(self, unit: str) -> str:
         """
