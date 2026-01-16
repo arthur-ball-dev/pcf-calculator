@@ -29,7 +29,7 @@ startCommand = "sh -c 'PYTHONPATH=/app /usr/bin/python3 -m alembic -c backend/al
 
 # Health check configuration
 healthcheckPath = "/health"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
 
 # Restart policy
 restartPolicyType = "ON_FAILURE"
