@@ -91,14 +91,8 @@ async def execute_sync_task(
     from backend.config import settings
 
     # Create async engine and session for background task
-    # Use SQLite async driver for SQLite databases
-    database_url = settings.database_url
-    if database_url.startswith("sqlite:///"):
-        async_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
-    elif database_url.startswith("postgresql://"):
-        async_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
-    else:
-        async_url = database_url
+    # Use PostgreSQL async driver (asyncpg)
+    async_url = settings.async_database_url
 
     engine = create_async_engine(async_url, echo=False)
     async_session_maker = async_sessionmaker(engine, class_=AsyncSession)

@@ -29,19 +29,6 @@ except ImportError:
 class TestDatabaseTypeDetection:
     """Test database type detection from settings"""
 
-    def test_sqlite_config_detected(self):
-        """
-        Test Scenario 1: SQLite configuration detection
-        Input: DATABASE_URL=sqlite:///./test.db
-        Expected:
-            - is_sqlite returns True
-            - is_postgresql returns False
-        """
-        settings = Settings(database_url="sqlite:///./test.db")
-
-        assert settings.is_sqlite is True
-        assert settings.is_postgresql is False
-
     def test_postgresql_config_detected(self):
         """
         Test Scenario 2: PostgreSQL configuration detection
@@ -53,7 +40,7 @@ class TestDatabaseTypeDetection:
         settings = Settings(database_url="postgresql://user:pass@localhost/db")
 
         assert settings.is_postgresql is True
-        assert settings.is_sqlite is False
+        # PostgreSQL is the only supported database
 
     def test_postgresql_with_port_detected(self):
         """
@@ -64,7 +51,7 @@ class TestDatabaseTypeDetection:
         settings = Settings(database_url="postgresql://user:pass@localhost:5432/db")
 
         assert settings.is_postgresql is True
-        assert settings.is_sqlite is False
+        # PostgreSQL is the only supported database
 
     def test_supabase_url_detected_as_postgresql(self):
         """
@@ -77,7 +64,7 @@ class TestDatabaseTypeDetection:
         )
 
         assert settings.is_postgresql is True
-        assert settings.is_sqlite is False
+        # PostgreSQL is the only supported database
 
     def test_postgresql_with_sslmode_detected(self):
         """
@@ -107,19 +94,6 @@ class TestAsyncUrlConversion:
 
         assert result.startswith("postgresql+asyncpg://")
         assert "user:pass@localhost/db" in result
-
-    def test_async_url_conversion_sqlite(self):
-        """
-        Test Scenario 4: Async URL conversion for SQLite
-        Input: DATABASE_URL=sqlite:///./test.db
-        Expected: async_database_url returns sqlite+aiosqlite://...
-        """
-        settings = Settings(database_url="sqlite:///./test.db")
-
-        result = settings.async_database_url
-
-        assert result.startswith("sqlite+aiosqlite:///")
-        assert "test.db" in result
 
     def test_async_url_preserves_query_params(self):
         """
@@ -199,19 +173,6 @@ class TestEnvExampleFile:
 
         assert "postgresql://" in content, (
             "Environment template must include PostgreSQL connection example"
-        )
-
-    def test_env_file_has_sqlite_example(self, env_example_path, env_sample_path):
-        """
-        Test that environment template includes SQLite connection example
-        """
-        env_file = env_sample_path if env_sample_path.exists() else env_example_path
-
-        with open(env_file, "r") as f:
-            content = f.read()
-
-        assert "sqlite:///" in content, (
-            "Environment template must include SQLite connection example"
         )
 
     def test_env_file_has_supabase_example(self, env_example_path, env_sample_path):
@@ -397,17 +358,8 @@ class TestValidationScript:
 
 
 @pytest.mark.skipif(not IMPORTS_AVAILABLE, reason="Implementation not yet available")
-class TestDualDatabaseEngineCreation:
-    """Test that engine creation works for both database types"""
-
-    def test_sqlite_engine_creation(self):
-        """
-        Test SQLite engine can be created via test helper
-        """
-        engine = create_test_engine("sqlite:///:memory:")
-
-        assert engine is not None
-        assert "sqlite" in str(engine.url)
+class TestPostgreSQLEngineCreation:
+    """Test that engine creation works for PostgreSQL"""
 
     def test_postgresql_engine_config_validation(self):
         """

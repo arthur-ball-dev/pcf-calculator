@@ -16,7 +16,7 @@ Test-Driven Development Protocol:
 - Implementation must make tests PASS without modifying tests
 
 Note: These integration tests are designed for PostgreSQL.
-Some tests may skip when running against SQLite.
+TASK-DB-P9-SQLITE-REMOVAL: PostgreSQL is the only supported database.
 """
 
 import pytest

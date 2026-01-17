@@ -1,112 +1,38 @@
 """
-Test Configuration - Database Path Resolution
-TASK-BE-P7-003: Tests for absolute database path resolution
-
-The bug was that the database path is relative (./pcf_calculator.db) and when
-the server is started from the backend/ directory, it resolves to a different
-database file than the main project database.
+Test Configuration - Database Configuration
+TASK-DB-P9-SQLITE-REMOVAL: Updated for PostgreSQL-only configuration
 
 These tests ensure:
-1. Database path is always resolved to an absolute path
-2. Database path points to the project root database file
-3. Database path does not change based on working directory
+1. Database URL is a valid PostgreSQL connection string
+2. Database connection works correctly
 """
 
 import os
 import pytest
-from pathlib import Path
 
 
-class TestDatabasePathResolution:
-    """Tests for database path resolution to prevent working directory issues"""
+class TestDatabaseConfiguration:
+    """Tests for PostgreSQL database configuration"""
 
-    def test_database_url_is_absolute_path(self):
+    def test_database_url_is_postgresql(self):
         """
-        Test that database_url resolves to an absolute path.
-
-        This prevents issues when the server is started from different directories
-        (e.g., 'cd backend && uvicorn main:app' vs 'uvicorn backend.main:app').
+        Test that database_url is a PostgreSQL connection string.
         """
         from backend.config import settings
 
-        # Extract the path from the database URL
-        if settings.is_sqlite:
-            # Remove the sqlite:/// prefix
-            db_path = settings.database_url.replace("sqlite:///", "")
+        assert settings.is_postgresql, \
+            f"Database URL should be PostgreSQL, got: {settings.database_url}"
 
-            # The path should be absolute (starts with / on Unix)
-            # or should resolve correctly regardless of cwd
-            assert db_path.startswith("/") or os.path.isabs(db_path), \
-                f"Database path should be absolute, got: {db_path}"
-
-    def test_database_url_resolves_to_project_root(self):
+    def test_database_url_requires_postgresql_format(self):
         """
-        Test that database_url resolves to the project root database.
-
-        The main database file should be in the project root, not in
-        subdirectories like backend/.
+        Test that DATABASE_URL must be a PostgreSQL connection string.
         """
         from backend.config import settings
 
-        if settings.is_sqlite:
-            # Get the database path
-            db_path = settings.database_url.replace("sqlite:///", "")
-
-            # Resolve to absolute path
-            abs_db_path = os.path.abspath(db_path) if not os.path.isabs(db_path) else db_path
-
-            # The parent directory should be the project root (contains backend/, frontend/)
-            parent_dir = os.path.dirname(abs_db_path)
-
-            # Project root should contain these markers
-            has_backend = os.path.isdir(os.path.join(parent_dir, "backend"))
-            has_frontend = os.path.isdir(os.path.join(parent_dir, "frontend"))
-
-            assert has_backend and has_frontend, \
-                f"Database path should be in project root. Got: {abs_db_path}"
-
-    def test_database_path_consistent_across_working_directories(self):
-        """
-        Test that database path is the same regardless of current working directory.
-
-        This is the key test that would catch the bug where starting from
-        'cd backend' uses a different database than starting from project root.
-        """
-        from backend.config import settings
-
-        if settings.is_sqlite:
-            # Get the resolved database path
-            db_path = settings.database_url.replace("sqlite:///", "")
-
-            # The path should be absolute
-            assert os.path.isabs(db_path), \
-                f"Database path must be absolute to be consistent across directories. Got: {db_path}"
-
-            # The path should contain 'pcf_calculator.db'
-            assert "pcf_calculator.db" in db_path, \
-                f"Database filename should be pcf_calculator.db. Got: {db_path}"
-
-            # The path should NOT be inside the backend directory
-            assert "/backend/" not in db_path and "\\backend\\" not in db_path, \
-                f"Database should not be in backend/ subdirectory. Got: {db_path}"
-
-    def test_database_file_exists_at_resolved_path(self):
-        """
-        Test that the database file exists at the resolved path.
-
-        This validates that the configuration points to a real database file.
-        """
-        from backend.config import settings
-
-        if settings.is_sqlite and ":memory:" not in settings.database_url:
-            db_path = settings.database_url.replace("sqlite:///", "")
-
-            # Resolve to absolute if needed
-            if not os.path.isabs(db_path):
-                db_path = os.path.abspath(db_path)
-
-            assert os.path.exists(db_path), \
-                f"Database file should exist at: {db_path}"
+        # The URL should be a valid PostgreSQL URL
+        url = settings.database_url.lower()
+        assert "postgresql" in url or url.startswith("postgres://"), \
+            "DATABASE_URL must be a PostgreSQL connection string"
 
 
 class TestDatabaseQueryCorrectness:

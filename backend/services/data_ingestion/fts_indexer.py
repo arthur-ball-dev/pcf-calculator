@@ -2,6 +2,7 @@
 FullTextSearchIndexer - Update full-text search vectors.
 
 TASK-DATA-P5-005: Product Catalog Expansion
+TASK-DB-P9-SQLITE-REMOVAL: PostgreSQL-only - uses native TSVECTOR
 
 This module provides the FullTextSearchIndexer class for updating
 full-text search (FTS) vectors for products and categories.
@@ -9,7 +10,7 @@ full-text search (FTS) vectors for products and categories.
 Features:
 - Update product search vectors with weighted fields
 - Update category search vectors
-- Support for PostgreSQL TSVECTOR (fallback for SQLite)
+- PostgreSQL TSVECTOR native support
 - Weighted ranking (name=A, code=B, description=C, manufacturer=D)
 
 Usage:
@@ -29,8 +30,7 @@ class FullTextSearchIndexer:
     Update full-text search vectors for products and categories.
 
     This class handles the generation and update of PostgreSQL TSVECTOR
-    columns used for full-text search functionality. For SQLite
-    environments, operations are no-ops but return appropriate counts.
+    columns used for full-text search functionality.
 
     The FTS implementation uses weighted ranking:
     - Weight A: Product/category name (highest priority)
@@ -54,8 +54,7 @@ class FullTextSearchIndexer:
             int: Number of rows updated
 
         Note:
-            This operation uses PostgreSQL-specific TSVECTOR syntax.
-            For SQLite, the operation will be a no-op.
+            This operation uses PostgreSQL TSVECTOR syntax.
         """
         try:
             result = await db.execute(text("""
@@ -75,8 +74,7 @@ class FullTextSearchIndexer:
             """))
             return result.rowcount
         except Exception:
-            # SQLite doesn't support to_tsvector, return 0 for test compatibility
-            # In production with PostgreSQL, this would execute successfully
+            # Return 0 on database error
             return 0
 
     async def update_category_vectors(self, db: AsyncSession) -> int:
@@ -94,8 +92,7 @@ class FullTextSearchIndexer:
             int: Number of rows updated
 
         Note:
-            This operation uses PostgreSQL-specific TSVECTOR syntax.
-            For SQLite, the operation will be a no-op.
+            This operation uses PostgreSQL TSVECTOR syntax.
         """
         try:
             result = await db.execute(text("""
@@ -107,8 +104,7 @@ class FullTextSearchIndexer:
             """))
             return result.rowcount
         except Exception:
-            # SQLite doesn't support to_tsvector, return 0 for test compatibility
-            # In production with PostgreSQL, this would execute successfully
+            # Return 0 on database error
             return 0
 
     async def update_all_vectors(self, db: AsyncSession) -> dict:

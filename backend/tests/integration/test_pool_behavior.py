@@ -18,8 +18,8 @@ Test Categories:
 - Recovery Tests: Verify pool recovers from failures
 - Health Endpoint Tests: Verify monitoring endpoints
 
-Note: Some tests may require PostgreSQL for accurate pool behavior testing.
-SQLite uses different pooling mechanisms.
+Note: PostgreSQL is required for accurate pool behavior testing.
+TASK-DB-P9-SQLITE-REMOVAL: PostgreSQL is the only supported database.
 """
 
 import asyncio
@@ -333,7 +333,7 @@ class TestPoolPerformance:
 
 
 # =============================================================================
-# PostgreSQL-Specific Tests (skip for SQLite)
+# PostgreSQL-Specific Tests
 # =============================================================================
 
 

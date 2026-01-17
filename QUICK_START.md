@@ -196,13 +196,14 @@ python scripts/seed_data.py
 
 ### No products in dropdown
 ```bash
-# Verify database has data
-cd backend
-sqlite3 pcf_calculator.db "SELECT COUNT(*) FROM products;"
-# Should return: 6
+# Verify database has data (requires PostgreSQL psql client)
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM products;"
+# Should return: 800+
 
 # If 0, re-seed
 python scripts/seed_data.py
+python scripts/seed_product_catalog.py
+python scripts/seed_production_catalog.py
 ```
 
 ---

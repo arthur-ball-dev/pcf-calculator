@@ -407,13 +407,23 @@ async def async_session_with_emission_factors():
 
     This fixture sets up a test database with emission factors
     that the ProductGenerator mapper can find.
+
+    Note: Uses PostgreSQL test database for consistency with production.
+    TASK-DB-P9-SQLITE-REMOVAL: Updated to use PostgreSQL async driver.
     """
+    import os
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy.ext.asyncio import async_sessionmaker
     from backend.models import Base
 
+    # Use PostgreSQL test database
+    test_db_url = os.environ.get(
+        "TEST_DATABASE_URL",
+        "postgresql+asyncpg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator_test"
+    )
+
     engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
+        test_db_url,
         echo=False,
     )
 

@@ -18,7 +18,7 @@ Test-Driven Development Protocol:
 - Implementation must make tests PASS without modifying tests
 
 Note: These integration tests are designed for PostgreSQL.
-Some tests may skip when running against SQLite.
+TASK-DB-P9-SQLITE-REMOVAL: PostgreSQL is the only supported database.
 """
 
 import pytest
@@ -56,8 +56,7 @@ class TestCategoryCountRequirement:
         except ImportError:
             pytest.skip("CategoryLoader not yet implemented")
 
-        # Skip if we don't have async session capability in SQLite
-        # This test should be run against PostgreSQL in real integration
+        # This test requires async session for proper integration testing
         pytest.skip("Requires async session - run with PostgreSQL integration")
 
     @pytest.mark.skip(reason="Requires seeded PostgreSQL database for integration testing")

@@ -3,24 +3,23 @@ Database connection management for PCF Calculator
 Provides SQLAlchemy engine, session management, and FastAPI dependency injection
 
 This module handles:
-- SQLite database connection (development) with proper configuration
-- PostgreSQL database connection (production) with connection pooling
-- Foreign keys enforcement (PRAGMA for SQLite)
-- Connection pooling (QueuePool for PostgreSQL, StaticPool option for SQLite)
+- PostgreSQL database connection with connection pooling
+- Connection pooling (QueuePool for PostgreSQL)
 - Session lifecycle management (sync and async)
 - FastAPI dependency injection for database sessions
 - Pool status monitoring for health checks
 
 TASK-DB-P9-001: Added POOL_CONFIG and get_pool_status for production readiness.
+TASK-DB-P9-SQLITE-REMOVAL: Removed SQLite support - PostgreSQL only.
 """
 
 from contextlib import contextmanager, asynccontextmanager
 from typing import Generator, AsyncGenerator, Dict, Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.pool import QueuePool, StaticPool, NullPool, AsyncAdaptedQueuePool
+from sqlalchemy.pool import QueuePool, NullPool, AsyncAdaptedQueuePool
 
 from backend.config import settings
 
@@ -46,13 +45,9 @@ POOL_CONFIG: Dict[str, Any] = {
 
 def _create_engine():
     """
-    Create the appropriate SQLAlchemy engine based on database configuration.
+    Create the SQLAlchemy engine for PostgreSQL.
 
-    Returns an engine configured for either SQLite or PostgreSQL.
-
-    SQLite Configuration:
-    - check_same_thread: False (required for FastAPI)
-    - Foreign keys enabled via event listener
+    Returns an engine configured for PostgreSQL with connection pooling.
 
     PostgreSQL Configuration:
     - Connection pooling with configurable pool size
@@ -62,68 +57,24 @@ def _create_engine():
     # Use sync_database_url which normalizes postgres:// to postgresql://
     db_url = settings.sync_database_url
 
-    if settings.is_sqlite:
-        # SQLite configuration
-        is_memory_db = "memory" in db_url
-
-        if is_memory_db:
-            # In-memory SQLite requires StaticPool for connection sharing
-            engine = create_engine(
-                db_url,
-                connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
-                pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
-                poolclass=StaticPool,
-                echo=settings.debug,  # Log SQL queries in debug mode
-            )
-        else:
-            # File-based SQLite can use QueuePool
-            engine = create_engine(
-                db_url,
-                connect_args={"check_same_thread": False},  # Required for FastAPI/SQLite
-                pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
-                poolclass=QueuePool,
-                pool_size=POOL_CONFIG["pool_size"],
-                max_overflow=POOL_CONFIG["max_overflow"],
-                pool_timeout=POOL_CONFIG["pool_timeout"],
-                pool_recycle=POOL_CONFIG["pool_recycle"],
-                echo=settings.debug,  # Log SQL queries in debug mode
-            )
-
-        # Enable foreign keys for SQLite connections
-        @event.listens_for(engine, "connect")
-        def set_sqlite_pragma(dbapi_conn, connection_record):
-            """
-            Enable foreign key constraints for SQLite connections.
-
-            This is critical for SQLite as foreign keys are disabled by default.
-            PRAGMA must be executed for each new connection.
-            """
-            cursor = dbapi_conn.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
-
-        return engine
-
-    elif settings.is_postgresql:
-        # PostgreSQL configuration with full pooling support
-        engine = create_engine(
-            db_url,
-            poolclass=QueuePool,
-            pool_size=POOL_CONFIG["pool_size"],
-            max_overflow=POOL_CONFIG["max_overflow"],
-            pool_timeout=POOL_CONFIG["pool_timeout"],
-            pool_recycle=POOL_CONFIG["pool_recycle"],
-            pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
-            echo=settings.debug,  # Log SQL queries in debug mode
-        )
-        return engine
-
-    else:
-        # Fallback for unknown database types
+    if not settings.is_postgresql:
         raise ValueError(
-            f"Unsupported database URL: {settings.database_url}. "
-            "Use sqlite://, postgresql://, or postgres:// prefix."
+            f"Only PostgreSQL is supported. Got: {settings.database_url}. "
+            "Use postgresql:// or postgres:// prefix."
         )
+
+    # PostgreSQL configuration with full pooling support
+    engine = create_engine(
+        db_url,
+        poolclass=QueuePool,
+        pool_size=POOL_CONFIG["pool_size"],
+        max_overflow=POOL_CONFIG["max_overflow"],
+        pool_timeout=POOL_CONFIG["pool_timeout"],
+        pool_recycle=POOL_CONFIG["pool_recycle"],
+        pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
+        echo=settings.debug,  # Log SQL queries in debug mode
+    )
+    return engine
 
 
 # Create SQLAlchemy engine
@@ -169,17 +120,7 @@ def get_pool_status() -> Dict[str, Any]:
     """
     pool = engine.pool
 
-    # Handle StaticPool (used for in-memory SQLite) which doesn't have size methods
-    if isinstance(pool, StaticPool):
-        return {
-            "pool_size": 1,  # StaticPool maintains a single connection
-            "checked_in": 1,
-            "checked_out": 0,
-            "overflow": 0,
-            "invalid": 0,
-        }
-
-    # QueuePool and similar pools have these methods
+    # QueuePool has these methods
     return {
         "pool_size": pool.size(),
         "checked_in": pool.checkedin(),
@@ -234,46 +175,29 @@ def db_context() -> Generator[Session, None, None]:
         db.close()
 
 
-def create_test_engine(database_url: str = "sqlite:///:memory:"):
+def create_test_engine(database_url: str):
     """
     Create a test engine with appropriate configuration.
 
     Useful for creating isolated test databases.
 
     Args:
-        database_url: Database URL for the test database
+        database_url: PostgreSQL database URL for the test database
 
     Returns:
         Engine: SQLAlchemy engine configured for testing
     """
-    if "sqlite" in database_url.lower():
-        test_engine = create_engine(
-            database_url,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-            echo=False,
-        )
+    if "postgresql" not in database_url.lower() and "postgres" not in database_url.lower():
+        raise ValueError(f"Only PostgreSQL is supported. Got: {database_url}")
 
-        @event.listens_for(test_engine, "connect")
-        def set_sqlite_pragma(dbapi_conn, connection_record):
-            cursor = dbapi_conn.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
-
-        return test_engine
-
-    elif "postgresql" in database_url.lower():
-        return create_engine(
-            database_url,
-            poolclass=QueuePool,
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,
-            echo=False,
-        )
-
-    else:
-        raise ValueError(f"Unsupported test database URL: {database_url}")
+    return create_engine(
+        database_url,
+        poolclass=QueuePool,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,
+        echo=False,
+    )
 
 
 # =============================================================================
@@ -282,34 +206,28 @@ def create_test_engine(database_url: str = "sqlite:///:memory:"):
 
 def _create_async_engine():
     """
-    Create an async SQLAlchemy engine based on database configuration.
+    Create an async SQLAlchemy engine for PostgreSQL.
 
     Uses the async_database_url from settings which converts:
-    - sqlite:/// to sqlite+aiosqlite:///
     - postgresql:// to postgresql+asyncpg://
 
     TASK-DB-P9-001: Updated to use POOL_CONFIG for consistency.
     """
     async_url = settings.async_database_url
 
-    if settings.is_sqlite:
-        return create_async_engine(
-            async_url,
-            echo=settings.debug,
-        )
-    elif settings.is_postgresql:
-        return create_async_engine(
-            async_url,
-            poolclass=AsyncAdaptedQueuePool,
-            pool_size=POOL_CONFIG["pool_size"],
-            max_overflow=POOL_CONFIG["max_overflow"],
-            pool_timeout=POOL_CONFIG["pool_timeout"],
-            pool_recycle=POOL_CONFIG["pool_recycle"],
-            pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
-            echo=settings.debug,
-        )
-    else:
-        raise ValueError(f"Unsupported database URL: {settings.database_url}")
+    if not settings.is_postgresql:
+        raise ValueError(f"Only PostgreSQL is supported. Got: {settings.database_url}")
+
+    return create_async_engine(
+        async_url,
+        poolclass=AsyncAdaptedQueuePool,
+        pool_size=POOL_CONFIG["pool_size"],
+        max_overflow=POOL_CONFIG["max_overflow"],
+        pool_timeout=POOL_CONFIG["pool_timeout"],
+        pool_recycle=POOL_CONFIG["pool_recycle"],
+        pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
+        echo=settings.debug,
+    )
 
 
 # Lazy async engine initialization
