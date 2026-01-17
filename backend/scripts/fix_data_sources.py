@@ -7,10 +7,7 @@ TASK-FIX-P8-001: Fix missing data_source on emission_factors and category on pro
 This script updates existing database records to populate:
 1. emission_factors.data_source based on data_source_id relationship
 2. products.category based on metadata.industry field
-
-TASK-DATA-COMPLIANCE: Fix emission factor compliance issues:
-3. Remove Ecoinvent factors (no license) after adding EPA/DEFRA replacements
-4. Link unlinked factors (data_source text but NULL data_source_id)
+3. Link unlinked factors (data_source text but NULL data_source_id)
 
 Run from project root:
     python -m backend.scripts.fix_data_sources
@@ -182,134 +179,6 @@ def fix_product_categories(session) -> int:
     return count
 
 
-def remove_ecoinvent_factors(session) -> int:
-    """
-    Remove Ecoinvent emission factors after adding EPA/DEFRA replacements.
-
-    TASK-DATA-COMPLIANCE Issue A: No Ecoinvent license - must remove these factors.
-
-    Process:
-    1. First add replacement factors from EPA/DEFRA for packaging materials
-    2. Then delete the Ecoinvent factors using raw SQL to avoid cascade issues
-
-    Returns:
-        Number of Ecoinvent factors removed
-    """
-    from backend.models.base import generate_uuid
-
-    print("Step 1: Add replacement factors for packaging materials...")
-
-    # Get EPA and DEFRA data source IDs
-    epa_ds = session.query(DataSource).filter(
-        DataSource.name.like('%EPA%')
-    ).first()
-
-    defra_ds = session.query(DataSource).filter(
-        DataSource.name.like('%DEFRA%')
-    ).first()
-
-    if not epa_ds or not defra_ds:
-        print("  ERROR: Could not find EPA or DEFRA data sources!")
-        return 0
-
-    print(f"  EPA data source ID: {epa_ds.id[:8]}...")
-    print(f"  DEFRA data source ID: {defra_ds.id[:8]}...")
-
-    # Check if replacement factors already exist
-    existing_cardboard = session.query(EmissionFactor).filter(
-        EmissionFactor.activity_name == 'packaging_cardboard',
-        EmissionFactor.data_source != 'Ecoinvent'
-    ).first()
-
-    existing_plastic = session.query(EmissionFactor).filter(
-        EmissionFactor.activity_name == 'packaging_plastic',
-        EmissionFactor.data_source != 'Ecoinvent'
-    ).first()
-
-    replacements_added = 0
-
-    # Add packaging_cardboard replacement from DEFRA
-    # DEFRA 2024 paper/cardboard factor: ~0.94 kg CO2e/kg
-    if not existing_cardboard:
-        cardboard_factor = EmissionFactor(
-            id=generate_uuid(),
-            activity_name='packaging_cardboard',
-            category='material',
-            co2e_factor=0.94,
-            unit='kg',
-            data_source='DEFRA',
-            data_source_id=defra_ds.id,
-            geography='GLO',
-            reference_year=2024,
-            data_quality_rating=0.85,
-            is_active=True,
-            emission_metadata={
-                'description': 'Cardboard packaging material',
-                'replaced_ecoinvent': True,
-                'defra_category': 'Paper and cardboard'
-            }
-        )
-        session.add(cardboard_factor)
-        replacements_added += 1
-        print(f"  Added DEFRA replacement for packaging_cardboard (0.94 kg CO2e/kg)")
-    else:
-        print(f"  Replacement for packaging_cardboard already exists")
-
-    # Add packaging_plastic replacement from EPA
-    # EPA plastic packaging factor: ~2.4 kg CO2e/kg (using EPA plastics data)
-    if not existing_plastic:
-        plastic_factor = EmissionFactor(
-            id=generate_uuid(),
-            activity_name='packaging_plastic',
-            category='material',
-            co2e_factor=2.4,
-            unit='kg',
-            data_source='EPA',
-            data_source_id=epa_ds.id,
-            geography='US',
-            reference_year=2024,
-            data_quality_rating=0.80,
-            is_active=True,
-            emission_metadata={
-                'description': 'Plastic packaging material (mixed)',
-                'replaced_ecoinvent': True,
-                'epa_category': 'Plastics'
-            }
-        )
-        session.add(plastic_factor)
-        replacements_added += 1
-        print(f"  Added EPA replacement for packaging_plastic (2.4 kg CO2e/kg)")
-    else:
-        print(f"  Replacement for packaging_plastic already exists")
-
-    session.flush()  # Ensure replacements are in DB before deleting
-
-    print()
-    print("Step 2: Remove Ecoinvent factors...")
-
-    # First list what will be deleted
-    ecoinvent_factors = session.execute(
-        text("SELECT id, activity_name FROM emission_factors WHERE data_source = 'Ecoinvent'")
-    ).fetchall()
-
-    for row in ecoinvent_factors:
-        print(f"  Deleting: {row[1]} (Ecoinvent)")
-
-    # Use raw SQL to delete, bypassing ORM cascade which tries to load
-    # the emission_factor_provenance table that doesn't exist
-    result = session.execute(
-        text("DELETE FROM emission_factors WHERE data_source = 'Ecoinvent'")
-    )
-    deleted_count = result.rowcount
-
-    session.commit()
-
-    print(f"  Removed {deleted_count} Ecoinvent factors")
-    print(f"  Added {replacements_added} replacement factors")
-
-    return deleted_count
-
-
 def link_unlinked_factors(session) -> int:
     """
     Link emission factors that have data_source text but NULL data_source_id.
@@ -411,14 +280,8 @@ def main():
 
             print()
 
-            # NEW: Remove Ecoinvent factors (compliance fix)
-            print("4. Removing Ecoinvent factors (no license - compliance fix)...")
-            ecoinvent_removed = remove_ecoinvent_factors(session)
-
-            print()
-
-            # NEW: Link unlinked factors (compliance fix)
-            print("5. Linking factors with NULL data_source_id...")
+            # Link unlinked factors (compliance fix)
+            print("4. Linking factors with NULL data_source_id...")
             linked_count = link_unlinked_factors(session)
 
             print()
@@ -428,7 +291,6 @@ def main():
             print(f"  Emission factors updated: {ef_count}")
             print(f"  PROXY factors fixed: {proxy_count}")
             print(f"  Products updated: {prod_count}")
-            print(f"  Ecoinvent factors removed: {ecoinvent_removed}")
             print(f"  Factors linked to data_source_id: {linked_count}")
 
             return 0
