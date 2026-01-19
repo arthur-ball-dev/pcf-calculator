@@ -2,6 +2,7 @@
 """
 Seed Data Loading Script
 TASK-DATA-003: Load emission factors from CSV and test products/BOMs from JSON
+TASK-DATA-P9: Added --clear flag for data mode switching
 
 This script loads:
 1. Emission factors from data/emission_factors_simple.csv (20 factors)
@@ -9,8 +10,13 @@ This script loads:
 3. Energy and transport data as BOM components
 
 The script is idempotent - can be run multiple times safely.
+
+Usage:
+    python backend/scripts/seed_data.py           # Additive mode (default)
+    python backend/scripts/seed_data.py --clear   # Clear all data first
 """
 
+import argparse
 import sys
 import json
 from pathlib import Path
@@ -30,6 +36,8 @@ from backend.models import (
     Product,
     EmissionFactor,
     BillOfMaterials,
+    PCFCalculation,
+    CalculationDetail,
 )
 from backend.database.connection import db_context
 
@@ -384,10 +392,65 @@ def seed_all_data(session: Session) -> Dict[str, Any]:
     }
 
 
+def clear_all_data(session: Session) -> Dict[str, int]:
+    """
+    Clear all data from the database tables.
+
+    TASK-DATA-P9: Added for data mode switching.
+
+    Clears in order to respect foreign key constraints.
+
+    Args:
+        session: Database session
+
+    Returns:
+        Dictionary with counts of deleted records
+    """
+    counts = {}
+
+    # Order matters due to foreign keys
+    tables = [
+        ("calculation_details", CalculationDetail),
+        ("pcf_calculations", PCFCalculation),
+        ("bill_of_materials", BillOfMaterials),
+        ("products", Product),
+        ("emission_factors", EmissionFactor),
+    ]
+
+    for table_name, model in tables:
+        count = session.query(model).count()
+        counts[table_name] = count
+
+        if count > 0:
+            session.query(model).delete()
+            print(f"   Deleted {count} records from {table_name}")
+
+    session.commit()
+    return counts
+
+
 def main():
     """Main entry point for CLI execution"""
+    parser = argparse.ArgumentParser(
+        description="Load seed data (emission factors, products, BOMs)"
+    )
+    parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Clear all existing data before loading (use for data mode switching)",
+    )
+    args = parser.parse_args()
+
     try:
         with db_context() as session:
+            if args.clear:
+                print("=" * 60)
+                print("CLEARING ALL EXISTING DATA")
+                print("=" * 60)
+                cleared = clear_all_data(session)
+                print(f"\nCleared {sum(cleared.values())} total records")
+                print()
+
             result = seed_all_data(session)
 
         print(f"\nSummary:")

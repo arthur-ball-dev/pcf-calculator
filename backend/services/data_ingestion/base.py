@@ -264,7 +264,7 @@ class BaseDataIngestion(ABC):
                     reference_year=insert_data["reference_year"],
                     data_quality_rating=insert_data["data_quality_rating"],
                     sync_batch_id=insert_data["sync_batch_id"],
-                    updated_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(),  # Use naive datetime for PostgreSQL TIMESTAMP WITHOUT TIME ZONE
                 )
             )
 

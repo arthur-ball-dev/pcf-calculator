@@ -3,6 +3,7 @@
 Initial Sync Script for External Data Connectors.
 
 TASK-DATA-P8-003: Activate External Data Connectors (EPA/DEFRA)
+TASK-DATA-P9: Modified to load from local files instead of downloading
 
 This script runs the initial synchronization for external data sources:
 - EPA GHG Emission Factors Hub
@@ -13,8 +14,11 @@ Expected Emission Factor Counts:
 - DEFRA: 200-400 records
 - Total: 275-525 records
 
+IMPORTANT: This script now loads from local files in data/epa/ and data/defra/.
+If files don't exist, run download_external_data.py first.
+
 Usage:
-    # Run all syncs
+    # Run all syncs (from local files)
     python backend/scripts/run_initial_syncs.py
 
     # Run specific source
@@ -23,6 +27,9 @@ Usage:
 
     # Dry run (no database writes)
     python backend/scripts/run_initial_syncs.py --dry-run
+
+    # Force download from web (ignore local files)
+    python backend/scripts/run_initial_syncs.py --download
 
     # Limit records (for testing)
     python backend/scripts/run_initial_syncs.py --max-records 10
@@ -59,6 +66,14 @@ EXPECTED_COUNTS = {
     "defra": (200, 400),
 }
 
+# Local file paths (TASK-DATA-P9)
+# These are used instead of downloading when files exist
+LOCAL_FILES = {
+    "epa_fuels": Path(__file__).parent.parent.parent / "data" / "epa" / "ghg-emission-factors-hub-2024.xlsx",
+    "epa_egrid": Path(__file__).parent.parent.parent / "data" / "epa" / "egrid2022_data.xlsx",
+    "defra": Path(__file__).parent.parent.parent / "data" / "defra" / "ghg-conversion-factors-2024.xlsx",
+}
+
 
 class SyncRunner:
     """Manages running sync operations for external data sources."""
@@ -67,7 +82,8 @@ class SyncRunner:
         self,
         dry_run: bool = False,
         max_records: int = None,
-        verbose: bool = True
+        verbose: bool = True,
+        force_download: bool = False,
     ):
         """
         Initialize the sync runner.
@@ -76,10 +92,12 @@ class SyncRunner:
             dry_run: If True, don't write to database
             max_records: Limit records per source (for testing)
             verbose: Print progress messages
+            force_download: If True, download from web instead of using local files
         """
         self.dry_run = dry_run
         self.max_records = max_records
         self.verbose = verbose
+        self.force_download = force_download
         self.results = {}
 
     def log(self, message: str):
@@ -155,7 +173,23 @@ class SyncRunner:
                         file_key=file_key,
                         sync_type="initial"
                     )
-                    result = await ingestion.execute_sync(max_records=self.max_records)
+
+                    # TASK-DATA-P9: Check for local file first
+                    local_file_key = f"epa_{file_key}"
+                    local_path = LOCAL_FILES.get(local_file_key)
+
+                    if local_path and local_path.exists() and not self.force_download:
+                        self.log(f"    Using local file: {local_path}")
+                        with open(local_path, "rb") as f:
+                            raw_data = f.read()
+                        parsed_data = await ingestion.parse_data(raw_data)
+                        transformed_data = await ingestion.transform_data(parsed_data)
+                        result = await ingestion.load_data(transformed_data)
+                    else:
+                        if not self.force_download and local_path:
+                            self.log(f"    Local file not found, downloading from web...")
+                        result = await ingestion.execute_sync(max_records=self.max_records)
+
                     total_result["records_created"] += result.records_created
                     total_result["records_updated"] += result.records_updated
                     total_result["records_failed"] += result.records_failed
@@ -171,7 +205,21 @@ class SyncRunner:
                     data_source_id=data_source.id,
                     sync_type="initial"
                 )
-                result = await ingestion.execute_sync(max_records=self.max_records)
+
+                # TASK-DATA-P9: Check for local file first
+                local_path = LOCAL_FILES.get("defra")
+
+                if local_path and local_path.exists() and not self.force_download:
+                    self.log(f"  Using local file: {local_path}")
+                    with open(local_path, "rb") as f:
+                        raw_data = f.read()
+                    parsed_data = await ingestion.parse_data(raw_data)
+                    transformed_data = await ingestion.transform_data(parsed_data)
+                    result = await ingestion.load_data(transformed_data)
+                else:
+                    if not self.force_download and local_path:
+                        self.log(f"  Local file not found, downloading from web...")
+                    result = await ingestion.execute_sync(max_records=self.max_records)
 
             else:
                 raise ValueError(f"Unknown source key: {source_key}")
@@ -334,6 +382,11 @@ def parse_args():
         help="Don't write to database, just show what would happen"
     )
     parser.add_argument(
+        "--download",
+        action="store_true",
+        help="Force download from web instead of using local files"
+    )
+    parser.add_argument(
         "--max-records",
         type=int,
         default=None,
@@ -358,7 +411,8 @@ async def main():
     runner = SyncRunner(
         dry_run=args.dry_run,
         max_records=args.max_records,
-        verbose=not args.quiet
+        verbose=not args.quiet,
+        force_download=args.download,
     )
 
     await runner.run_all_syncs(sources)
