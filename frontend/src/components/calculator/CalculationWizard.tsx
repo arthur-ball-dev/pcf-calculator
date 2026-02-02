@@ -1,11 +1,10 @@
 /**
  * CalculationWizard Component
  *
- * Main wizard orchestrator for the PCF Calculator's 4-step workflow:
+ * Main wizard orchestrator for the PCF Calculator's 3-step workflow:
  * 1. Select Product - Choose product for calculation
- * 2. Edit BOM - Review and modify Bill of Materials
- * 3. Calculate - Run PCF calculation
- * 4. Results - View calculation results
+ * 2. Edit BOM - Review and modify Bill of Materials (triggers calculation on Next)
+ * 3. Results - View calculation results
  *
  * Features:
  * - Progress indicator showing current step and completion status
@@ -19,6 +18,8 @@
  * - Screen reader announcements for step changes
  * - Mobile-responsive layout (TASK-FE-P7-009)
  * - Swipe gesture navigation on mobile/tablet (TASK-FE-P7-011)
+ *
+ * UI Redesign: 3-step wizard with calculation triggered from Edit step
  *
  * Integration:
  * - wizardStore: Navigation state and step completion
