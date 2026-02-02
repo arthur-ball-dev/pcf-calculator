@@ -399,8 +399,8 @@ describe('useCalculation Hook', () => {
         })
       );
 
-      // Should mark step complete and advance
-      expect(mockMarkStepComplete).toHaveBeenCalledWith('calculate');
+      // Should mark step complete and advance (edit step triggers calculation)
+      expect(mockMarkStepComplete).toHaveBeenCalledWith('edit');
       expect(mockGoNext).toHaveBeenCalled();
 
       // Should stop calculating

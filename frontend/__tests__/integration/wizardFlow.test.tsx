@@ -138,32 +138,14 @@ describe('Integration: Complete Wizard Workflow', () => {
         expect(useWizardStore.getState().completedSteps.includes('edit')).toBe(true);
       });
 
-      // Click Next to go to Step 3
+      // Click Next to trigger calculation (3-step wizard: calculation happens via overlay)
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
       });
       await user.click(screen.getByRole('button', { name: /next/i }));
 
       // =====================================================================
-      // STEP 3: Calculate
-      // =====================================================================
-
-      // Verify we're on Step 3
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /calculate/i })).toBeInTheDocument();
-      });
-
-      expect(useWizardStore.getState().currentStep).toBe('calculate');
-
-      // Find and click the Calculate button
-      const calculateButton = screen.getByRole('button', { name: /calculate pcf/i });
-      expect(calculateButton).toBeInTheDocument();
-      expect(calculateButton).toBeEnabled();
-
-      await user.click(calculateButton);
-
-      // =====================================================================
-      // STEP 4: Results (Auto-advance after calculation completes)
+      // STEP 3: Results (Auto-advance after calculation completes via overlay)
       // =====================================================================
 
       // Wait for calculation to complete and auto-advance to results
@@ -174,7 +156,7 @@ describe('Integration: Complete Wizard Workflow', () => {
         { timeout: 10000 }
       );
 
-      // Verify we're on Step 4
+      // Verify we're on Step 3 (results)
       expect(useWizardStore.getState().currentStep).toBe('results');
 
       // Verify results are displayed
@@ -190,11 +172,9 @@ describe('Integration: Complete Wizard Workflow', () => {
       expect(finalState.calculation?.status).toBe('completed');
       expect(finalState.calculation?.total_co2e_kg).toBeGreaterThan(0);
 
-      // Verify all steps marked complete
+      // Verify all steps marked complete (3-step wizard)
       expect(useWizardStore.getState().completedSteps.includes('select')).toBe(true);
       expect(useWizardStore.getState().completedSteps.includes('edit')).toBe(true);
-      expect(useWizardStore.getState().completedSteps.includes('calculate')).toBe(true);
-      expect(useWizardStore.getState().completedSteps.includes('results')).toBe(true);
     }, 15000); // TDD-EX-P5-002: Extended timeout for full workflow
   });
 
@@ -289,15 +269,20 @@ describe('Integration: Complete Wizard Workflow', () => {
         expect(useWizardStore.getState().completedSteps.includes('edit')).toBe(true);
       });
 
-      // Go to Step 3
+      // In 3-step wizard, clicking Next from edit triggers calculation overlay
+      // and auto-advances to results. For this test, we verify BOM persists
+      // by going back to edit step from results.
+
+      // Click Next to trigger calculation and advance to results
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
       });
       await user.click(screen.getByRole('button', { name: /next/i }));
 
+      // Wait for results step
       await waitFor(() => {
-        expect(useWizardStore.getState().currentStep).toBe('calculate');
-      });
+        expect(useWizardStore.getState().currentStep).toBe('results');
+      }, { timeout: 10000 });
 
       // Go back to Step 2
       // TDD-EX-P5-002: Button is named "Previous", not "Back"
@@ -338,10 +323,11 @@ describe('Integration: Complete Wizard Workflow', () => {
 
       // TDD-EX-P5-002: Test validates wizard navigation guards
       // Wizard requires all previous steps to be complete before advancing
+      // 3-step wizard: select → edit → results
 
-      // Try to navigate directly to calculate without completing select or edit
+      // Try to navigate directly to results without completing select or edit
       await act(async () => {
-        useWizardStore.getState().setStep('calculate');
+        useWizardStore.getState().setStep('results');
       });
 
       // Should remain on select (first step)
@@ -350,7 +336,7 @@ describe('Integration: Complete Wizard Workflow', () => {
       // Mark select complete and try again
       await act(async () => {
         useWizardStore.getState().markStepComplete('select');
-        useWizardStore.getState().setStep('calculate');
+        useWizardStore.getState().setStep('results');
       });
 
       // Should still fail - edit not complete
@@ -359,11 +345,11 @@ describe('Integration: Complete Wizard Workflow', () => {
       // Mark edit complete and try again
       await act(async () => {
         useWizardStore.getState().markStepComplete('edit');
-        useWizardStore.getState().setStep('calculate');
+        useWizardStore.getState().setStep('results');
       });
 
       // Now should succeed
-      expect(useWizardStore.getState().currentStep).toBe('calculate');
+      expect(useWizardStore.getState().currentStep).toBe('results');
     });
   });
 
@@ -446,16 +432,10 @@ describe('Integration: Complete Wizard Workflow', () => {
         expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
       });
 
+      // Click Next to trigger calculation via overlay (3-step wizard)
       await user.click(screen.getByRole('button', { name: /next/i }));
 
-      // Click Calculate
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /calculate pcf/i })).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByRole('button', { name: /calculate pcf/i }));
-
-      // TDD-EX-P5-002: Should display user-friendly error message
+      // TDD-EX-P5-002: Should display user-friendly error message in overlay
       // Raw API error "Invalid emission factors" is transformed by getUserFriendlyError()
       // to "Unable to calculate emissions. A component is missing emission data. Please contact support."
       await waitFor(
@@ -465,8 +445,8 @@ describe('Integration: Complete Wizard Workflow', () => {
         { timeout: 10000 }
       );
 
-      // Should remain on calculate step
-      expect(useWizardStore.getState().currentStep).toBe('calculate');
+      // Should remain on edit step (3-step wizard - calculation failed in overlay)
+      expect(useWizardStore.getState().currentStep).toBe('edit');
     }, 15000); // TDD-EX-P5-002: Extended timeout for calculation workflow
   });
 

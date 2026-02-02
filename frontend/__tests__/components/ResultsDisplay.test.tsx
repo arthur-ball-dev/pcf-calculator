@@ -81,7 +81,7 @@ describe('ResultsDisplay', () => {
     // Setup wizard store mock
     vi.mocked(useWizardStore).mockReturnValue({
       currentStep: 'results',
-      completedSteps: ['select', 'edit', 'calculate'],
+      completedSteps: ['select', 'edit'],
       canProceed: false,
       canGoBack: true,
       setStep: vi.fn(),

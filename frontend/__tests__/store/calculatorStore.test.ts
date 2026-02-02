@@ -275,6 +275,11 @@ describe('CalculatorStore', () => {
     test('setCalculation with completed status marks wizard step complete', () => {
       const { setCalculation } = useCalculatorStore.getState();
 
+      // Setup wizard to be on edit step with previous steps complete
+      useWizardStore.getState().markStepComplete('select');
+      useWizardStore.getState().markStepComplete('edit');
+      useWizardStore.getState().setStep('edit');
+
       const mockCalculation = {
         id: 'calc-123',
         product_id: "471fe408a2604386bae572d9fc9a6b5c",
@@ -292,16 +297,17 @@ describe('CalculatorStore', () => {
       setCalculation(mockCalculation);
 
       const wizardState = useWizardStore.getState();
-      expect(wizardState.completedSteps).toContain('calculate');
+      // With 3-step wizard, calculation completion should advance to results
+      expect(wizardState.currentStep).toBe('results');
     });
 
     test('setCalculation with completed status advances wizard to results', () => {
       const { setCalculation } = useCalculatorStore.getState();
 
-      // Set up wizard to be at calculate step
+      // Set up wizard to be on edit step (calculation happens via overlay from edit)
       useWizardStore.getState().markStepComplete('select');
       useWizardStore.getState().markStepComplete('edit');
-      useWizardStore.getState().setStep('calculate');
+      useWizardStore.getState().setStep('edit');
 
       const mockCalculation = {
         id: 'calc-123',
@@ -449,10 +455,10 @@ describe('CalculatorStore', () => {
     test('completed calculation auto-advances wizard', () => {
       const { setCalculation } = useCalculatorStore.getState();
 
-      // Setup wizard state
+      // Setup wizard state (calculation triggers from edit step via overlay)
       useWizardStore.getState().markStepComplete('select');
       useWizardStore.getState().markStepComplete('edit');
-      useWizardStore.getState().setStep('calculate');
+      useWizardStore.getState().setStep('edit');
 
       const mockCalculation = {
         id: 'calc-123',

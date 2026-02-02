@@ -54,11 +54,11 @@ describe('WizardStore', () => {
       expect(state.currentStep).toBe('select');
     });
 
-    test('prevents skipping to calculate when select incomplete', () => {
+    test('prevents skipping to results when select incomplete', () => {
       const { setStep, currentStep } = useWizardStore.getState();
 
-      // Try to skip to calculate
-      setStep('calculate');
+      // Try to skip to results
+      setStep('results');
 
       // Should remain at select step
       const state = useWizardStore.getState();
@@ -85,7 +85,7 @@ describe('WizardStore', () => {
       markStepComplete('select');
       setStep('edit');
       markStepComplete('edit');
-      setStep('calculate');
+      setStep('results');
 
       // Go back to select
       setStep('select');
@@ -97,10 +97,9 @@ describe('WizardStore', () => {
     test('allows skipping to results when all previous steps complete', () => {
       const { markStepComplete, setStep } = useWizardStore.getState();
 
-      // Complete all steps
+      // Complete all steps (3-step wizard: select, edit, results)
       markStepComplete('select');
       markStepComplete('edit');
-      markStepComplete('calculate');
 
       // Jump to results
       setStep('results');
@@ -186,10 +185,9 @@ describe('WizardStore', () => {
     test('goNext does nothing at last step', () => {
       const { markStepComplete, setStep, goNext } = useWizardStore.getState();
 
-      // Complete all and go to results
+      // Complete all and go to results (3-step wizard)
       markStepComplete('select');
       markStepComplete('edit');
-      markStepComplete('calculate');
       setStep('results');
 
       goNext();

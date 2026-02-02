@@ -1,177 +1,143 @@
 /**
  * Wizard Navigation Validation Tests
  *
- * TASK-FE-021: Test coverage for wizard navigation logic with calculation-complete requirement
+ * UPDATED: UI Redesign - 3-step wizard (select → edit → results)
+ * The 'calculate' step was removed; calculation now happens via overlay
+ * when transitioning from 'edit' to 'results'.
  *
  * Tests validate:
- * - Users cannot skip calculation step until calculation completes
- * - Navigation logic correctly handles all calculation status states
- * - canProceed flag updates appropriately based on calculation status
- *
- * Test Protocol: Written test-first to validate Fix #8-9 from TASK-FE-013
+ * - Navigation guards work correctly for 3-step wizard
+ * - canProceed flag updates appropriately based on step completion
+ * - Transition from edit to results works with calculation
  */
 
-import { act } from '../testUtils';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 
-describe('Wizard Navigation - Calculate Step Validation', () => {
+describe('Wizard Navigation - 3-Step Wizard Validation', () => {
   beforeEach(() => {
     // Reset stores to clean state
     useWizardStore.setState({
       currentStep: 'select',
       completedSteps: [],
-      canProceed: false
+      canProceed: false,
     });
     useCalculatorStore.setState({
-      calculation: null
+      calculation: null,
     });
   });
 
-  it('should allow proceeding from non-calculate steps without calculation', () => {
-    const { setStep, markStepComplete } = useWizardStore.getState();
-
-    // Mark select step complete to allow navigation
-    markStepComplete('select');
-
-    // Navigate to BOM editor step
-    setStep('edit');
-
-    // Should be able to proceed (no calculation required yet)
-    expect(useWizardStore.getState().canProceed).toBe(true);
-  });
-
-  it('should prevent proceeding from calculate step when no calculation exists', () => {
-    const { setStep, markStepComplete } = useWizardStore.getState();
-
-    // Mark previous steps complete to allow navigation to calculate
-    markStepComplete('select');
-    markStepComplete('edit');
-
-    // Navigate to calculate step
-    setStep('calculate');
-
-    // Verify canProceed is false (no calculation yet)
-    expect(useWizardStore.getState().canProceed).toBe(false);
-  });
-
-  it('should prevent proceeding from calculate step when calculation is pending', () => {
-    const { setStep, markStepComplete } = useWizardStore.getState();
-    const { setCalculation } = useCalculatorStore.getState();
-
-    // Mark previous steps complete to allow navigation to calculate
-    markStepComplete('select');
-    markStepComplete('edit');
-
-    // Navigate to calculate step
-    setStep('calculate');
-
-    // Set calculation to pending
-    setCalculation({
-      id: 'test-calc-123',
-      status: 'pending',
-      product_id: 'test-product-456'
+  describe('Step Progression', () => {
+    it('should start on select step', () => {
+      expect(useWizardStore.getState().currentStep).toBe('select');
     });
 
-    // Should not be able to proceed (calculation not complete)
-    expect(useWizardStore.getState().canProceed).toBe(false);
-  });
+    it('should allow proceeding from select step when complete', () => {
+      const { markStepComplete } = useWizardStore.getState();
 
-  it('should prevent proceeding from calculate step when calculation is in_progress', () => {
-    const { setStep, markStepComplete } = useWizardStore.getState();
-    const { setCalculation } = useCalculatorStore.getState();
+      markStepComplete('select');
 
-    // Mark previous steps complete to allow navigation to calculate
-    markStepComplete('select');
-    markStepComplete('edit');
-
-    setStep('calculate');
-
-    // Set calculation to in_progress
-    setCalculation({
-      id: 'test-calc-123',
-      status: 'in_progress',
-      product_id: 'test-product-456'
+      expect(useWizardStore.getState().canProceed).toBe(true);
+      expect(useWizardStore.getState().completedSteps).toContain('select');
     });
 
-    expect(useWizardStore.getState().canProceed).toBe(false);
-  });
+    it('should navigate from select to edit', () => {
+      const { setStep, markStepComplete } = useWizardStore.getState();
 
-  it('should allow proceeding from calculate step only when calculation is completed', () => {
-    const { setStep, markStepComplete } = useWizardStore.getState();
-    const { setCalculation } = useCalculatorStore.getState();
+      markStepComplete('select');
+      setStep('edit');
 
-    // Mark previous steps complete to allow navigation to calculate
-    markStepComplete('select');
-    markStepComplete('edit');
-
-    setStep('calculate');
-
-    // Set calculation to completed
-    setCalculation({
-      id: 'test-calc-123',
-      status: 'completed',
-      product_id: 'test-product-456',
-      total_co2e_kg: 2.5,
-      results: []
+      expect(useWizardStore.getState().currentStep).toBe('edit');
     });
 
-    // Call setStep again to trigger canProceed recomputation
-    setStep('calculate');
+    it('should allow proceeding from edit step when complete', () => {
+      const { setStep, markStepComplete } = useWizardStore.getState();
 
-    // Now should be able to proceed
-    expect(useWizardStore.getState().canProceed).toBe(true);
-  });
+      markStepComplete('select');
+      setStep('edit');
+      markStepComplete('edit');
 
-  it('should prevent proceeding from calculate step when calculation failed', () => {
-    const { setStep, markStepComplete } = useWizardStore.getState();
-    const { setCalculation } = useCalculatorStore.getState();
-
-    // Mark previous steps complete to allow navigation to calculate
-    markStepComplete('select');
-    markStepComplete('edit');
-
-    setStep('calculate');
-
-    // Set calculation to failed
-    setCalculation({
-      id: 'test-calc-123',
-      status: 'failed',
-      product_id: 'test-product-456',
-      error_message: 'Calculation error'
+      expect(useWizardStore.getState().canProceed).toBe(true);
+      expect(useWizardStore.getState().completedSteps).toContain('edit');
     });
 
-    // Should not be able to proceed on failure
-    expect(useWizardStore.getState().canProceed).toBe(false);
+    it('should navigate from edit to results', () => {
+      const { setStep, markStepComplete } = useWizardStore.getState();
+
+      markStepComplete('select');
+      setStep('edit');
+      markStepComplete('edit');
+      setStep('results');
+
+      expect(useWizardStore.getState().currentStep).toBe('results');
+    });
   });
 
-  it('should update canProceed when calculation completes (integrated behavior)', () => {
-    const { setStep, markStepComplete } = useWizardStore.getState();
-    const { setCalculation } = useCalculatorStore.getState();
+  describe('Navigation Guards', () => {
+    it('should prevent navigation to edit without completing select', () => {
+      const { setStep } = useWizardStore.getState();
 
-    // Mark previous steps complete to allow navigation to calculate
-    markStepComplete('select');
-    markStepComplete('edit');
+      // Try to skip to edit
+      setStep('edit');
 
-    setStep('calculate');
-
-    // Initially, canProceed should be false (no calculation yet)
-    expect(useWizardStore.getState().canProceed).toBe(false);
-
-    // Complete the calculation (this triggers markStepComplete and goNext)
-    setCalculation({
-      id: 'test-calc-123',
-      status: 'completed',
-      product_id: 'test-product-456',
-      total_co2e_kg: 2.5,
-      results: []
+      // Should remain on select
+      expect(useWizardStore.getState().currentStep).toBe('select');
     });
 
-    // Verify step was marked complete
-    expect(useWizardStore.getState().completedSteps).toContain('calculate');
-    // Verify wizard auto-advanced to results step
-    expect(useWizardStore.getState().currentStep).toBe('results');
-    // Verify canProceed is false on results step (it's the last step)
-    expect(useWizardStore.getState().canProceed).toBe(false);
+    it('should prevent navigation to results without completing previous steps', () => {
+      const { setStep } = useWizardStore.getState();
+
+      // Try to skip to results
+      setStep('results');
+
+      // Should remain on select
+      expect(useWizardStore.getState().currentStep).toBe('select');
+    });
+
+    it('should prevent navigation to results when only select is complete', () => {
+      const { setStep, markStepComplete } = useWizardStore.getState();
+
+      markStepComplete('select');
+      setStep('results');
+
+      // Should remain on select (can't skip edit)
+      expect(useWizardStore.getState().currentStep).toBe('select');
+    });
+  });
+
+  describe('Calculation Integration', () => {
+    it('should auto-advance to results when calculation completes', () => {
+      const { setStep, markStepComplete } = useWizardStore.getState();
+      const { setCalculation } = useCalculatorStore.getState();
+
+      // Navigate to edit step
+      markStepComplete('select');
+      setStep('edit');
+      markStepComplete('edit');
+
+      // Simulate calculation completion (this triggers auto-advance)
+      setCalculation({
+        id: 'test-calc-123',
+        status: 'completed',
+        product_id: 'test-product-456',
+        total_co2e_kg: 2.5,
+      });
+
+      // Calculation completion should advance to results
+      expect(useWizardStore.getState().currentStep).toBe('results');
+    });
+
+    it('should not allow going back from results on last step', () => {
+      const { setStep, markStepComplete } = useWizardStore.getState();
+
+      // Complete all steps
+      markStepComplete('select');
+      setStep('edit');
+      markStepComplete('edit');
+      setStep('results');
+
+      // Results is the last step, canProceed should be false
+      expect(useWizardStore.getState().canProceed).toBe(false);
+    });
   });
 });
