@@ -64,6 +64,7 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { useEmissionFactors } from '@/hooks/useEmissionFactors';
 import { classifyComponent } from '@/utils/classifyComponent';
 import { SourceBadge } from '@/components/attribution/SourceBadge';
+import { emissionFactorsAPI } from '@/services/api/emissionFactors';
 import type { BOMFormData } from '@/schemas/bomSchema';
 
 /**
@@ -134,8 +135,9 @@ const BOMTableRow = React.memo(function BOMTableRow({
   const filteredFactors = emissionFactors || [];
 
   /**
-   * Handle name field changes with auto-classification and validation
+   * Handle name field changes with auto-classification, auto-EF suggestion, and validation
    * TASK-FE-P8-006: Extracted from inline handler to useCallback
+   * TASK-FE-P8-011: Added auto-suggest emission factor based on component name
    */
   const handleNameChange = useCallback(
     (
@@ -150,6 +152,23 @@ const BOMTableRow = React.memo(function BOMTableRow({
         // Map 'materials' to 'material' for form value
         const formCategory = classifiedCategory === 'materials' ? 'material' : classifiedCategory;
         form.setValue(`items.${index}.category`, formCategory);
+
+        // Auto-suggest emission factor based on component name
+        // Debounce by only suggesting after name is at least 3 chars
+        if (newName.length >= 3) {
+          const currentUnit = form.getValues(`items.${index}.unit`) || 'kg';
+          emissionFactorsAPI.suggest(newName, currentUnit).then((suggestedFactor) => {
+            if (suggestedFactor) {
+              // Only auto-select if no factor is currently selected
+              const currentFactorId = form.getValues(`items.${index}.emissionFactorId`);
+              if (!currentFactorId) {
+                form.setValue(`items.${index}.emissionFactorId`, suggestedFactor.id);
+              }
+            }
+          }).catch(() => {
+            // Silently ignore suggestion errors
+          });
+        }
       }
       // Trigger validation for this field AND array-level validation
       // Array-level validation includes duplicate name checking

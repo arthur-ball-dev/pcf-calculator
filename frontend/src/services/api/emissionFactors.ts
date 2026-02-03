@@ -63,4 +63,33 @@ export const emissionFactorsAPI = {
     );
     return response.data;
   },
+
+  /**
+   * Get suggested emission factor for a component name
+   *
+   * Uses configured mappings to find the best matching emission factor
+   * based on the component name. Returns null if no match found.
+   *
+   * @param componentName - Name of the BOM component (e.g., "Rubber", "Steel")
+   * @param unit - Unit of measurement (default: "kg")
+   * @returns Promise resolving to suggested emission factor or null
+   * @throws APIError if request fails
+   */
+  suggest: async (
+    componentName: string,
+    unit: string = 'kg'
+  ): Promise<EmissionFactorListItem | null> => {
+    try {
+      const response = await client.get<EmissionFactorListItem | null>(
+        `/api/v1/emission-factors/suggest/${encodeURIComponent(componentName)}`,
+        {
+          params: { unit },
+        }
+      );
+      return response.data;
+    } catch {
+      // Return null if no suggestion found (404) or other errors
+      return null;
+    }
+  },
 };
