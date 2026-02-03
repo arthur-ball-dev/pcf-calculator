@@ -1,26 +1,26 @@
 /**
  * WizardProgress Component
  *
- * Displays a visual progress indicator for the 4-step wizard workflow.
+ * Displays a visual progress indicator for the 3-step wizard workflow.
  * Shows current step, completed steps, and allows clicking on accessible steps.
  *
  * Features:
- * - Visual progress line connecting steps (enhanced prominence)
- * - Current step highlighted
- * - Completed steps marked with checkmark
- * - Inaccessible steps disabled
- * - Keyboard accessible
- * - ARIA labels for screen readers
+ * - Refined numbered badges (28px) with intentional visual hierarchy
+ * - Progress line with 2px rounded caps and animated fill
+ * - Compact badges maintain 44px touch hitbox invisibly
+ * - Active step with subtle pulse animation on first render
+ * - Typography uses tabular-nums for consistent number width
+ * - Keyboard accessible with ARIA labels
  * - Mobile-responsive layout (TASK-FE-P7-009)
- *   - Minimum touch target size (44px / 11 in Tailwind)
- *   - Responsive step labels
+ *
+ * UI Redesign: ESG-Authority visual refresh
  *
  * Props:
  * - steps: Array of step configurations
  * - currentStep: Current wizard step ID
  */
 
-import { CheckCircle2, Circle } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWizardStore } from '@/store/wizardStore';
 import type { StepConfig, WizardStep } from '@/types/store.types';
@@ -32,11 +32,11 @@ interface WizardProgressProps {
 
 /**
  * Short labels for each step for accessibility and testing
+ * (3-step wizard: select, edit, results)
  */
 const STEP_SHORT_LABELS: Record<string, string> = {
   select: 'Select Product',
   edit: 'Edit BOM',
-  calculate: 'Calculate',
   results: 'Results',
 };
 
@@ -54,15 +54,15 @@ export default function WizardProgress({
       : 0;
 
   return (
-    <div className="relative w-full">
-      {/* Progress line background - enhanced visual prominence */}
+    <div className="relative w-full py-2">
+      {/* Progress line background - 2px with rounded caps */}
       <div
-        className="absolute top-5 sm:top-6 left-0 right-0 h-1 bg-muted rounded-full"
+        className="absolute top-1/2 -translate-y-1/2 left-4 right-4 sm:left-6 sm:right-6 h-0.5 bg-border rounded-full"
         aria-hidden="true"
       >
-        {/* Progress line fill - enhanced with rounded corners and smooth animation */}
+        {/* Progress line fill - animated with smooth transition */}
         <div
-          className="h-full bg-primary rounded-full transition-all duration-300 ease-in-out"
+          className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
@@ -70,7 +70,7 @@ export default function WizardProgress({
       {/* Steps */}
       <ol
         className="relative flex flex-row justify-between"
-        aria-label="Wizard progress steps"
+        aria-label="Wizard progress: 3 steps"
       >
         {steps.map((step, index) => {
           const isActive = step.id === currentStep;
@@ -91,44 +91,53 @@ export default function WizardProgress({
 
           return (
             <li key={step.id} className="flex flex-col items-center flex-1">
-              <button
-                type="button"
-                onClick={() => isAccessible && setStep(step.id)}
-                disabled={!isAccessible}
-                className={cn(
-                  // Base styles with minimum touch target size (44px = h-11 w-11)
-                  'relative z-10 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 transition-colors p-3',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                  isActive &&
-                    'border-primary bg-primary text-primary-foreground',
-                  isComplete &&
-                    !isActive &&
-                    'border-primary bg-background text-primary',
-                  !isComplete &&
-                    !isActive &&
-                    'border-muted bg-background text-muted-foreground',
-                  !isAccessible && 'cursor-not-allowed opacity-50'
-                )}
-                aria-current={isActive ? 'step' : undefined}
-                aria-label={`${shortLabel}${isComplete ? ' (completed)' : ''}${isActive ? ' (current)' : ''}`}
-              >
-                {isComplete && !isActive ? (
-                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden="true" />
-                ) : (
-                  <Circle
-                    className="w-5 h-5 sm:w-6 sm:h-6"
-                    fill={isActive ? 'currentColor' : 'none'}
-                    aria-hidden="true"
-                  />
-                )}
-              </button>
+              {/* Invisible touch target wrapper - maintains 44px hitbox */}
+              <div className="relative touch-target flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => isAccessible && setStep(step.id)}
+                  disabled={!isAccessible}
+                  className={cn(
+                    // Base styles - compact 28px badges (7 in Tailwind)
+                    'relative z-10 flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200',
+                    'font-medium text-sm tabular-nums',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    // Active state: Solid primary fill with subtle shadow and pulse
+                    isActive && [
+                      'bg-primary text-primary-foreground shadow-md',
+                      'animate-pulse-once',
+                    ],
+                    // Complete state (not active): Check icon with success tint
+                    isComplete &&
+                      !isActive && [
+                        'bg-primary/10 text-primary border-2 border-primary',
+                      ],
+                    // Pending state: Ghost outline
+                    !isComplete &&
+                      !isActive && [
+                        'bg-background text-muted-foreground border-2 border-muted',
+                      ],
+                    // Disabled styling
+                    !isAccessible && 'cursor-not-allowed opacity-50'
+                  )}
+                  aria-current={isActive ? 'step' : undefined}
+                  aria-label={`Step ${index + 1} of 3: ${shortLabel}${isComplete ? ' (completed)' : ''}${isActive ? ' (current)' : ''}`}
+                >
+                  {isComplete && !isActive ? (
+                    <Check className="w-4 h-4" strokeWidth={2.5} aria-hidden="true" />
+                  ) : (
+                    <span aria-hidden="true">{index + 1}</span>
+                  )}
+                </button>
+              </div>
 
-              {/* Step label - hidden on very small screens, abbreviated on mobile */}
+              {/* Step label - abbreviated on mobile, full on larger screens */}
               <span
                 className={cn(
-                  'mt-2 text-xs sm:text-sm font-medium text-center max-w-[60px] sm:max-w-none truncate sm:whitespace-normal',
-                  isActive && 'text-foreground',
-                  !isActive && 'text-muted-foreground'
+                  'mt-2 text-xs sm:text-sm font-medium text-center max-w-[70px] sm:max-w-none truncate sm:whitespace-normal',
+                  isActive && 'text-foreground font-semibold',
+                  isComplete && !isActive && 'text-primary',
+                  !isComplete && !isActive && 'text-muted-foreground'
                 )}
                 aria-hidden="true"
               >

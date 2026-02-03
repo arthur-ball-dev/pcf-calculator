@@ -17,7 +17,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
-import type { WizardStep } from '@/types/store.types';
 
 // ============================================================================
 // Test Suite
@@ -98,7 +97,7 @@ describe('wizardStore', () => {
 
       markStepComplete('select');
       markStepComplete('edit');
-      setStep('calculate');
+      setStep('results');
       setStep('edit'); // Go back
 
       expect(useWizardStore.getState().currentStep).toBe('edit');
@@ -109,7 +108,7 @@ describe('wizardStore', () => {
 
       markStepComplete('select');
       markStepComplete('edit');
-      setStep('calculate');
+      setStep('results');
       setStep('select'); // Go all the way back
 
       expect(useWizardStore.getState().currentStep).toBe('select');
@@ -137,9 +136,9 @@ describe('wizardStore', () => {
     it('goNext should not advance beyond last step', () => {
       const { markStepComplete, setStep, goNext } = useWizardStore.getState();
 
+      // 3-step wizard: select, edit, results
       markStepComplete('select');
       markStepComplete('edit');
-      markStepComplete('calculate');
       setStep('results');
       goNext();
 
@@ -298,7 +297,7 @@ describe('wizardStore', () => {
 
       markStepComplete('select');
       markStepComplete('edit');
-      setStep('calculate');
+      setStep('results');
 
       reset();
 
@@ -315,7 +314,7 @@ describe('wizardStore', () => {
   // ==========================================================================
 
   describe('Step Order', () => {
-    it('should follow step order: select -> edit -> calculate -> results', () => {
+    it('should follow step order: select -> edit -> results (3-step wizard)', () => {
       const { markStepComplete, goNext } = useWizardStore.getState();
 
       expect(useWizardStore.getState().currentStep).toBe('select');
@@ -326,27 +325,18 @@ describe('wizardStore', () => {
 
       markStepComplete('edit');
       goNext();
-      expect(useWizardStore.getState().currentStep).toBe('calculate');
-
-      // For calculate step, we need a completed calculation
-      useCalculatorStore.getState().setCalculation({
-        id: 'calc-1',
-        status: 'completed',
-        total_co2e: 100,
-      });
-      markStepComplete('calculate');
-      goNext();
+      // In 3-step wizard, calculation happens via overlay, then advances to results
       expect(useWizardStore.getState().currentStep).toBe('results');
     });
 
-    it('should prevent skipping to calculate without completing edit', () => {
+    it('should prevent skipping to results without completing edit', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const { markStepComplete, setStep } = useWizardStore.getState();
 
       markStepComplete('select');
-      setStep('calculate'); // Try to skip edit
+      setStep('results'); // Try to skip edit
 
-      // Should not advance to calculate
+      // Should not advance to results
       expect(useWizardStore.getState().currentStep).toBe('select');
       expect(warnSpy).toHaveBeenCalled();
     });
@@ -357,29 +347,34 @@ describe('wizardStore', () => {
   // ==========================================================================
 
   describe('Calculator Store Integration', () => {
-    it('should update canProceed based on calculation status on calculate step', () => {
-      const { markStepComplete, setStep } = useWizardStore.getState();
+    it('should update canProceed based on step completion', () => {
+      const { markStepComplete, markStepIncomplete, setStep } = useWizardStore.getState();
 
       markStepComplete('select');
-      markStepComplete('edit');
-      setStep('calculate');
+      setStep('edit');
 
-      // Initially, canProceed should be false (no completed calculation)
+      // canProceed reflects the completed steps - if edit is not yet complete,
+      // the store may have different behavior based on implementation
+      // Test that marking complete/incomplete updates canProceed
+      markStepComplete('edit');
+      expect(useWizardStore.getState().canProceed).toBe(true);
+
+      markStepIncomplete('edit');
       expect(useWizardStore.getState().canProceed).toBe(false);
 
-      // Set a completed calculation - this also triggers markStepComplete('calculate')
-      // and goNext() in the calculatorStore, which advances to results
+      // Mark edit complete again (in 3-step wizard, calculation happens via overlay)
+      markStepComplete('edit');
+      expect(useWizardStore.getState().canProceed).toBe(true);
+
+      // Set a completed calculation
       useCalculatorStore.getState().setCalculation({
         id: 'calc-1',
         status: 'completed',
         total_co2e: 100,
       });
 
-      // After calculation completes, the wizard advances to 'results' step
-      // and canProceed is updated - since we're now on results (last step),
-      // canProceed reflects the 'results' step state
-      expect(useWizardStore.getState().currentStep).toBe('results');
-      expect(useWizardStore.getState().completedSteps).toContain('calculate');
+      // After calculation completes, verify edit is still complete
+      expect(useWizardStore.getState().completedSteps).toContain('edit');
     });
   });
 });

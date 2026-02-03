@@ -1,7 +1,7 @@
 /**
  * Wizard Store
  *
- * Manages wizard navigation state for the PCF Calculator's 4-step workflow.
+ * Manages wizard navigation state for the PCF Calculator's 3-step workflow.
  * Implements validation gates to prevent users from skipping ahead to incomplete steps.
  * Persists state to localStorage to survive browser refreshes.
  *
@@ -16,10 +16,9 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { WizardState, WizardStep } from '../types/store.types';
-import { useCalculatorStore } from './calculatorStore';
 
 // Step order defines the wizard flow
-const STEP_ORDER: WizardStep[] = ['select', 'edit', 'calculate', 'results'];
+const STEP_ORDER: WizardStep[] = ['select', 'edit', 'results'];
 
 export const useWizardStore = create<WizardState>()(
   devtools(
@@ -58,16 +57,9 @@ export const useWizardStore = create<WizardState>()(
           }
 
           // Update current step and navigation flags
-          // Special handling for 'calculate' step - require calculation completion
-          let canProceed = false;
-          if (step === 'calculate') {
-            const calculation = useCalculatorStore.getState().calculation;
-            canProceed = calculation?.status === 'completed';
-          } else {
-            canProceed =
-              get().completedSteps.includes(step) ||
-              targetIndex < STEP_ORDER.length - 1;
-          }
+          const canProceed =
+            get().completedSteps.includes(step) ||
+            targetIndex < STEP_ORDER.length - 1;
 
           set({
             currentStep: step,
@@ -85,14 +77,7 @@ export const useWizardStore = create<WizardState>()(
             const newCompletedSteps = [...new Set([...state.completedSteps, step])];
 
             // Update canProceed based on whether the current step is now complete
-            // Special handling for 'calculate' step
-            let canProceed = true;
-            if (currentStep === 'calculate') {
-              const calculation = useCalculatorStore.getState().calculation;
-              canProceed = calculation?.status === 'completed';
-            } else {
-              canProceed = newCompletedSteps.includes(currentStep);
-            }
+            const canProceed = newCompletedSteps.includes(currentStep);
 
             return {
               completedSteps: newCompletedSteps,

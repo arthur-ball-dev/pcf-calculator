@@ -101,9 +101,9 @@ describe('CalculationWizard', () => {
     test('prevents navigation to Step 3 when Steps 1-2 are incomplete', async () => {
       render(<CalculationWizard />);
 
-      // Try to navigate directly to calculate step
+      // Try to navigate directly to results step
       await act(async () => {
-        useWizardStore.getState().setStep('calculate');
+        useWizardStore.getState().setStep('results');
       });
 
       // Should remain on select step
@@ -168,7 +168,7 @@ describe('CalculationWizard', () => {
 
       // Should advance to Step 2
       await waitFor(() => {
-        expect(screen.getByRole('heading', { level: 2, name: /edit bom/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 2, name: /edit.*bom/i })).toBeInTheDocument();
         expect(useWizardStore.getState().currentStep).toBe('edit');
       });
     });
@@ -211,16 +211,16 @@ describe('CalculationWizard', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { level: 2, name: /edit bom/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 2, name: /edit.*bom/i })).toBeInTheDocument();
       });
 
       await act(async () => {
         useWizardStore.getState().markStepComplete('edit');
-        useWizardStore.getState().setStep('calculate');
+        useWizardStore.getState().setStep('results');
       });
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { level: 2, name: /calculate/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 2, name: /results/i })).toBeInTheDocument();
       });
     });
 
@@ -260,7 +260,7 @@ describe('CalculationWizard', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { level: 2, name: /edit bom/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 2, name: /edit.*bom/i })).toBeInTheDocument();
       });
 
       // Click Previous
@@ -432,7 +432,6 @@ describe('CalculationWizard', () => {
       await act(async () => {
         useWizardStore.getState().markStepComplete('select');
         useWizardStore.getState().markStepComplete('edit');
-        useWizardStore.getState().markStepComplete('calculate');
         useWizardStore.getState().setStep('results');
       });
 
@@ -601,7 +600,7 @@ describe('CalculationWizard', () => {
   });
 
   describe('Scenario 6: Progress Indicator', () => {
-    test('displays all 4 steps in progress indicator', async () => {
+    test('displays all 3 steps in progress indicator', async () => {
       render(<CalculationWizard />);
 
       // TDD-EX-P5-003: Wait for component to mount
@@ -610,15 +609,14 @@ describe('CalculationWizard', () => {
       });
 
       // Progress step labels are in aria-label of buttons
+      // 3-step wizard: select, edit, results (calculate step was removed)
       const buttons = screen.getAllByRole('button');
       const selectButton = buttons.find(btn => btn.getAttribute('aria-label')?.toLowerCase().includes('select product'));
       const editButton = buttons.find(btn => btn.getAttribute('aria-label')?.toLowerCase().includes('edit bom'));
-      const calculateButton = buttons.find(btn => btn.getAttribute('aria-label')?.toLowerCase().includes('calculate'));
       const resultsButton = buttons.find(btn => btn.getAttribute('aria-label')?.toLowerCase().includes('results'));
 
       expect(selectButton).toBeInTheDocument();
       expect(editButton).toBeInTheDocument();
-      expect(calculateButton).toBeInTheDocument();
       expect(resultsButton).toBeInTheDocument();
     });
 
@@ -659,7 +657,7 @@ describe('CalculationWizard', () => {
         const currentStepButton = progressButtons.find(btn =>
           btn.getAttribute('aria-current') === 'step'
         );
-        expect(currentStepButton?.getAttribute('aria-label')).toMatch(/edit bom/i);
+        expect(currentStepButton?.getAttribute('aria-label')).toMatch(/edit.*bom/i);
       });
     });
 
@@ -690,10 +688,9 @@ describe('CalculationWizard', () => {
         expect(screen.getByRole('heading', { level: 2, name: /select product/i })).toBeInTheDocument();
       });
 
-      // Get all progress buttons
+      // Get all progress buttons for future steps (Results in 3-step wizard)
       const progressButtons = screen.getAllByRole('button').filter(btn =>
-        btn.getAttribute('aria-label')?.includes('Results') ||
-        btn.getAttribute('aria-label')?.includes('Calculate')
+        btn.getAttribute('aria-label')?.includes('Results')
       );
 
       // Future steps should be disabled
@@ -727,11 +724,11 @@ describe('CalculationWizard', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { level: 2, name: /edit bom/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 2, name: /edit.*bom/i })).toBeInTheDocument();
       });
     });
 
-    test('renders CalculateView component on Step 3', async () => {
+    test('renders ResultsDisplay component on Step 3', async () => {
       render(<CalculationWizard />);
 
       // TDD-EX-P5-003: Wait for component to mount
@@ -740,30 +737,10 @@ describe('CalculationWizard', () => {
       });
 
       // TDD-EX-P5-003: Wrap store updates in act()
+      // 3-step wizard: select → edit → results
       await act(async () => {
         useWizardStore.getState().markStepComplete('select');
         useWizardStore.getState().markStepComplete('edit');
-        useWizardStore.getState().setStep('calculate');
-      });
-
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { level: 2, name: /calculate/i })).toBeInTheDocument();
-      });
-    });
-
-    test('renders ResultsDisplay component on Step 4', async () => {
-      render(<CalculationWizard />);
-
-      // TDD-EX-P5-003: Wait for component to mount
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { level: 2, name: /select product/i })).toBeInTheDocument();
-      });
-
-      // TDD-EX-P5-003: Wrap store updates in act()
-      await act(async () => {
-        useWizardStore.getState().markStepComplete('select');
-        useWizardStore.getState().markStepComplete('edit');
-        useWizardStore.getState().markStepComplete('calculate');
         useWizardStore.getState().setStep('results');
       });
 
@@ -789,7 +766,7 @@ describe('CalculationWizard', () => {
       // Step 1 heading should be replaced
       await waitFor(() => {
         expect(screen.queryByRole('heading', { level: 2, name: /select product/i })).not.toBeInTheDocument();
-        expect(screen.getByRole('heading', { level: 2, name: /edit bom/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 2, name: /edit.*bom/i })).toBeInTheDocument();
       });
     });
   });
@@ -803,19 +780,19 @@ describe('CalculationWizard', () => {
         expect(screen.getByRole('heading', { level: 2, name: /select product/i })).toBeInTheDocument();
       });
 
-      // TDD-EX-P5-003: Navigate to Calculate step
+      // Navigate to Edit step (calculation now happens via overlay from edit step)
       await act(async () => {
         useWizardStore.getState().markStepComplete('select');
+        useWizardStore.getState().setStep('edit');
         useWizardStore.getState().markStepComplete('edit');
-        useWizardStore.getState().setStep('calculate');
       });
 
       await waitFor(() => {
-        expect(useWizardStore.getState().currentStep).toBe('calculate');
+        expect(useWizardStore.getState().currentStep).toBe('edit');
       });
 
-      // TDD-EX-P5-003: Auto-advance is triggered by CalculateView component
-      // when calculation completes. We simulate that behavior here.
+      // Simulate calculation completion via overlay
+      // When calculation completes, it auto-advances to results
       const completedCalculation: Calculation = {
         id: 'calc-123',
         product_id: "1",
@@ -833,15 +810,12 @@ describe('CalculationWizard', () => {
         breakdown: [],
       };
 
-      // Set calculation, mark step complete, and advance (simulating CalculateView behavior)
+      // Set calculation (this triggers auto-advance to results in 3-step wizard)
       await act(async () => {
         useCalculatorStore.getState().setCalculation(completedCalculation);
-        useWizardStore.getState().markStepComplete('calculate');
-        useWizardStore.getState().markStepComplete('results');
-        useWizardStore.getState().setStep('results');
       });
 
-      // Should be on results
+      // Should auto-advance to results
       await waitFor(() => {
         expect(useWizardStore.getState().currentStep).toBe('results');
       });
@@ -880,12 +854,19 @@ describe('CalculationWizard', () => {
       expect(useWizardStore.getState().currentStep).toBe('select');
     });
 
-    test('marks calculate step complete when calculation finishes', async () => {
+    test('marks edit step complete and advances to results when calculation finishes', async () => {
       render(<CalculationWizard />);
 
       // TDD-EX-P5-003: Wait for component to mount
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 2, name: /select product/i })).toBeInTheDocument();
+      });
+
+      // Navigate to edit step first
+      await act(async () => {
+        useWizardStore.getState().markStepComplete('select');
+        useWizardStore.getState().setStep('edit');
+        useWizardStore.getState().markStepComplete('edit');
       });
 
       const completedCalculation: Calculation = {
@@ -905,14 +886,14 @@ describe('CalculationWizard', () => {
         breakdown: [],
       };
 
-      // TDD-EX-P5-003: The CalculateView component marks the step complete
+      // Calculation completion triggers auto-advance to results
       await act(async () => {
         useCalculatorStore.getState().setCalculation(completedCalculation);
-        useWizardStore.getState().markStepComplete('calculate');
       });
 
       await waitFor(() => {
-        expect(useWizardStore.getState().completedSteps).toContain('calculate');
+        expect(useWizardStore.getState().completedSteps).toContain('edit');
+        expect(useWizardStore.getState().currentStep).toBe('results');
       });
     });
   });
@@ -966,10 +947,10 @@ describe('CalculationWizard', () => {
       });
 
       // TDD-EX-P5-003: Wrap store updates in act()
+      // 3-step wizard: select → edit → results
       await act(async () => {
         useWizardStore.getState().markStepComplete('select');
         useWizardStore.getState().markStepComplete('edit');
-        useWizardStore.getState().markStepComplete('calculate');
         useWizardStore.getState().setStep('results');
       });
 
@@ -1001,20 +982,21 @@ describe('CalculationWizard', () => {
       });
     });
 
-    test('navigation buttons in footer', async () => {
+    test('navigation buttons in main content area', async () => {
       render(<CalculationWizard />);
 
       // TDD-EX-P5-003: Wait for component to mount
       await waitFor(() => {
-        expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+        expect(screen.getByRole('main')).toBeInTheDocument();
       });
 
-      const footer = screen.getByRole('contentinfo');
+      // Navigation buttons are in main content area (follows step content)
+      const main = screen.getByRole('main');
       const prevButton = screen.getByRole('button', { name: /previous/i });
       const nextButton = screen.getByRole('button', { name: /next/i });
 
-      expect(footer).toContainElement(prevButton);
-      expect(footer).toContainElement(nextButton);
+      expect(main).toContainElement(prevButton);
+      expect(main).toContainElement(nextButton);
     });
   });
 });

@@ -101,7 +101,7 @@ export function useCalculation(): UseCalculationReturn {
         };
 
         setCalculation(calculation);
-        markStepComplete('calculate');
+        markStepComplete('edit');
         goNext(); // Auto-advance to results
       } else if (status.status === 'failed') {
         // Calculation failed

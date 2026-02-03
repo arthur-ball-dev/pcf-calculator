@@ -140,9 +140,10 @@ export const useCalculatorStore = create<CalculatorStoreState>()(
             state.calculation = calculation;
           });
 
-          // If calculation completed, trigger wizard advancement
+          // If calculation completed, mark edit step complete and advance to results
+          // In 3-step wizard (select, edit, results), calculation is triggered from edit step
           if (calculation?.status === 'completed') {
-            useWizardStore.getState().markStepComplete('calculate');
+            useWizardStore.getState().markStepComplete('edit');
             useWizardStore.getState().goNext();
           }
         },

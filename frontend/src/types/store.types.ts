@@ -22,7 +22,7 @@
 // Wizard Store Types
 // ============================================================================
 
-export type WizardStep = 'select' | 'edit' | 'calculate' | 'results';
+export type WizardStep = 'select' | 'edit' | 'results';
 
 export interface WizardState {
   // State
