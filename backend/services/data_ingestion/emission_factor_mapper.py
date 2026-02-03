@@ -137,6 +137,71 @@ class EmissionFactorMapper:
         lower_name = component_name.lower().strip()
         return self._aliases.get(lower_name, component_name)
 
+    async def _mapping_lookup(
+        self,
+        component_name: str,
+        unit: str,
+        geography: Optional[str],
+    ) -> Optional[EmissionFactor]:
+        """
+        Look up emission factor using configured mappings.
+
+        The mappings dict maps component names to lists of possible
+        activity_names from EPA/DEFRA. This method tries each activity_name
+        in order until one is found in the database.
+
+        Multi-EF strategy: First match wins (list is ordered with preferred
+        disposal methods first, e.g., "Recycled" before "Landfilled").
+
+        Args:
+            component_name: Component name to look up
+            unit: Unit of measurement
+            geography: Optional geographic region
+
+        Returns:
+            First matching EmissionFactor or None
+        """
+        # Check if component has configured mappings
+        activity_names = self._mappings.get(component_name, [])
+
+        for activity_name in activity_names:
+            # Try exact match on this activity_name
+            query = select(EmissionFactor).where(
+                EmissionFactor.activity_name == activity_name,
+                EmissionFactor.is_active == True,
+            )
+            if geography:
+                query = query.where(EmissionFactor.geography == geography)
+
+            result = await self.db.execute(query)
+            factor = result.scalar_one_or_none()
+
+            if factor:
+                logger.debug(
+                    f"Mapping lookup found: {component_name} -> {activity_name}"
+                )
+                return factor
+
+            # Try partial match (activity_name contains the pattern)
+            query = select(EmissionFactor).where(
+                EmissionFactor.activity_name.ilike(f"%{activity_name}%"),
+                EmissionFactor.is_active == True,
+            )
+            if geography:
+                query = query.where(EmissionFactor.geography == geography)
+
+            result = await self.db.execute(query)
+            factors = result.scalars().all()
+            if factors:
+                # Return best match (shortest name)
+                factor = min(factors, key=lambda f: len(f.activity_name))
+                logger.debug(
+                    f"Mapping partial lookup found: {component_name} -> {factor.activity_name}"
+                )
+                return factor
+
+        return None
+
     async def get_factor_for_component(
         self,
         component_name: str,
@@ -147,12 +212,13 @@ class EmissionFactorMapper:
         Get emission factor for a BOM component.
 
         Matching priority:
-        1. Exact match on activity_name
-        2. Partial/fuzzy match
-        3. Category fallback
-        4. Geographic fallback (GLO)
-        5. Proxy factor
-        6. Return None and log warning
+        1. Configured mappings (emission_factor_mappings.json)
+        2. Exact match on activity_name
+        3. Partial/fuzzy match
+        4. Category fallback
+        5. Geographic fallback (GLO)
+        6. Proxy factor
+        7. Return None and log warning
 
         Args:
             component_name: Name of BOM component
@@ -171,6 +237,12 @@ class EmissionFactorMapper:
         # Check cache first
         if cache_key in self._mapping_cache:
             return self._mapping_cache[cache_key]
+
+        # Try configured mappings first (highest priority)
+        factor = await self._mapping_lookup(resolved_name, unit, geography)
+        if factor:
+            self._mapping_cache[cache_key] = factor
+            return factor
 
         # Try exact match
         factor = await self._exact_match(resolved_name, unit, geography)

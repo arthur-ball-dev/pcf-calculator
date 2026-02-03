@@ -335,16 +335,19 @@ def db_session(test_engine) -> Generator[Session, None, None]:
     Create database session with transaction rollback for test isolation.
 
     This fixture:
-    1. Starts a transaction at the beginning of each test
-    2. Creates a session bound to that transaction
-    3. Rolls back the transaction after the test completes
+    1. Starts a connection-level transaction at the beginning of each test
+    2. Creates a session bound to that connection with a savepoint
+    3. Automatically restarts savepoints after each commit
+    4. Rolls back the connection transaction after the test completes
 
     This approach:
     - Is faster than recreating schemas for each test
     - Matches production PostgreSQL behavior
-    - Provides complete test isolation
+    - Provides complete test isolation even when tests call commit()
+    - Uses SQLAlchemy's recommended savepoint pattern for testing
 
     TASK-DB-P9-008: Migrated from SQLite in-memory to PostgreSQL.
+    TASK-BE-P9-001: Fixed test isolation using savepoint pattern.
 
     Args:
         test_engine: PostgreSQL engine from test_engine fixture
@@ -352,6 +355,8 @@ def db_session(test_engine) -> Generator[Session, None, None]:
     Yields:
         Session: SQLAlchemy database session (auto-rollback after test)
     """
+    from sqlalchemy import event
+
     # Start a connection and begin a transaction
     connection = test_engine.connect()
     transaction = connection.begin()
@@ -364,12 +369,26 @@ def db_session(test_engine) -> Generator[Session, None, None]:
     )
     session = TestingSessionLocal()
 
+    # Start a nested transaction (savepoint) for test isolation
+    session.begin_nested()
+
+    # Listen for session transaction end to restart savepoint after commits
+    @event.listens_for(session, "after_transaction_end")
+    def restart_savepoint(session, trans):
+        """Restart savepoint after each commit to maintain isolation."""
+        if trans.nested and not trans._parent.nested:
+            # Outer transaction ended, start a new savepoint
+            session.begin_nested()
+
     try:
         yield session
     finally:
-        # Close session and rollback transaction (cleanup)
+        # Remove event listener to prevent leaks
+        event.remove(session, "after_transaction_end", restart_savepoint)
+        # Close session and rollback connection-level transaction (cleanup)
         session.close()
-        transaction.rollback()
+        if transaction.is_active:
+            transaction.rollback()
         connection.close()
 
 
@@ -390,7 +409,7 @@ def client(db_session) -> Generator[TestClient, None, None]:
     Yields:
         TestClient: FastAPI test client
     """
-    from backend.main import app
+    from backend.main import app, rate_limit_storage
     from backend.database.connection import get_db
 
     def override_get_db():
@@ -400,6 +419,11 @@ def client(db_session) -> Generator[TestClient, None, None]:
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+
+    # Clear rate limit storage before each test to prevent 429 errors
+    # TASK-BE-P9-001: Fix test isolation for rate limiting
+    if hasattr(rate_limit_storage, 'clear'):
+        rate_limit_storage.clear()
 
     with TestClient(app) as test_client:
         yield test_client
@@ -453,15 +477,8 @@ def test_user_factory(db_session) -> Generator[Callable, None, None]:
 
     yield _create_user
 
-    for user in created_users:
-        try:
-            db_session.delete(user)
-        except Exception:
-            pass
-    try:
-        db_session.commit()
-    except Exception:
-        db_session.rollback()
+    # Note: Explicit cleanup not needed with savepoint-based test isolation
+    # The connection-level transaction rollback will undo all changes
 
 
 @pytest.fixture(scope="function")
@@ -612,6 +629,19 @@ def setup_test_database(request):
 
     # Create all tables (idempotent)
     Base.metadata.create_all(bind=engine)
+
+    # TASK-BE-P9-001: Truncate all tables at session start for clean state
+    # This ensures no persistent data from previous test runs affects tests
+    with engine.connect() as conn:
+        # Disable FK checks temporarily for truncation
+        conn.execute(text("SET session_replication_role = 'replica'"))
+        for table in reversed(Base.metadata.sorted_tables):
+            try:
+                conn.execute(text(f"TRUNCATE TABLE {table.name} CASCADE"))
+            except Exception:
+                pass  # Table might not exist
+        conn.execute(text("SET session_replication_role = 'origin'"))
+        conn.commit()
 
     print(f"\n✓ Connected to PostgreSQL test database: {TEST_DATABASE_URL}\n")
 

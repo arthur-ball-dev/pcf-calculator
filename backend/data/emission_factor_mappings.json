@@ -1,206 +1,426 @@
 {
   "mappings": {
-    "aluminum": ["Aluminium", "Aluminium (US)", "aluminum", "aluminum_sheet", "aluminum_rod", "aluminum_casting"],
-    "steel": ["Iron and Steel", "Steel", "steel", "steel_hot_rolled", "steel_cold_rolled", "steel_sheet"],
-    "stainless_steel": ["Stainless steel", "stainless_steel", "SS304", "SS316"],
-    "plastic_abs": ["Plastics", "plastic_abs", "ABS plastic", "Acrylonitrile butadiene styrene"],
-    "plastic_pvc": ["PVC", "Polyvinyl chloride", "plastic_pvc", "vinyl"],
-    "plastic_hdpe": ["HDPE", "High-density polyethylene", "plastic_hdpe"],
-    "plastic_ldpe": ["LDPE", "Low-density polyethylene", "plastic_ldpe", "LDPE film"],
-    "plastic_pp": ["PP", "Polypropylene", "plastic_pp"],
-    "plastic_ps": ["PS", "Polystyrene", "plastic_ps"],
-    "plastic_pet": ["PET", "Polyethylene terephthalate", "plastic_pet"],
-    "copper": ["Copper", "copper_wire", "Copper (refined)", "copper_sheet"],
-    "glass": ["Glass", "Flat glass", "glass_sheet", "glass_container"],
-    "rubber": ["Rubber", "natural_rubber", "synthetic_rubber"],
-    "textile_cotton": ["Cotton", "cotton_fabric", "cotton_yarn"],
-    "textile_polyester": ["Polyester", "polyester_fabric", "polyester_fiber"],
-    "wood": ["Wood", "timber", "lumber", "plywood"],
-    "wood_lumber": ["Lumber", "Sawn timber", "wood_lumber", "timber"],
-    "paper": ["Paper", "paper_recycled", "paper_virgin"],
-    "cardboard": ["Cardboard", "corrugated_cardboard", "cardboard_box"],
-    "concrete": ["Concrete", "ready_mix_concrete", "cement_concrete"],
-    "cement": ["Cement", "portland_cement"],
-    "magnesium": ["Magnesium", "magnesium_alloy", "magnesium"],
-    "electricity_us": ["Grid Electricity - RFCW", "Electricity (US)", "electricity_grid_us", "US Grid"],
-    "electricity_uk": ["UK Grid", "Electricity (UK)", "electricity_grid_uk", "UK electricity"],
-    "electricity_glo": ["Global Grid Average", "electricity_grid_glo", "electricity_global"],
-    "electricity_manufacturing": ["Industrial electricity", "Manufacturing electricity", "electricity_manufacturing", "Assembly electricity"],
-    "natural_gas": ["Natural Gas", "natural_gas_combustion", "methane"],
-    "natural_gas_manufacturing": ["Natural gas (manufacturing)", "Industrial natural gas", "natural_gas_manufacturing", "Process heat gas"],
-    "diesel": ["Diesel", "diesel_fuel", "diesel_combustion"],
-    "gasoline": ["Gasoline", "petrol", "motor_gasoline"],
-    "transport_truck": ["HGV (UK average)", "Diesel Oil transport", "Road freight", "truck_transport"],
-    "transport_ship": ["Sea freight", "Container ship", "Ocean freight", "ship_transport"],
-    "transport_air": ["Air freight", "air_cargo", "aviation_freight"],
-    "transport_rail": ["Rail freight", "train_transport", "railway_freight"],
-    "packaging_cardboard": ["Corrugated cardboard", "Cardboard packaging", "cardboard_box"],
-    "packaging_plastic": ["LDPE film", "Plastic packaging film", "plastic_wrap"],
-    "water_process": ["Industrial water", "Water supply", "process_water"],
-    "waste_general": ["Mixed waste to landfill", "General waste disposal", "municipal_waste"],
-    "waste_recycling": ["Recycling", "material_recycling", "waste_recycling"],
-    "pcb_board": ["Printed circuit board", "PCB", "pcb_board", "electronic board"],
-    "lithium_ion_battery": ["Lithium ion battery", "Li-ion battery", "lithium_ion_battery", "battery pack"],
-    "semiconductor": ["Semiconductor", "IC chip", "semiconductor", "integrated circuit"],
-    "lcd_panel": ["LCD panel", "Liquid crystal display", "lcd_panel", "display panel"],
-    "led_backlight": ["LED backlight", "LED lighting", "led_backlight", "backlight unit"],
-    "carbon_fiber": ["Carbon fiber", "CFRP", "carbon_fiber", "carbon fiber reinforced polymer"],
-    "foam_polyurethane": ["Polyurethane foam", "PU foam", "foam_polyurethane", "cushion foam"],
-    "foam_eps": ["EPS foam", "Expanded polystyrene", "foam_eps", "styrofoam"],
-    "motor_electric": ["Electric motor", "motor_electric", "DC motor", "AC motor"],
-    "capacitor": ["Capacitor", "electronic capacitor", "capacitor", "power capacitor"]
+    "Aluminum": [
+      "Metal: aluminium cans and foil (excl. forming)",
+      "Aluminum Cans - Recycled",
+      "Aluminum Cans - Landfilled",
+      "Aluminum Cans - Combusted",
+      "Aluminum Ingot - Recycled",
+      "Aluminum Ingot - Landfilled",
+      "Aluminium"
+    ],
+    "Steel": [
+      "Metal: steel cans",
+      "Steel Cans - Recycled",
+      "Steel Cans - Landfilled",
+      "Steel Cans - Combusted",
+      "Structural Steel - Recycled",
+      "Structural Steel - Landfilled",
+      "Iron and Steel"
+    ],
+    "Stainless Steel": [
+      "Structural Steel - Recycled",
+      "Metal: steel cans",
+      "Stainless steel"
+    ],
+    "Plastic - ABS": [
+      "Plastics: average plastics",
+      "Plastics: average plastic rigid",
+      "HDPE - Recycled"
+    ],
+    "Plastic - PVC": [
+      "Plastics: PVC (incl. forming)",
+      "Plastics: average plastics",
+      "PVC - Recycled"
+    ],
+    "Plastic - HDPE": [
+      "Plastics: HDPE (incl. forming)",
+      "HDPE - Recycled",
+      "HDPE - Landfilled",
+      "HDPE - Combusted"
+    ],
+    "Plastic - LDPE": [
+      "Plastics: LDPE and LLDPE (incl. forming)",
+      "LDPE - Recycled",
+      "LDPE - Landfilled"
+    ],
+    "Plastic - PP": [
+      "Plastics: PP (incl. forming)",
+      "PP - Recycled",
+      "PP - Landfilled"
+    ],
+    "Plastic - PS": [
+      "Plastics: PS (incl. forming)",
+      "PS - Recycled",
+      "PS - Landfilled"
+    ],
+    "Plastic - PET": [
+      "Plastics: PET (incl. forming)",
+      "PET - Recycled",
+      "PET - Landfilled",
+      "PET - Combusted"
+    ],
+    "Copper": [
+      "Copper Wire - Recycled",
+      "Copper Wire - Landfilled",
+      "Metal: mixed cans"
+    ],
+    "Glass": [
+      "Glass",
+      "Glass - Recycled",
+      "Glass - Landfilled",
+      "Flat Glass - Recycled",
+      "Flat Glass - Landfilled"
+    ],
+    "Rubber": [
+      "Tires - Recycled",
+      "Tires - Landfilled",
+      "Tires - Combusted",
+      "Tires"
+    ],
+    "Textile - Cotton": [
+      "Textiles - Recycled",
+      "Textiles - Landfilled"
+    ],
+    "Textile - Polyester": [
+      "Textiles - Recycled",
+      "Textiles - Landfilled"
+    ],
+    "Wood": [
+      "Dimensional Lumber - Recycled",
+      "Dimensional Lumber - Landfilled",
+      "Dimensional Lumber - Combusted",
+      "Wood Flooring - Landfilled",
+      "Wood Flooring - Combusted"
+    ],
+    "Wood - Lumber": [
+      "Dimensional Lumber - Recycled",
+      "Dimensional Lumber - Landfilled",
+      "Dimensional Lumber - Combusted"
+    ],
+    "Paper": [
+      "Paper and board: board",
+      "Paper and board: paper",
+      "Mixed Paper (general) - Recycled",
+      "Mixed Paper (general) - Landfilled",
+      "Office Paper - Recycled"
+    ],
+    "Cardboard": [
+      "Paper and board: board",
+      "Corrugated Containers - Recycled",
+      "Corrugated Containers - Landfilled",
+      "Corrugated Containers - Combusted"
+    ],
+    "Concrete": [
+      "Concrete - Landfilled",
+      "Concrete - Recycled"
+    ],
+    "Cement": [
+      "Concrete - Landfilled",
+      "Aggregates"
+    ],
+    "Magnesium": [
+      "Metal: mixed cans",
+      "Aluminum Ingot - Recycled"
+    ],
+    "Electricity - US": [
+      "Grid Electricity - RFCW",
+      "Grid Electricity - SRSO",
+      "Grid Electricity - CAMX"
+    ],
+    "Electricity - UK": [
+      "UK Grid"
+    ],
+    "Electricity - Global": [
+      "Grid Electricity - RFCW"
+    ],
+    "Electricity - Manufacturing": [
+      "Grid Electricity - RFCW"
+    ],
+    "Natural Gas": [
+      "Natural Gas",
+      "Natural gas (100% mineral blend)",
+      "CNG"
+    ],
+    "Natural Gas - Manufacturing": [
+      "Natural Gas",
+      "Natural gas (100% mineral blend)"
+    ],
+    "Diesel": [
+      "Diesel Oil",
+      "Diesel Fuel"
+    ],
+    "Gasoline": [
+      "Motor Gasoline",
+      "Gasoline"
+    ],
+    "Transport - Truck": [
+      "Transport - Medium- and Heavy-Duty Truck",
+      "Transport - Light-Duty Truck"
+    ],
+    "Transport - Ship": [
+      "Transport - Waterborne Craft"
+    ],
+    "Transport - Air": [
+      "Transport - Aircraft"
+    ],
+    "Transport - Rail": [
+      "Transport - Rail"
+    ],
+    "Packaging - Cardboard": [
+      "Paper and board: board",
+      "Corrugated Containers - Recycled"
+    ],
+    "Packaging - Plastic": [
+      "Plastics: average plastic film",
+      "LDPE - Recycled"
+    ],
+    "Water - Process": [
+      "Water supply",
+      "Water treatment"
+    ],
+    "Waste - General": [
+      "Mixed MSW - Landfilled",
+      "Mixed MSW - Combusted"
+    ],
+    "Waste - Recycling": [
+      "Mixed Recyclables - Recycled"
+    ],
+    "PCB Board": [
+      "Desktop CPUs - Recycled",
+      "Desktop CPUs - Landfilled"
+    ],
+    "Lithium Ion Battery": [
+      "Mixed Electronics - Recycled",
+      "Mixed Electronics - Landfilled"
+    ],
+    "Semiconductor": [
+      "Desktop CPUs - Recycled",
+      "Desktop CPUs - Landfilled"
+    ],
+    "LCD Panel": [
+      "Flat-panel Displays - Recycled",
+      "Flat-panel Displays - Landfilled"
+    ],
+    "LED Backlight": [
+      "Mixed Electronics - Recycled"
+    ],
+    "Carbon Fiber": [
+      "Plastics: average plastics"
+    ],
+    "Foam - Polyurethane": [
+      "Plastics: average plastics"
+    ],
+    "Foam - EPS": [
+      "Plastics: PS (incl. forming)",
+      "PS - Recycled"
+    ],
+    "Motor - Electric": [
+      "Copper Wire - Recycled",
+      "Metal: mixed cans"
+    ],
+    "Capacitor": [
+      "Mixed Electronics - Recycled"
+    ],
+    "Nylon": [
+      "Textiles - Recycled",
+      "Plastics: average plastics"
+    ],
+    "Insulation": [
+      "Fiberglass Insulation - Recycled",
+      "Fiberglass Insulation - Landfilled"
+    ],
+    "Drywall": [
+      "Drywall - Recycled",
+      "Drywall - Landfilled"
+    ]
   },
   "aliases": {
-    "aluminium": "aluminum",
-    "aluminium_sheet": "aluminum",
-    "aluminium_rod": "aluminum",
-    "steel_cold_rolled": "steel",
-    "steel_sheet": "steel",
-    "ss304": "stainless_steel",
-    "ss316": "stainless_steel",
-    "hdpe": "plastic_hdpe",
-    "ldpe": "plastic_ldpe",
-    "pvc": "plastic_pvc",
-    "abs": "plastic_abs",
-    "pp": "plastic_pp",
-    "ps": "plastic_ps",
-    "pet": "plastic_pet",
-    "petrol": "gasoline",
-    "motor_gasoline": "gasoline",
-    "methane": "natural_gas",
-    "timber": "wood",
-    "lumber": "wood_lumber",
-    "plywood": "wood",
-    "cement_concrete": "concrete",
-    "portland_cement": "cement",
-    "us_grid": "electricity_us",
-    "uk_grid": "electricity_uk",
-    "global_grid": "electricity_glo",
-    "truck": "transport_truck",
-    "hgv": "transport_truck",
-    "road_freight": "transport_truck",
-    "ship": "transport_ship",
-    "sea_freight": "transport_ship",
-    "ocean_freight": "transport_ship",
-    "air": "transport_air",
-    "air_cargo": "transport_air",
-    "rail": "transport_rail",
-    "train": "transport_rail",
-    "cardboard_box": "packaging_cardboard",
-    "plastic_film": "packaging_plastic",
-    "industrial_water": "water_process",
-    "landfill": "waste_general",
-    "municipal_waste": "waste_general",
-    "battery": "lithium_ion_battery",
-    "li_ion_battery": "lithium_ion_battery",
-    "pcb": "pcb_board",
-    "circuit_board": "pcb_board",
-    "lcd": "lcd_panel",
-    "display": "lcd_panel",
-    "led": "led_backlight",
-    "cfrp": "carbon_fiber",
-    "pu_foam": "foam_polyurethane",
-    "cushion": "foam_polyurethane",
-    "electric_motor": "motor_electric",
-    "eps": "foam_eps",
-    "styrofoam": "foam_eps",
-    "magnesium_alloy": "magnesium",
-    "electronic_capacitor": "capacitor"
+    "aluminium": "Aluminum",
+    "aluminum": "Aluminum",
+    "steel": "Steel",
+    "stainless_steel": "Stainless Steel",
+    "stainless steel": "Stainless Steel",
+    "plastic_abs": "Plastic - ABS",
+    "plastic abs": "Plastic - ABS",
+    "plastic_pvc": "Plastic - PVC",
+    "plastic pvc": "Plastic - PVC",
+    "plastic_hdpe": "Plastic - HDPE",
+    "plastic hdpe": "Plastic - HDPE",
+    "plastic_ldpe": "Plastic - LDPE",
+    "plastic ldpe": "Plastic - LDPE",
+    "plastic_pp": "Plastic - PP",
+    "plastic pp": "Plastic - PP",
+    "plastic_ps": "Plastic - PS",
+    "plastic ps": "Plastic - PS",
+    "plastic_pet": "Plastic - PET",
+    "plastic pet": "Plastic - PET",
+    "copper": "Copper",
+    "glass": "Glass",
+    "rubber": "Rubber",
+    "textile_cotton": "Textile - Cotton",
+    "textile cotton": "Textile - Cotton",
+    "textile_polyester": "Textile - Polyester",
+    "textile polyester": "Textile - Polyester",
+    "wood": "Wood",
+    "wood_lumber": "Wood - Lumber",
+    "wood lumber": "Wood - Lumber",
+    "paper": "Paper",
+    "cardboard": "Cardboard",
+    "concrete": "Concrete",
+    "cement": "Cement",
+    "magnesium": "Magnesium",
+    "electricity_us": "Electricity - US",
+    "electricity us": "Electricity - US",
+    "electricity_uk": "Electricity - UK",
+    "electricity uk": "Electricity - UK",
+    "electricity_glo": "Electricity - Global",
+    "electricity glo": "Electricity - Global",
+    "electricity_manufacturing": "Electricity - Manufacturing",
+    "electricity manufacturing": "Electricity - Manufacturing",
+    "natural_gas": "Natural Gas",
+    "natural gas": "Natural Gas",
+    "natural_gas_manufacturing": "Natural Gas - Manufacturing",
+    "natural gas manufacturing": "Natural Gas - Manufacturing",
+    "diesel": "Diesel",
+    "gasoline": "Gasoline",
+    "transport_truck": "Transport - Truck",
+    "transport truck": "Transport - Truck",
+    "transport_ship": "Transport - Ship",
+    "transport ship": "Transport - Ship",
+    "transport_air": "Transport - Air",
+    "transport air": "Transport - Air",
+    "transport_rail": "Transport - Rail",
+    "transport rail": "Transport - Rail",
+    "packaging_cardboard": "Packaging - Cardboard",
+    "packaging cardboard": "Packaging - Cardboard",
+    "packaging_plastic": "Packaging - Plastic",
+    "packaging plastic": "Packaging - Plastic",
+    "water_process": "Water - Process",
+    "water process": "Water - Process",
+    "waste_general": "Waste - General",
+    "waste general": "Waste - General",
+    "waste_recycling": "Waste - Recycling",
+    "waste recycling": "Waste - Recycling",
+    "pcb_board": "PCB Board",
+    "pcb board": "PCB Board",
+    "lithium_ion_battery": "Lithium Ion Battery",
+    "lithium ion battery": "Lithium Ion Battery",
+    "semiconductor": "Semiconductor",
+    "lcd_panel": "LCD Panel",
+    "lcd panel": "LCD Panel",
+    "led_backlight": "LED Backlight",
+    "led backlight": "LED Backlight",
+    "carbon_fiber": "Carbon Fiber",
+    "carbon fiber": "Carbon Fiber",
+    "foam_polyurethane": "Foam - Polyurethane",
+    "foam polyurethane": "Foam - Polyurethane",
+    "foam_eps": "Foam - EPS",
+    "foam eps": "Foam - EPS",
+    "motor_electric": "Motor - Electric",
+    "motor electric": "Motor - Electric",
+    "capacitor": "Capacitor",
+    "nylon": "Nylon",
+    "insulation": "Insulation",
+    "drywall": "Drywall"
   },
   "category_defaults": {
-    "material": "steel",
-    "energy": "electricity_glo",
-    "transport": "transport_truck",
-    "other": "packaging_cardboard"
+    "material": "Steel",
+    "energy": "Electricity - Global",
+    "transport": "Transport - Truck",
+    "other": "Packaging - Cardboard"
   },
   "industry_components": {
     "electronics": [
-      "aluminum",
-      "steel",
-      "stainless_steel",
-      "plastic_abs",
-      "copper",
-      "glass",
-      "pcb_board",
-      "lithium_ion_battery",
-      "semiconductor",
-      "electricity_manufacturing",
-      "lcd_panel",
-      "led_backlight",
-      "magnesium",
-      "capacitor",
-      "foam_eps",
-      "natural_gas_manufacturing"
+      "Aluminum",
+      "Steel",
+      "Stainless Steel",
+      "Plastic - ABS",
+      "Copper",
+      "Glass",
+      "PCB Board",
+      "Lithium Ion Battery",
+      "Semiconductor",
+      "Electricity - Manufacturing",
+      "LCD Panel",
+      "LED Backlight",
+      "Magnesium",
+      "Capacitor",
+      "Foam - EPS",
+      "Natural Gas - Manufacturing"
     ],
     "apparel": [
-      "textile_cotton",
-      "textile_polyester",
-      "rubber",
-      "plastic_abs",
-      "plastic_pvc",
-      "packaging_cardboard",
-      "packaging_plastic",
-      "transport_ship",
-      "electricity_manufacturing",
-      "water_process",
-      "steel",
-      "copper"
+      "Textile - Cotton",
+      "Textile - Polyester",
+      "Rubber",
+      "Plastic - ABS",
+      "Plastic - PVC",
+      "Packaging - Cardboard",
+      "Packaging - Plastic",
+      "Transport - Ship",
+      "Electricity - Manufacturing",
+      "Water - Process",
+      "Steel",
+      "Copper",
+      "Nylon"
     ],
     "automotive": [
-      "steel",
-      "aluminum",
-      "plastic_abs",
-      "rubber",
-      "glass",
-      "copper",
-      "motor_electric",
-      "lithium_ion_battery",
-      "carbon_fiber",
-      "foam_polyurethane",
-      "pcb_board",
-      "lcd_panel",
-      "textile_polyester",
-      "electricity_manufacturing"
+      "Steel",
+      "Aluminum",
+      "Plastic - ABS",
+      "Rubber",
+      "Glass",
+      "Copper",
+      "Motor - Electric",
+      "Lithium Ion Battery",
+      "Carbon Fiber",
+      "Foam - Polyurethane",
+      "PCB Board",
+      "LCD Panel",
+      "Textile - Polyester",
+      "Electricity - Manufacturing"
     ],
     "construction": [
-      "concrete",
-      "cement",
-      "steel",
-      "wood",
-      "wood_lumber",
-      "glass",
-      "aluminum",
-      "copper",
-      "rubber",
-      "plastic_pvc",
-      "foam_polyurethane",
-      "pcb_board",
-      "electricity_manufacturing"
+      "Concrete",
+      "Cement",
+      "Steel",
+      "Wood",
+      "Wood - Lumber",
+      "Glass",
+      "Aluminum",
+      "Copper",
+      "Rubber",
+      "Plastic - PVC",
+      "Foam - Polyurethane",
+      "PCB Board",
+      "Electricity - Manufacturing",
+      "Insulation",
+      "Drywall"
     ],
     "food_beverage": [
-      "packaging_cardboard",
-      "packaging_plastic",
-      "glass",
-      "aluminum",
-      "steel",
-      "water_process",
-      "transport_truck",
-      "transport_ship",
-      "plastic_pet",
-      "plastic_hdpe",
-      "plastic_pp",
-      "paper",
-      "electricity_manufacturing",
-      "waste_general"
+      "Packaging - Cardboard",
+      "Packaging - Plastic",
+      "Glass",
+      "Aluminum",
+      "Steel",
+      "Water - Process",
+      "Transport - Truck",
+      "Transport - Ship",
+      "Plastic - PET",
+      "Plastic - HDPE",
+      "Plastic - PP",
+      "Paper",
+      "Electricity - Manufacturing",
+      "Waste - General"
     ]
   },
   "metadata": {
-    "version": "1.2.0",
+    "version": "2.0.0",
     "created": "2026-01-09",
-    "updated": "2026-01-09",
-    "description": "Emission factor mapping configuration for PCF Calculator",
-    "sources": ["EPA GHG Hub", "DEFRA Conversion Factors"],
-    "note": "Proxy factors use EPA + DEFRA only (no Exiobase) to avoid ShareAlike",
-    "bom_templates_version": "TASK-BE-P8-001"
+    "updated": "2026-01-21",
+    "description": "Emission factor mapping with actual EPA/DEFRA activity names",
+    "sources": ["EPA GHG Hub Table 9", "DEFRA Material Use"],
+    "naming_convention": "Capitalized, no underscores, multi-part uses ' - '",
+    "multi_ef_strategy": "First match in list is selected (prefer Recycled over Landfilled)"
   }
 }

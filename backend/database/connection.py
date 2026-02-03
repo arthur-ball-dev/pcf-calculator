@@ -276,3 +276,23 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
             yield session
         finally:
             await session.close()
+
+
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    FastAPI dependency for async database sessions.
+
+    Usage:
+        @router.get("/")
+        async def endpoint(db: AsyncSession = Depends(get_async_db)):
+            result = await db.execute(select(Model))
+
+    Yields:
+        AsyncSession: SQLAlchemy async database session
+    """
+    AsyncSessionLocal = _get_async_session_maker()
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()

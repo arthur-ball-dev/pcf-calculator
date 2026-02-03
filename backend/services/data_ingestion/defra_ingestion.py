@@ -4,15 +4,18 @@ DEFRA UK Government Conversion Factors connector.
 TASK-DATA-P5-003: DEFRA Data Connector
 TASK-DATA-P7-008: Fix DEFRA Connector URL (BUG-DATA-002)
 TASK-DATA-P8-BUG-003: Fix DEFRA header detection and column mapping
+TASK-DATA-P10: Expand DEFRA import with Water supply/treatment sheets
 
 This module implements the DEFRAEmissionFactorsIngestion class that:
 - Downloads DEFRA Excel workbook from gov.uk
 - Parses emission factors from multiple sheets (Fuels, Electricity, Materials, etc.)
+- Parses Water supply and Water treatment sheets for Scope 3 water factors
 - Transforms data to internal schema with correct scope assignment
 - Supports upsert pattern for incremental updates
 
 Features:
-- Multi-sheet parsing for 6 categories
+- Multi-sheet parsing for 8 categories (Fuels, Electricity, Materials, Waste,
+  Air Travel, Freight, Water Supply, Water Treatment)
 - Partial sheet name matching (handles year-specific sheet names)
 - Unit extraction from column names (e.g., "kg CO2e per kWh" -> "kWh")
 - Scope assignment per category (Scope 1, 2, 3)
@@ -124,6 +127,25 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
             "co2e_col_fallback": ["kg CO2e per tonne.km"],
             "unit_col": None,
             "required_cols": ["Vehicle", "kg CO2e"],
+        },
+        # TASK-DATA-P10: Added Water supply and Water treatment sheets
+        "Water supply": {
+            "scope": "Scope 3",
+            "category": "water",
+            "activity_col": "Activity",
+            "co2e_col": "kg CO2e",
+            "co2e_col_fallback": ["kg CO2e per cubic metre", "Total kg CO2e"],
+            "unit_col": "Unit",
+            "required_cols": ["Activity", "kg CO2e"],
+        },
+        "Water treatment": {
+            "scope": "Scope 3",
+            "category": "water",
+            "activity_col": "Activity",
+            "co2e_col": "kg CO2e",
+            "co2e_col_fallback": ["kg CO2e per cubic metre", "Total kg CO2e"],
+            "unit_col": "Unit",
+            "required_cols": ["Activity", "kg CO2e"],
         },
     }
 

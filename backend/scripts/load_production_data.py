@@ -3,6 +3,7 @@
 Load Production Data Script.
 
 TASK-DATA-P9: Switch to production mode by clearing all data and loading EPA/DEFRA EFs.
+TASK-DATA-P10: Add expanded EPA Table 8/9 and DEFRA water sheets import.
 
 This script:
 1. CLEARS ALL DATA:
@@ -13,13 +14,14 @@ This script:
    - DELETE FROM emission_factors
 
 2. LOADS PRODUCTION DATA:
-   - EPA emission factors from data/epa/*.xlsx (75-125 factors)
-   - DEFRA emission factors from data/defra/*.xlsx (200-400 factors)
+   - EPA emission factors from data/epa/*.xlsx (350-900 factors incl. Table 8/9)
+   - DEFRA emission factors from data/defra/*.xlsx (200-500 factors incl. Water)
+   - Production components (~65) for materials, transport, energy, water
    - Production products (~700-800) via ProductGenerator
    - Production BOMs (generated with EPA/DEFRA EF mappings)
 
 3. VERIFIES:
-   - Confirms expected emission factor counts (275-525)
+   - Confirms expected emission factor counts (350-900)
    - Confirms expected product counts (700-800)
    - Validates BOM integrity
 
@@ -65,10 +67,14 @@ LOCAL_FILES = {
 
 # Expected emission factor counts
 # TASK-DATA-P9: Updated based on actual EPA/DEFRA file contents
+# TASK-DATA-P10: Expanded counts for Table 8/9 and Water sheets
+# EPA: Table 1-2 (~75), Table 8 (~7), Table 9 (~200 materials × disposal methods)
+# DEFRA: Fuels (~117), Electricity, Materials (~41), Waste (~42),
+#        Transport (~114), Water supply/treatment (~4)
 EXPECTED_EF_COUNTS = {
-    "epa": (75, 150),
-    "defra": (50, 200),
-    "total": (100, 350),
+    "epa": (150, 400),
+    "defra": (200, 500),
+    "total": (350, 900),
 }
 
 # Expected product counts
@@ -340,10 +346,15 @@ async def generate_production_catalog() -> dict:
     """
     Generate production product catalog with BOMs.
 
+    Uses EmissionFactorMapper to assign emission_factor_id to each BOM entry
+    during generation. This ensures BOM components have pre-populated emission
+    factors when loaded in the frontend.
+
     Returns:
         Dictionary with generation results
     """
     from backend.services.data_ingestion.product_generator import ProductGenerator
+    from backend.services.data_ingestion.emission_factor_mapper import EmissionFactorMapper
 
     async_url = settings.async_database_url
 
@@ -364,6 +375,8 @@ async def generate_production_catalog() -> dict:
 
     async with async_session_maker() as session:
         generator = ProductGenerator(session)
+        # Set mapper to enable emission factor assignment during BOM creation
+        generator.mapper = EmissionFactorMapper(db=session)
         catalog = await generator.generate_full_catalog(distribution)
         stats = generator.get_stats()
 
@@ -496,8 +509,22 @@ def main() -> int:
 
     # Step 3: Load emission factors (async)
     print("Step 3: Loading EPA/DEFRA emission factors from local files...")
+    print("  (includes Table 8 Transport, Table 9 Materials, Water supply/treatment)")
     ef_results = asyncio.run(load_emission_factors_async())
     print(f"  Total emission factors created: {ef_results['total_created']}")
+    print()
+
+    # Step 3b: Create production components
+    print("Step 3b: Creating production components (~65 materials, transport, energy)...")
+    from backend.scripts.create_production_components import (
+        create_production_components,
+        verify_emission_factor_mapping,
+    )
+    component_stats = asyncio.run(create_production_components())
+    print(f"  Components created: {component_stats['created']}")
+    print(f"  Components skipped: {component_stats['skipped']}")
+    mapping_stats = asyncio.run(verify_emission_factor_mapping())
+    print(f"  Mappable to EFs: {mapping_stats['mappable']}/{mapping_stats['total_components']}")
     print()
 
     # Step 4: Generate production catalog (unless skipped)

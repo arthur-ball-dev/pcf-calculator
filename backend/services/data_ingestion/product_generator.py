@@ -283,6 +283,16 @@ class ProductGenerator:
         # Normalize unit to valid Product unit
         normalized_unit = self._normalize_unit(component.unit)
 
+        # Look up emission factor for this component
+        emission_factor_id = None
+        if self.mapper:
+            factor = await self.mapper.get_factor_for_component(
+                component_name=component_product.name,
+                unit=normalized_unit,
+            )
+            if factor:
+                emission_factor_id = factor.id
+
         # Create BOM entry
         bom = BillOfMaterials(
             id=str(uuid4()).replace("-", ""),
@@ -290,6 +300,7 @@ class ProductGenerator:
             child_product_id=component_product.id,
             quantity=quantity,
             unit=normalized_unit,
+            emission_factor_id=emission_factor_id,
         )
 
         self.db.add(bom)

@@ -152,7 +152,7 @@ class TestStartCalculation:
         data = response.json()
         assert "calculation_id" in data, "Response should include calculation_id"
         assert "status" in data, "Response should include status"
-        assert data["status"] == "processing", f"Status should be 'processing', got {data['status']}"
+        assert data["status"] == "in_progress", f"Status should be 'in_progress', got {data['status']}"
 
         # Verify calculation_id is a valid UUID hex string (32 chars)
         calc_id = data["calculation_id"]
@@ -197,7 +197,7 @@ class TestStartCalculation:
     def test_start_calculation_invalid_product_id(self, authenticated_client):
         """
         Should handle invalid product_id (product not found)
-        Returns 202 but calculation will fail with appropriate error
+        Returns 404 since product must exist to create calculation (FK constraint)
         """
         # Arrange
         payload = {"product_id": "nonexistent-product-id"}
@@ -206,10 +206,9 @@ class TestStartCalculation:
         response = authenticated_client.post("/api/v1/calculate", json=payload)
 
         # Assert
-        # API returns 202 immediately (async pattern)
-        # The error will be captured in calculation status
-        assert response.status_code == 202, \
-            f"Should return 202 for async processing, got {response.status_code}"
+        # API validates product exists before creating calculation record
+        assert response.status_code == 404, \
+            f"Should return 404 for nonexistent product, got {response.status_code}"
 
     def test_start_calculation_with_bom_product(self, authenticated_client, sample_product_with_bom):
         """
@@ -225,7 +224,7 @@ class TestStartCalculation:
         assert response.status_code == 202
         data = response.json()
         assert "calculation_id" in data
-        assert data["status"] == "processing"
+        assert data["status"] == "in_progress"
 
 
 # ============================================================================

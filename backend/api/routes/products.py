@@ -62,7 +62,7 @@ class BOMItemResponse(BaseModel):
     quantity: float
     unit: Optional[str] = None
     notes: Optional[str] = None
-    emission_factor_id: Optional[str] = None  # From child product metadata
+    emission_factor_id: Optional[str] = None  # Stored in bill_of_materials table
 
     class Config:
         from_attributes = True
@@ -865,25 +865,34 @@ def list_products(
         None,
         description="Filter for finished products only"
     ),
+    is_finished: Optional[bool] = Query(
+        None,
+        description="Alias for is_finished_product (deprecated, use is_finished_product)"
+    ),
     db: Session = Depends(get_db)
 ):
     """
     Retrieve paginated list of products.
 
     TASK-BE-P8-003: Added Redis caching with 5-minute TTL.
+    TASK-BE-P9-001: Added is_finished alias for backward compatibility.
 
     Query Parameters:
     - limit: Number of products to return (default 100, max 1000)
     - offset: Number of products to skip (default 0)
     - is_finished_product: Filter for finished products (true/false)
+    - is_finished: Alias for is_finished_product (deprecated)
 
     Returns:
     - items: List of products
     - total: Total number of matching products
     - limit/offset: Applied pagination
     """
+    # Merge is_finished alias with is_finished_product (alias takes lower precedence)
+    effective_filter = is_finished_product if is_finished_product is not None else is_finished
+
     # Step 1: Check cache
-    cache_key = get_product_list_cache_key(limit, offset, is_finished_product)
+    cache_key = get_product_list_cache_key(limit, offset, effective_filter)
     cached_response = get_cached_response_sync(cache_key)
     if cached_response is not None:
         logger.debug(f"Cache hit for product list: {cache_key}")
@@ -894,8 +903,8 @@ def list_products(
     query = db.query(Product)
 
     # Apply filter
-    if is_finished_product is not None:
-        query = query.filter(Product.is_finished_product == is_finished_product)
+    if effective_filter is not None:
+        query = query.filter(Product.is_finished_product == effective_filter)
 
     # Get total count
     total = query.count()
@@ -988,7 +997,7 @@ def get_product(
             quantity=float(bom.quantity),
             unit=bom.unit,
             notes=bom.notes,
-            emission_factor_id=None  # Would come from child product metadata
+            emission_factor_id=bom.emission_factor_id,  # Stored in database
         )
         for bom in product.bom_items
     ]

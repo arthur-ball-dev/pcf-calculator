@@ -283,9 +283,17 @@ async def start_calculation(
         f"product_id={request.product_id}, type={request.calculation_type.value}"
     )
 
+    # TASK-BE-P9-001: Validate product exists before creating calculation record
+    # This prevents FK violation and returns proper 404 for nonexistent products
+    product = db.query(Product).filter(Product.id == request.product_id).first()
+    if not product:
+        logger.warning(f"Calculation requested for nonexistent product: {request.product_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product not found: {request.product_id}"
+        )
+
     # Create initial calculation record
-    # Note: We don't validate product_id exists here to avoid blocking
-    # The background task will handle validation and set status to failed if needed
     try:
         calculation = PCFCalculation(
             id=calc_id,

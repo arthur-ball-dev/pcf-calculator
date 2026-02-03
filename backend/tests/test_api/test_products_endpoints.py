@@ -418,12 +418,23 @@ class TestProductNotFound:
         response = authenticated_client.get("/api/v1/products/nonexistent-id")
         data = response.json()
 
-        assert "detail" in data, \
-            "404 response should include 'detail' field"
-        assert isinstance(data["detail"], str), \
-            "Detail should be a string"
-        assert "not found" in data["detail"].lower(), \
-            "Error message should indicate product not found"
+        # API uses structured error format with error object
+        if "error" in data:
+            # Structured error format: {"error": {"code": "...", "message": "..."}}
+            assert "code" in data["error"], \
+                "Error object should include 'code' field"
+            assert "message" in data["error"], \
+                "Error object should include 'message' field"
+            assert "not found" in data["error"]["message"].lower(), \
+                "Error message should indicate product not found"
+        else:
+            # Legacy format: {"detail": "..."}
+            assert "detail" in data, \
+                "404 response should include 'detail' field"
+            assert isinstance(data["detail"], str), \
+                "Detail should be a string"
+            assert "not found" in data["detail"].lower(), \
+                "Error message should indicate product not found"
 
 
 # ============================================================================

@@ -50,6 +50,15 @@ class MemoryStorage:
         self._data: dict[str, tuple[int, float]] = {}
         self._lock = threading.Lock()
 
+    def clear(self) -> None:
+        """
+        Clear all rate limit data.
+
+        Useful for testing to reset rate limits between tests.
+        """
+        with self._lock:
+            self._data.clear()
+
     def get_count(self, key: str) -> int:
         """
         Get current request count for a key.

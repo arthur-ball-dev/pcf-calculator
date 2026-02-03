@@ -5,10 +5,13 @@ TASK-DATA-P5-002: EPA Data Connector
 TASK-DATA-P7-007: Fix EPA Connector URLs and Sheet Names
 TASK-DATA-P8-BUG: Fix EPA Fuels sheet name and eGRID column headers
 TASK-DATA-P8-BUG-002: Fix EPA Fuels multi-table parsing
+TASK-DATA-P10: Expand EPA import with Table 8 (Transport) and Table 9 (Materials)
 
 This module implements the EPA GHG Emission Factors Hub connector that:
 - Downloads Excel files from the EPA website
 - Parses fuel and eGRID emission factor data
+- Parses Table 8 (Transportation) for Scope 3 transport factors
+- Parses Table 9 (Materials/Waste) for Scope 3 materials factors
 - Transforms records to internal schema with unit conversions
 - Handles lb/MWh to kg/kWh conversion for eGRID data
 - Handles multi-table parsing for 2024 format files
@@ -84,7 +87,16 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
     # TASK-DATA-P8-BUG-002: Multi-table parsing configuration
     # Table 1: Stationary Combustion - most comprehensive fuel data
     # Table 2: Mobile Combustion CO2 - simpler format with explicit units
-    FUELS_TABLES_TO_PARSE = ["Table 1", "Table 2"]
+    # TASK-DATA-P10: Added Table 8 and Table 9 for expanded materials/transport
+    # Table 8: Transportation (Scope 3) - upstream/downstream transport
+    # Table 9: Materials/Waste (Scope 3) - end-of-life treatment factors
+    FUELS_TABLES_TO_PARSE = ["Table 1", "Table 2", "Table 8", "Table 9"]
+
+    # Category headers to skip in Table 9 Materials sheet
+    TABLE_9_CATEGORY_HEADERS = [
+        "Metals", "Plastics", "Paper Products", "Glass", "Organics",
+        "Wood Products", "Mixed Categories", "Electronics", "Construction"
+    ]
 
     def __init__(self, *args, file_key: str = "fuels", **kwargs) -> None:
         """
@@ -350,6 +362,8 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         """
         Check if a row is a header row for the given table.
 
+        TASK-DATA-P10: Added support for Table 8 and Table 9 header detection.
+
         Args:
             row: Row tuple from the sheet
             table_name: Name of the table
@@ -360,13 +374,19 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         if len(row) < 3:
             return False
 
-        # Column C (index 2) should have "Fuel Type" or similar for Table 1/2
+        # Column C (index 2) should have identifying header
         col_c = str(row[2]).strip() if row[2] else ""
 
         if table_name == "Table 1":
             return col_c == "Fuel Type"
         elif table_name == "Table 2":
             return col_c == "Fuel Type"
+        elif table_name == "Table 8":
+            # Table 8: Transportation - header has "Vehicle Type"
+            return col_c == "Vehicle Type"
+        elif table_name == "Table 9":
+            # Table 9: Materials/Waste - header has "Material"
+            return col_c == "Material"
 
         return False
 
@@ -456,6 +476,9 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         """
         Extract headers from a header row.
 
+        TASK-DATA-P10: Enhanced to normalize headers by removing newlines
+        and collapsing whitespace.
+
         Args:
             row: Header row tuple
             col_offset: Column offset where data starts
@@ -466,7 +489,10 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         headers = []
         for i, val in enumerate(row[col_offset:], start=col_offset):
             if val:
-                headers.append(str(val).strip())
+                # Normalize: remove newlines, collapse whitespace
+                header = str(val).replace("\n", " ").replace("\r", "")
+                header = " ".join(header.split())
+                headers.append(header.strip())
             else:
                 headers.append(f"col_{i}")
         return headers
@@ -504,8 +530,8 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         """
         Transform EPA data to internal schema.
 
-        Routes to _transform_fuel_record or _transform_egrid_record based on
-        file_key selection.
+        Routes to appropriate transform method based on file_key and source table.
+        TASK-DATA-P10: Added routing for Table 8 and Table 9.
 
         Args:
             parsed_data: List of source-format records from parse_data()
@@ -520,7 +546,14 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
             if self.file_key == "egrid":
                 transformed.extend(self._transform_egrid_record(record))
             else:
-                transformed.extend(self._transform_fuel_record(record))
+                # Route based on source table for fuels file
+                source_table = record.get("_source_table", "")
+                if source_table == "Table 8":
+                    transformed.extend(self._transform_transport_record(record))
+                elif source_table == "Table 9":
+                    transformed.extend(self._transform_materials_record(record))
+                else:
+                    transformed.extend(self._transform_fuel_record(record))
 
         return transformed
 
@@ -766,6 +799,280 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
             return "Scope 1"
         else:
             return "Scope 1"
+
+    def _transform_transport_record(
+        self, record: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Transform Table 8 transportation emission factor record.
+
+        TASK-DATA-P10: New method for Scope 3 Category 4/9 transportation factors.
+
+        Table 8 contains transportation factors in kg CO2 per unit (vehicle-mile
+        or short ton-mile). These are Scope 3 upstream/downstream transport factors.
+
+        Headers:
+        - Vehicle Type
+        - CO2 Factor (kg CO2 / unit)
+        - CH4 Factor (g CH4 / unit)
+        - N2O Factor (g N2O / unit)
+        - Units
+
+        Args:
+            record: Single parsed record from EPA Table 8
+
+        Returns:
+            List containing zero or one transformed records
+        """
+        results = []
+
+        # Get vehicle type
+        vehicle_type = record.get("Vehicle Type")
+        if not vehicle_type:
+            return results
+
+        vehicle_str = str(vehicle_type).strip()
+        if not vehicle_str:
+            return results
+
+        # Get CO2 factor - column header is "CO2 Factor (kg CO2 / unit)"
+        co2_factor = (
+            self._find_column_value(record, "CO2 Factor") or
+            self._find_column_value(record, "kg CO2")
+        )
+
+        if not co2_factor:
+            return results
+
+        try:
+            co2e_value = float(co2_factor)
+        except (ValueError, TypeError):
+            return results
+
+        if co2e_value <= 0:
+            return results
+
+        # Get unit from Units column
+        unit = record.get("Units") or self._find_column_value(record, "unit")
+        unit_str = str(unit).strip() if unit else "unit"
+
+        # Determine category based on unit
+        # vehicle-mile = passenger/light transport
+        # short ton-mile = freight transport
+        if "ton-mile" in unit_str.lower():
+            category = "freight_transport"
+        else:
+            category = "passenger_transport"
+
+        results.append({
+            "activity_name": f"Transport - {vehicle_str}",
+            "co2e_factor": co2e_value,
+            "unit": unit_str,
+            "data_source": "EPA",
+            "scope": "Scope 3",
+            "category": category,
+            "geography": "US",
+            "reference_year": 2023,
+            "data_quality_rating": 0.90,
+            "external_id": f"EPA_transport_{vehicle_str}_{unit_str}".replace(
+                " ", "_"
+            ).replace("-", "_"),
+            "metadata": {
+                "source_sheet": record.get("_source_sheet"),
+                "source_row": record.get("_source_row"),
+                "source_table": "Table 8",
+                "vehicle_type": vehicle_str,
+            }
+        })
+
+        return results
+
+    def _transform_materials_record(
+        self, record: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Transform Table 9 materials/waste emission factor record.
+
+        TASK-DATA-P10: New method for Scope 3 Category 5/12 materials factors.
+
+        Table 9 contains end-of-life treatment factors for various materials.
+        Units are Metric Tons CO2e per Short Ton of Material.
+        We convert to kg CO2e per kg (divide by 1000 since 1 ton = 1000 kg,
+        and metric tons CO2e per short ton ≈ kg CO2e per kg).
+
+        Creates separate emission factors for each disposal method:
+        - Recycled
+        - Landfilled
+        - Combusted
+        - Composted
+        - Anaerobically Digested
+
+        Args:
+            record: Single parsed record from EPA Table 9
+
+        Returns:
+            List of transformed records (one per disposal method with valid data)
+        """
+        results = []
+
+        # Get material name
+        material_name = record.get("Material")
+        if not material_name:
+            return results
+
+        material_str = str(material_name).strip()
+        if not material_str:
+            return results
+
+        # Skip category headers and notes rows
+        skip_patterns = [
+            "Metals", "Plastics", "Paper Products", "Glass", "Organics",
+            "Wood Products", "Mixed Categories", "Electronics", "Construction",
+            "Source:", "Notes:", "^A", "^B", "^C", "^D", "NA",
+            "More information", "http", "www."
+        ]
+        if any(material_str.startswith(p) for p in skip_patterns):
+            return results
+
+        # Disposal methods and their column names
+        # TASK-DATA-P10: Map column headers to disposal method names
+        # Note: Excel superscripts become "RecycledA", "LandfilledB" etc.
+        disposal_methods = {
+            "Recycled": ["Recycled", "RecycledA"],
+            "Landfilled": ["Landfilled", "LandfilledB"],
+            "Combusted": ["Combusted", "CombustedC"],
+            "Composted": ["Composted", "CompostedD"],
+            "Anaerobically Digested": [
+                "Anaerobically Digested",
+                "Anaerobically Digested (Dry",  # Partial match works
+            ]
+        }
+
+        # Determine material category for grouping
+        material_category = self._categorize_material(material_str)
+
+        for method_name, col_variants in disposal_methods.items():
+            co2e_value = None
+
+            # Try each column variant
+            for col_name in col_variants:
+                value = self._find_column_value(record, col_name)
+                if value is not None and str(value).strip().lower() not in ["na", ""]:
+                    try:
+                        co2e_value = float(value)
+                        break
+                    except (ValueError, TypeError):
+                        continue
+
+            if co2e_value is None or co2e_value <= 0:
+                continue
+
+            # Convert from Metric Tons CO2e per Short Ton to kg CO2e per kg
+            # 1 short ton = 907.185 kg, 1 metric ton = 1000 kg
+            # Factor is already approximately kg CO2e per kg since
+            # metric ton CO2e / short ton ≈ 1.1 kg CO2e / kg
+            # We'll use the factor as-is since it's effectively kg/kg scale
+            co2e_per_kg = co2e_value * (1000 / 907.185)
+
+            # Create unique external ID
+            external_id = (
+                f"EPA_material_{material_str}_{method_name}"
+                .replace(" ", "_")
+                .replace("-", "_")
+                .replace("(", "")
+                .replace(")", "")
+            )[:200]
+
+            results.append({
+                "activity_name": f"{material_str} - {method_name}",
+                "co2e_factor": round(co2e_per_kg, 4),
+                "unit": "kg",
+                "data_source": "EPA",
+                "scope": "Scope 3",
+                "category": f"materials_{material_category}",
+                "geography": "US",
+                "reference_year": 2023,
+                "data_quality_rating": 0.88,
+                "external_id": external_id,
+                "metadata": {
+                    "source_sheet": record.get("_source_sheet"),
+                    "source_row": record.get("_source_row"),
+                    "source_table": "Table 9",
+                    "material": material_str,
+                    "disposal_method": method_name,
+                    "original_unit": "Metric Tons CO2e per Short Ton",
+                }
+            })
+
+        return results
+
+    def _categorize_material(self, material: str) -> str:
+        """
+        Categorize a material by type for grouping.
+
+        TASK-DATA-P10: Helper for _transform_materials_record.
+
+        Args:
+            material: Material name string
+
+        Returns:
+            Category string (e.g., "metals", "plastics", "paper", "electronics")
+        """
+        material_lower = material.lower()
+
+        # Metal materials
+        if any(m in material_lower for m in [
+            "aluminum", "steel", "copper", "metal", "iron"
+        ]):
+            return "metals"
+
+        # Plastic materials
+        if any(p in material_lower for p in [
+            "hdpe", "ldpe", "pet", "lldpe", "pp", "ps", "pvc", "pla", "plastic"
+        ]):
+            return "plastics"
+
+        # Paper/cardboard
+        if any(p in material_lower for p in [
+            "paper", "corrugated", "magazine", "newspaper", "textbook", "phonebook"
+        ]):
+            return "paper"
+
+        # Electronics
+        if any(e in material_lower for e in [
+            "cpu", "display", "electronic", "peripheral", "device", "hard-copy"
+        ]):
+            return "electronics"
+
+        # Glass
+        if "glass" in material_lower or "fiberglass" in material_lower:
+            return "glass"
+
+        # Wood
+        if any(w in material_lower for w in [
+            "lumber", "fiberboard", "wood", "mdf"
+        ]):
+            return "wood"
+
+        # Organics/food
+        if any(o in material_lower for o in [
+            "food", "beef", "poultry", "grain", "bread", "fruit", "vegetable",
+            "dairy", "yard", "grass", "leaves", "branch", "organic"
+        ]):
+            return "organics"
+
+        # Construction
+        if any(c in material_lower for c in [
+            "concrete", "asphalt", "drywall", "brick", "insulation", "vinyl",
+            "carpet", "shingle", "flooring"
+        ]):
+            return "construction"
+
+        # Rubber/tires
+        if "tire" in material_lower or "rubber" in material_lower:
+            return "rubber"
+
+        return "other"
 
 
 __all__ = [

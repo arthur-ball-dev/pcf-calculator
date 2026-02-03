@@ -13,14 +13,16 @@ Endpoints:
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_
 from pydantic import BaseModel, Field, field_validator
 from decimal import Decimal
 
-from backend.database.connection import get_db
+from backend.database.connection import get_db, get_async_db
 from backend.models import EmissionFactor, DataSource
 from backend.models.user import User
 from backend.auth.dependencies import require_admin
+from backend.services.data_ingestion.emission_factor_mapper import EmissionFactorMapper
 
 
 # ============================================================================
@@ -496,6 +498,69 @@ def delete_emission_factor(
     db.commit()
 
     return None
+
+
+# ============================================================================
+# Suggest Endpoint
+# ============================================================================
+
+@router.get(
+    "/emission-factors/suggest/{component_name:path}",
+    response_model=Optional[EmissionFactorListItemResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Suggest emission factor for component",
+    description="Get suggested emission factor for a BOM component name using mapping rules"
+)
+async def suggest_emission_factor(
+    component_name: str = Path(..., description="Component name to find matching EF for"),
+    unit: str = Query("kg", description="Unit of measurement"),
+    geography: Optional[str] = Query(None, description="Geographic region (optional)"),
+    db: AsyncSession = Depends(get_async_db)
+) -> Optional[EmissionFactorListItemResponse]:
+    """
+    Get suggested emission factor for a component name.
+
+    Uses the EmissionFactorMapper to find the best matching emission factor
+    based on:
+    1. Exact match on activity_name
+    2. Configured mappings (emission_factor_mappings.json)
+    3. Partial/fuzzy match
+    4. Category fallback
+    5. Geographic fallback (GLO)
+
+    Path Parameters:
+    - component_name: Name of the BOM component (e.g., "Rubber", "Steel", "Plastic - HDPE")
+
+    Query Parameters:
+    - unit: Unit of measurement (default: "kg")
+    - geography: Optional geographic region filter
+
+    Returns:
+    - Matching emission factor or null if not found
+    """
+    mapper = EmissionFactorMapper(db=db)
+
+    factor = await mapper.get_factor_for_component(
+        component_name=component_name,
+        unit=unit,
+        geography=geography,
+    )
+
+    if not factor:
+        return None
+
+    return EmissionFactorListItemResponse(
+        id=factor.id,
+        activity_name=factor.activity_name,
+        category=factor.category,
+        co2e_factor=float(factor.co2e_factor),
+        unit=factor.unit,
+        data_source=factor.data_source,
+        geography=factor.geography,
+        reference_year=factor.reference_year,
+        data_quality_rating=float(factor.data_quality_rating) if factor.data_quality_rating else None,
+        created_at=factor.created_at.isoformat() if factor.created_at else ""
+    )
 
 
 # ============================================================================

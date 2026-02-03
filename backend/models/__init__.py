@@ -338,6 +338,13 @@ class BillOfMaterials(Base):
     # Optional notes
     notes = Column(TEXT, nullable=True)
 
+    # Assigned emission factor for this component
+    emission_factor_id = Column(
+        String(32),
+        ForeignKey('emission_factors.id', ondelete='SET NULL'),
+        nullable=True
+    )
+
     # Audit timestamps
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -353,6 +360,11 @@ class BillOfMaterials(Base):
         "Product",
         foreign_keys=[child_product_id],
         back_populates="used_in_boms"
+    )
+
+    emission_factor = relationship(
+        "EmissionFactor",
+        foreign_keys=[emission_factor_id]
     )
 
     # Table constraints

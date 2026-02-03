@@ -116,7 +116,7 @@ class TestValidRequestPassesValidation:
         assert "calculation_id" in data, "Response should include calculation_id"
         assert "status" in data, "Response should include status"
 
-    def test_valid_emission_factor_creation(self, authenticated_client, seed_test_data):
+    def test_valid_emission_factor_creation(self, admin_client, seed_test_data):
         """Test valid emission factor creation returns 201"""
         request_data = {
             "activity_name": "Steel production",
@@ -126,7 +126,7 @@ class TestValidRequestPassesValidation:
             "geography": "US"
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 201, \
             f"Valid request should return 201, got {response.status_code}"
@@ -177,7 +177,7 @@ class TestMissingRequiredFieldRejected:
         assert "product_id" in error_str, \
             "Error message should mention missing 'product_id' field"
 
-    def test_emission_factor_missing_activity_name(self, authenticated_client):
+    def test_emission_factor_missing_activity_name(self, admin_client):
         """Test emission factor creation without activity_name returns 422"""
         request_data = {
             "co2e_factor": 2.5,
@@ -186,7 +186,7 @@ class TestMissingRequiredFieldRejected:
             # Missing activity_name
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Missing required field should return 422, got {response.status_code}"
@@ -196,7 +196,7 @@ class TestMissingRequiredFieldRejected:
         assert "activity_name" in error_str, \
             "Error message should mention missing 'activity_name' field"
 
-    def test_emission_factor_missing_co2e_factor(self, authenticated_client):
+    def test_emission_factor_missing_co2e_factor(self, admin_client):
         """Test emission factor creation without co2e_factor returns 422"""
         request_data = {
             "activity_name": "Test activity",
@@ -205,7 +205,7 @@ class TestMissingRequiredFieldRejected:
             # Missing co2e_factor
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Missing required field should return 422, got {response.status_code}"
@@ -215,7 +215,7 @@ class TestMissingRequiredFieldRejected:
         assert "co2e_factor" in error_str, \
             "Error message should mention missing 'co2e_factor' field"
 
-    def test_emission_factor_missing_unit(self, authenticated_client):
+    def test_emission_factor_missing_unit(self, admin_client):
         """Test emission factor creation without unit returns 422"""
         request_data = {
             "activity_name": "Test activity",
@@ -224,7 +224,7 @@ class TestMissingRequiredFieldRejected:
             # Missing unit
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Missing required field should return 422, got {response.status_code}"
@@ -234,7 +234,7 @@ class TestMissingRequiredFieldRejected:
         assert "unit" in error_str, \
             "Error message should mention missing 'unit' field"
 
-    def test_emission_factor_missing_data_source(self, authenticated_client):
+    def test_emission_factor_missing_data_source(self, admin_client):
         """Test emission factor creation without data_source returns 422"""
         request_data = {
             "activity_name": "Test activity",
@@ -243,7 +243,7 @@ class TestMissingRequiredFieldRejected:
             # Missing data_source
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Missing required field should return 422, got {response.status_code}"
@@ -275,7 +275,7 @@ class TestInvalidTypeRejected:
         assert response.status_code in [202, 422], \
             f"Type coercion might succeed or fail, got {response.status_code}"
 
-    def test_emission_factor_co2e_factor_wrong_type(self, authenticated_client):
+    def test_emission_factor_co2e_factor_wrong_type(self, admin_client):
         """Test emission factor creation with string co2e_factor returns 422"""
         request_data = {
             "activity_name": "Test",
@@ -284,12 +284,12 @@ class TestInvalidTypeRejected:
             "data_source": "TEST"
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Invalid type should return 422, got {response.status_code}"
 
-    def test_emission_factor_data_quality_rating_wrong_type(self, authenticated_client):
+    def test_emission_factor_data_quality_rating_wrong_type(self, admin_client):
         """Test emission factor with string data_quality_rating returns 422"""
         request_data = {
             "activity_name": "Test",
@@ -299,7 +299,7 @@ class TestInvalidTypeRejected:
             "data_quality_rating": "high"  # Should be float
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Invalid type should return 422, got {response.status_code}"
@@ -326,7 +326,7 @@ class TestInvalidTypeRejected:
 class TestQuantityConstraintsEnforced:
     """Test that numeric constraints are validated correctly"""
 
-    def test_emission_factor_negative_co2e_factor(self, authenticated_client):
+    def test_emission_factor_negative_co2e_factor(self, admin_client):
         """Test emission factor with negative co2e_factor returns 422"""
         request_data = {
             "activity_name": "Test",
@@ -335,7 +335,7 @@ class TestQuantityConstraintsEnforced:
             "data_source": "TEST"
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Negative co2e_factor should return 422, got {response.status_code}"
@@ -345,7 +345,7 @@ class TestQuantityConstraintsEnforced:
         assert any(word in error_str for word in ["negative", "greater", "co2e_factor"]), \
             "Error message should mention constraint violation"
 
-    def test_emission_factor_data_quality_rating_out_of_range_high(self, authenticated_client):
+    def test_emission_factor_data_quality_rating_out_of_range_high(self, admin_client):
         """Test emission factor with data_quality_rating > 1.0 returns 422"""
         request_data = {
             "activity_name": "Test",
@@ -355,12 +355,12 @@ class TestQuantityConstraintsEnforced:
             "data_quality_rating": 1.5  # Must be <= 1.0
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"data_quality_rating > 1.0 should return 422, got {response.status_code}"
 
-    def test_emission_factor_data_quality_rating_out_of_range_low(self, authenticated_client):
+    def test_emission_factor_data_quality_rating_out_of_range_low(self, admin_client):
         """Test emission factor with data_quality_rating < 0.0 returns 422"""
         request_data = {
             "activity_name": "Test",
@@ -370,7 +370,7 @@ class TestQuantityConstraintsEnforced:
             "data_quality_rating": -0.5  # Must be >= 0.0
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"data_quality_rating < 0.0 should return 422, got {response.status_code}"
@@ -495,7 +495,7 @@ class TestResponseModelValidation:
             for field in required_fields:
                 assert field in item, f"Emission factor item must have '{field}' field"
 
-    def test_emission_factor_create_response_structure(self, authenticated_client):
+    def test_emission_factor_create_response_structure(self, admin_client):
         """Test emission factor creation response has required fields"""
         request_data = {
             "activity_name": "Test activity",
@@ -505,7 +505,7 @@ class TestResponseModelValidation:
             "geography": "US"
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 201
         data = response.json()
@@ -531,7 +531,7 @@ class TestResponseModelValidation:
 class TestStringValidation:
     """Test string field validation (length, patterns)"""
 
-    def test_emission_factor_empty_activity_name(self, authenticated_client):
+    def test_emission_factor_empty_activity_name(self, admin_client):
         """Test emission factor with empty activity_name returns 422"""
         request_data = {
             "activity_name": "",  # Empty string
@@ -540,12 +540,12 @@ class TestStringValidation:
             "data_source": "TEST"
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Empty string should return 422, got {response.status_code}"
 
-    def test_emission_factor_empty_unit(self, authenticated_client):
+    def test_emission_factor_empty_unit(self, admin_client):
         """Test emission factor with empty unit returns 422"""
         request_data = {
             "activity_name": "Test",
@@ -554,12 +554,12 @@ class TestStringValidation:
             "data_source": "TEST"
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Empty string should return 422, got {response.status_code}"
 
-    def test_emission_factor_empty_data_source(self, authenticated_client):
+    def test_emission_factor_empty_data_source(self, admin_client):
         """Test emission factor with empty data_source returns 422"""
         request_data = {
             "activity_name": "Test",
@@ -568,7 +568,7 @@ class TestStringValidation:
             "data_source": ""  # Empty string
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422, \
             f"Empty string should return 422, got {response.status_code}"
@@ -604,7 +604,7 @@ class TestEnumValidation:
 class TestOptionalFieldHandling:
     """Test that optional fields are handled correctly"""
 
-    def test_emission_factor_without_optional_fields(self, authenticated_client):
+    def test_emission_factor_without_optional_fields(self, admin_client):
         """Test emission factor creation without optional fields succeeds"""
         request_data = {
             "activity_name": "Test activity",
@@ -614,7 +614,7 @@ class TestOptionalFieldHandling:
             # Omit optional fields: geography, reference_year, data_quality_rating
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 201, \
             f"Request without optional fields should succeed, got {response.status_code}"
@@ -625,7 +625,7 @@ class TestOptionalFieldHandling:
         assert data["reference_year"] is None, "reference_year should be None"
         assert data["data_quality_rating"] is None, "data_quality_rating should be None"
 
-    def test_emission_factor_with_all_optional_fields(self, authenticated_client):
+    def test_emission_factor_with_all_optional_fields(self, admin_client):
         """Test emission factor creation with all optional fields succeeds"""
         request_data = {
             "activity_name": "Test activity",
@@ -639,7 +639,7 @@ class TestOptionalFieldHandling:
             "uncertainty_max": 3.0
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 201, \
             f"Request with all fields should succeed, got {response.status_code}"
@@ -669,14 +669,14 @@ class TestOptionalFieldHandling:
 class TestErrorMessageClarity:
     """Test that validation errors provide clear, actionable messages"""
 
-    def test_error_response_structure(self, authenticated_client):
+    def test_error_response_structure(self, admin_client):
         """Test that validation error response has standard structure"""
         request_data = {
             "co2e_factor": 2.5
             # Missing required fields
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422
         data = response.json()
@@ -692,13 +692,13 @@ class TestErrorMessageClarity:
             assert "msg" in error, "Error should have 'msg' field (message)"
             assert "type" in error, "Error should have 'type' field (error type)"
 
-    def test_multiple_validation_errors_reported(self, authenticated_client):
+    def test_multiple_validation_errors_reported(self, admin_client):
         """Test that multiple validation errors are reported together"""
         request_data = {
             # Missing all required fields
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422
         data = response.json()
@@ -707,7 +707,7 @@ class TestErrorMessageClarity:
         assert len(data["detail"]) >= 3, \
             "Should report multiple validation errors"
 
-    def test_error_indicates_field_location(self, authenticated_client):
+    def test_error_indicates_field_location(self, admin_client):
         """Test that error indicates which field caused the error"""
         request_data = {
             "activity_name": "Test",
@@ -716,7 +716,7 @@ class TestErrorMessageClarity:
             "data_source": "TEST"
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 422
         data = response.json()
@@ -734,7 +734,7 @@ class TestErrorMessageClarity:
 class TestComplexValidationScenarios:
     """Test complex validation scenarios involving multiple constraints"""
 
-    def test_emission_factor_duplicate_composite_key(self, authenticated_client, seed_test_data):
+    def test_emission_factor_duplicate_composite_key(self, admin_client, seed_test_data):
         """Test that duplicate emission factor (same composite key) returns 409"""
         # Create first emission factor
         request_data = {
@@ -746,11 +746,11 @@ class TestComplexValidationScenarios:
             "reference_year": 2024
         }
 
-        response1 = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response1 = admin_client.post("/api/v1/emission-factors", json=request_data)
         assert response1.status_code == 201
 
         # Try to create duplicate (same activity_name, data_source, geography, reference_year)
-        response2 = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response2 = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response2.status_code == 409, \
             f"Duplicate should return 409, got {response2.status_code}"
@@ -759,7 +759,7 @@ class TestComplexValidationScenarios:
         assert "detail" in data
         assert "already exists" in data["detail"].lower()
 
-    def test_boundary_values_accepted(self, authenticated_client):
+    def test_boundary_values_accepted(self, admin_client):
         """Test that boundary values are accepted"""
         request_data = {
             "activity_name": "Test",
@@ -769,7 +769,7 @@ class TestComplexValidationScenarios:
             "data_quality_rating": 1.0  # Maximum valid value
         }
 
-        response = authenticated_client.post("/api/v1/emission-factors", json=request_data)
+        response = admin_client.post("/api/v1/emission-factors", json=request_data)
 
         assert response.status_code == 201, \
             f"Boundary values should be accepted, got {response.status_code}"
