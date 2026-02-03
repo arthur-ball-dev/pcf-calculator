@@ -200,7 +200,7 @@ class Settings(BaseSettings):
         description="Supabase API key"
     )
 
-    # CORS settings - allow multiple frontend ports (3000=old, 5173=Vite default, 5174-5175=alternates)
+    # CORS settings - allow multiple frontend ports (3000=old, 5173=Vite default, 5174-5175=alternates, 5273=worktree)
     # Railway deployment: Set CORS_ORIGINS env var with Railway URL
     cors_origins: list[str] = Field(
         default=[
@@ -208,6 +208,7 @@ class Settings(BaseSettings):
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:5175",
+            "http://localhost:5273",
         ],
         description="Allowed CORS origins (comma-separated for Railway deployment)"
     )
