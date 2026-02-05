@@ -24,7 +24,7 @@ export class APIError extends Error {
     this.originalError = originalError;
 
     // Maintains proper stack trace for where our error was thrown (only available on V8)
-    if (Error.captureStackTrace) {
+    if ('captureStackTrace' in Error && typeof Error.captureStackTrace === 'function') {
       Error.captureStackTrace(this, APIError);
     }
   }

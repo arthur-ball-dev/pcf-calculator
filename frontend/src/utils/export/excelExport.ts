@@ -20,7 +20,7 @@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { formatCategoryLabel } from '../classifyComponent';
-import { generateAttributionText, type DataSourceInfo } from '../exportAttribution';
+import { type DataSourceInfo } from '../exportAttribution';
 
 export interface CalculationExportData {
   productName: string;

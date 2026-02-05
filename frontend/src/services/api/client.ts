@@ -106,6 +106,11 @@ client.interceptors.response.use(
       if (error.response) {
         const status = error.response.status;
 
+        // Log detailed error information for debugging
+        if (import.meta.env.DEV) {
+          console.error(`[API Error] Status: ${status}, URL: ${error.config?.url}, Data:`, error.response.data);
+        }
+
         // 401 Unauthorized
         if (status === 401) {
           throw new APIError(

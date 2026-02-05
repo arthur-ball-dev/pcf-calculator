@@ -192,6 +192,9 @@ export type APIErrorCode =
   | 'SERVER_ERROR'
   | 'NOT_FOUND'
   | 'VALIDATION_ERROR'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'RATE_LIMITED'
   | 'UNKNOWN_ERROR';
 
 export interface APIErrorDetails {

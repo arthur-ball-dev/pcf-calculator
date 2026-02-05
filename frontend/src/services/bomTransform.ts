@@ -145,8 +145,14 @@ export function transformAPIBOMToFrontend(
   apiBOM: BOMItemResponse[],
   emissionFactors: EmissionFactorListItem[]
 ): BOMItem[] {
-  // Build lookup map for O(1) matching
+  // Build lookup maps for O(1) matching
+  // Map by activity_name for fuzzy name-based matching
   const emissionFactorLookup = buildEmissionFactorLookup(emissionFactors);
+  // Map by ID for direct ID-based lookup (faster than array.find)
+  const emissionFactorByIdLookup = new Map<string, EmissionFactorListItem>();
+  for (const factor of emissionFactors) {
+    emissionFactorByIdLookup.set(factor.id, factor);
+  }
 
   const transformed: BOMItem[] = [];
 
@@ -157,14 +163,14 @@ export function transformAPIBOMToFrontend(
       continue;
     }
 
-    // UPDATED: First check if API provides emission_factor_id directly
+    // First check if API provides emission_factor_id directly
     // This is set when child product has emission factor in metadata
     let emissionFactorId: string | null = apiItem.emission_factor_id || null;
     let matchedFactor: EmissionFactorListItem | undefined;
 
     if (emissionFactorId) {
-      // API provided emission_factor_id - find the factor for category inference
-      matchedFactor = emissionFactors.find(ef => ef.id === emissionFactorId);
+      // API provided emission_factor_id - use O(1) ID lookup for category inference
+      matchedFactor = emissionFactorByIdLookup.get(emissionFactorId);
     } else {
       // Fallback to name-based matching
       // Normalize component name: lowercase, trim, replace spaces with underscores
