@@ -247,6 +247,19 @@ class EmissionFactor(Base):
     # Full-text search vector (Text for SQLite, TSVECTOR for PostgreSQL)
     search_vector = Column(TEXT, nullable=True)
 
+    # === Unit Normalization Fields ===
+    # Original unit before normalization (e.g., "tonnes" before converting to "kg")
+    original_unit = Column(String(50), nullable=True)
+
+    # Original CO2e factor before normalization
+    original_co2e_factor = Column(DECIMAL(15, 8), nullable=True)
+
+    # Conversion factor applied (e.g., 0.001 for tonnes->kg)
+    conversion_factor = Column(DECIMAL(15, 8), nullable=True, default=1.0)
+
+    # Timestamp when normalization was applied
+    normalized_at = Column(DateTime, nullable=True)
+
     # Relationships
     calculation_details = relationship(
         "CalculationDetail",

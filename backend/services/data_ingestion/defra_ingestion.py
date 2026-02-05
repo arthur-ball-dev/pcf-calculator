@@ -42,6 +42,7 @@ import httpx
 from openpyxl import load_workbook
 
 from backend.services.data_ingestion.base import BaseDataIngestion
+from backend.services.data_ingestion.transformers.unit_normalizer import normalize_unit
 
 
 class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
@@ -98,7 +99,7 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
             "activity_col": "Material",
             "co2e_col": "kg CO2e",
             "co2e_col_fallback": ["kg CO2e per kg", "Total kg CO2e"],
-            "unit_col": None,
+            "unit_col": "Unit",  # DEFRA has explicit Unit column with "tonnes"
             "required_cols": ["Material", "kg CO2e"],
         },
         "Waste disposal": {
@@ -107,7 +108,7 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
             "activity_col": "Waste type",
             "co2e_col": "kg CO2e",
             "co2e_col_fallback": ["kg CO2e per tonne", "Total kg CO2e"],
-            "unit_col": None,
+            "unit_col": "Unit",  # DEFRA has explicit Unit column with "tonnes"
             "required_cols": ["Waste", "kg CO2e"],
         },
         "Business travel- air": {
@@ -271,7 +272,18 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
             # Find header row (contains expected column names)
             if headers is None:
                 if self._is_header_row(row, config):
-                    headers = [str(h).strip() if h else "" for h in row]
+                    # Make duplicate headers unique by adding suffix
+                    # This ensures dict(zip()) keeps all values
+                    raw_headers = [str(h).strip() if h else "" for h in row]
+                    headers = []
+                    seen_counts: Dict[str, int] = {}
+                    for h in raw_headers:
+                        if h in seen_counts:
+                            seen_counts[h] += 1
+                            headers.append(f"{h}_{seen_counts[h]}")
+                        else:
+                            seen_counts[h] = 0
+                            headers.append(h)
                     continue
                 continue
 
@@ -390,6 +402,9 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
             # Determine unit
             unit = self._determine_unit(record, config, co2e_col)
 
+            # Apply unit normalization to convert tonnes -> kg, etc.
+            norm_result = normalize_unit(co2e_float, unit)
+
             # Create external ID
             sheet_name = record.get("_sheet_name", "unknown")
             external_id = f"DEFRA_{sheet_name}_{activity_name}".replace(" ", "_")
@@ -397,8 +412,8 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
 
             transformed.append({
                 "activity_name": str(activity_name).strip(),
-                "co2e_factor": co2e_float,
-                "unit": unit,
+                "co2e_factor": norm_result.normalized_factor,
+                "unit": norm_result.normalized_unit,
                 "data_source": "DEFRA",  # Set data source for BOM display
                 "scope": config.get("scope", "Scope 3"),
                 "category": config.get("category", "other"),
@@ -406,6 +421,11 @@ class DEFRAEmissionFactorsIngestion(BaseDataIngestion):
                 "reference_year": self.reference_year,
                 "data_quality_rating": 0.88,
                 "external_id": external_id,
+                # Unit normalization audit fields
+                "original_unit": norm_result.original_unit if norm_result.was_normalized else None,
+                "original_co2e_factor": norm_result.original_factor if norm_result.was_normalized else None,
+                "conversion_factor": norm_result.conversion_factor,
+                "normalized_at": norm_result.normalized_at,
                 "metadata": {
                     "source_sheet": sheet_name,
                     "source_row": record.get("_row_idx"),
