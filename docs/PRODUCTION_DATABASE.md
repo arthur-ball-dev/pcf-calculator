@@ -274,13 +274,8 @@ Some migrations contain dialect-specific SQL. The migrations use context detecti
 from alembic import context
 
 def upgrade():
-    dialect = context.get_context().dialect.name
-    if dialect == 'postgresql':
-        # PostgreSQL-specific SQL
-        op.execute("ALTER TABLE ... SET ... DEFAULT TRUE")
-    else:
-        # SQLite fallback (deprecated but maintained for compatibility)
-        op.execute("ALTER TABLE ... SET ... DEFAULT 1")
+    # PostgreSQL-only (SQLite no longer supported)
+    op.execute("ALTER TABLE ... SET ... DEFAULT TRUE")
 ```
 
 ### Reset Database (Development Only)
