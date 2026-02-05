@@ -9,7 +9,7 @@ as a pytest hook.
 
 Usage:
     # Standalone seeding of a database
-    python -m backend.scripts.seed_test_catalog --db-url sqlite:///test.db
+    python -m backend.scripts.seed_test_catalog --db-url postgresql://user:pass@localhost/pcf_test
 
     # Via pytest conftest hook
     pytest_plugins = ["backend.scripts.seed_test_catalog"]
@@ -71,8 +71,8 @@ def main():
     parser.add_argument(
         "--db-url",
         type=str,
-        default="sqlite:///data/pcf_calculator.db",
-        help="Database URL (default: sqlite:///data/pcf_calculator.db)"
+        default="postgresql://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator",
+        help="Database URL (default: PostgreSQL local dev database)"
     )
     parser.add_argument(
         "--products-per-category",
