@@ -31,9 +31,7 @@ import { useBreakpoints, BREAKPOINTS } from '../../hooks/useBreakpoints';
 import type { Calculation } from '../../types/store.types';
 import type {
   PCFSankeyClickData,
-  PCFSankeyNodeDatum,
   PCFSankeyLayerProps,
-  isSankeyLink,
 } from '../../types/nivo.d';
 
 /**
@@ -85,15 +83,34 @@ function wrapLabel(text: string, maxCharsPerLine: number): string[] {
 }
 
 /**
+ * Threshold for showing labels - nodes below this percentage of total value
+ * will not show labels (rely on hover tooltip instead)
+ */
+const LABEL_THRESHOLD = 0.05; // 5%
+
+/**
  * Create a custom labels layer factory that uses sankeyData for label lookup
  * @param labelMap - Map of node IDs to display labels
  * @param isMobile - Whether the viewport is mobile-sized
  */
 function createLabelsLayer(labelMap: Map<string, string>, isMobile: boolean) {
   return function LabelsLayer({ nodes }: Pick<PCFSankeyLayerProps, 'nodes'>) {
+    // Calculate total value for percentage threshold
+    const totalValue = nodes.reduce((sum, n) => sum + (n.value || 0), 0);
+
     return (
       <g>
         {nodes.map((node) => {
+          // Skip labels for small nodes (rely on tooltip) to prevent overlap
+          // Always show labels for 'total' node and nodes above threshold
+          if (
+            node.id !== 'total' &&
+            totalValue > 0 &&
+            (node.value || 0) / totalValue < LABEL_THRESHOLD
+          ) {
+            return null;
+          }
+
           // Look up the display label from our map
           let label = labelMap.get(node.id) || node.id;
 
