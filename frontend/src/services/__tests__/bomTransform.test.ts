@@ -68,6 +68,7 @@ describe('bomTransform Service', () => {
         quantity: 0.18,
         unit: 'kg',
         notes: null,
+        emission_factor_id: null,
       },
       {
         id: 'bom_002',
@@ -76,6 +77,7 @@ describe('bomTransform Service', () => {
         quantity: 0.02,
         unit: 'kg',
         notes: 'Collar trim',
+        emission_factor_id: null,
       },
     ];
   });
@@ -216,6 +218,7 @@ describe('bomTransform Service', () => {
           quantity: 1.0,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -248,6 +251,7 @@ describe('bomTransform Service', () => {
           quantity: 0.5,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_005',
@@ -256,6 +260,7 @@ describe('bomTransform Service', () => {
           quantity: 0.1,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -282,6 +287,7 @@ describe('bomTransform Service', () => {
           quantity: 0.5,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_007',
@@ -290,6 +296,7 @@ describe('bomTransform Service', () => {
           quantity: 0,
           unit: '',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -309,6 +316,7 @@ describe('bomTransform Service', () => {
           quantity: 0.18,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_009',
@@ -317,6 +325,7 @@ describe('bomTransform Service', () => {
           quantity: 0.5,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_010',
@@ -325,6 +334,7 @@ describe('bomTransform Service', () => {
           quantity: 0.02,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -345,6 +355,7 @@ describe('bomTransform Service', () => {
           quantity: 10,
           unit: 'kWh',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -390,6 +401,7 @@ describe('bomTransform Service', () => {
           quantity: 1.0,
           unit: null, // Null unit
           notes: null,
+          emission_factor_id: null,
         },
       ];
 

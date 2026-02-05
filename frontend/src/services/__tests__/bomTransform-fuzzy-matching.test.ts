@@ -50,6 +50,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.002,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -84,6 +85,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 2.5,
           unit: 'kWh',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -119,6 +121,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.1015,
           unit: 'tkm',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -228,6 +231,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.18,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_002',
@@ -236,6 +240,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.015,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_003',
@@ -244,6 +249,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.005,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_004',
@@ -252,6 +258,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.002,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_005',
@@ -260,6 +267,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.001,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_006',
@@ -268,6 +276,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 2.5,
           unit: 'kWh',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom_007',
@@ -276,6 +285,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.1015,
           unit: 'tkm',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -387,6 +397,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.002,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -420,6 +431,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.002,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -453,6 +465,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.002,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -488,6 +501,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.18,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -521,6 +535,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.002,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -554,6 +569,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.002,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -589,6 +605,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 1.0,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -622,6 +639,7 @@ describe('BOM Transform - Fuzzy Matching (BUG-001 Fix)', () => {
           quantity: 0.05,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 

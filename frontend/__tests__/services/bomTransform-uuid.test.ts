@@ -25,16 +25,20 @@ describe('BOM Transform - UUID Handling', () => {
           data_source: 'EPA',
           geography: 'Global',
           reference_year: 2023,
+          data_quality_rating: null,
+          created_at: '2024-01-01T00:00:00Z',
         },
       ];
 
       const bomData: BOMItemResponse[] = [
         {
           id: 'bom-uuid-001',
+          child_product_id: 'prod-001',
           child_product_name: 'Cotton',
           quantity: 0.5,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -56,16 +60,20 @@ describe('BOM Transform - UUID Handling', () => {
           data_source: 'EPA',
           geography: 'US',
           reference_year: 2023,
+          data_quality_rating: null,
+          created_at: '2024-01-01T00:00:00Z',
         },
       ];
 
       const bomData: BOMItemResponse[] = [
         {
           id: 'bom-uuid-002',
+          child_product_id: 'prod-002',
           child_product_name: 'Steel',
           quantity: 2.0,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -87,16 +95,20 @@ describe('BOM Transform - UUID Handling', () => {
           data_source: 'EPA',
           geography: 'Global',
           reference_year: 2023,
+          data_quality_rating: null,
+          created_at: '2024-01-01T00:00:00Z',
         },
       ];
 
       const bomData: BOMItemResponse[] = [
         {
           id: 'bom-uuid-003',
+          child_product_id: 'prod-003',
           child_product_name: 'Unknown Material', // No matching emission factor
           quantity: 1.0,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -119,6 +131,8 @@ describe('BOM Transform - UUID Handling', () => {
           data_source: 'EPA',
           geography: 'US',
           reference_year: 2023,
+          data_quality_rating: null,
+          created_at: '2024-01-01T00:00:00Z',
         },
         {
           id: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
@@ -129,23 +143,29 @@ describe('BOM Transform - UUID Handling', () => {
           data_source: 'EPA',
           geography: 'Global',
           reference_year: 2023,
+          data_quality_rating: null,
+          created_at: '2024-01-01T00:00:00Z',
         },
       ];
 
       const bomData: BOMItemResponse[] = [
         {
           id: 'bom-001',
+          child_product_id: 'prod-001',
           child_product_name: 'Material A',
           quantity: 1.0,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
         {
           id: 'bom-002',
+          child_product_id: 'prod-002',
           child_product_name: 'Material B',
           quantity: 2.0,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -174,16 +194,20 @@ describe('BOM Transform - UUID Handling', () => {
           data_source: 'EPA',
           geography: 'Global',
           reference_year: 2023,
+          data_quality_rating: null,
+          created_at: '2024-01-01T00:00:00Z',
         },
       ];
 
       const bomData: BOMItemResponse[] = [
         {
           id: 'bom-001',
+          child_product_id: 'prod-001',
           child_product_name: 'cotton', // Lowercase in BOM
           quantity: 0.5,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -207,16 +231,20 @@ describe('BOM Transform - UUID Handling', () => {
           data_source: 'EPA',
           geography: 'US',
           reference_year: 2023,
+          data_quality_rating: null,
+          created_at: '2024-01-01T00:00:00Z',
         },
       ];
 
       const bomData: BOMItemResponse[] = [
         {
           id: 'bom-001',
+          child_product_id: 'prod-001',
           child_product_name: 'Test Material',
           quantity: 1.0,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -237,10 +265,12 @@ describe('BOM Transform - UUID Handling', () => {
       const bomData: BOMItemResponse[] = [
         {
           id: 'bom-001',
+          child_product_id: 'prod-001',
           child_product_name: 'Unknown Material',
           quantity: 1.0,
           unit: 'kg',
           notes: null,
+          emission_factor_id: null,
         },
       ];
 
@@ -261,6 +291,8 @@ describe('BOM Transform - UUID Handling', () => {
           data_source: 'EPA',
           geography: 'US',
           reference_year: 2023,
+          data_quality_rating: null,
+          created_at: '2024-01-01T00:00:00Z',
         },
       ];
 
