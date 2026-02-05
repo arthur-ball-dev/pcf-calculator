@@ -170,7 +170,7 @@ def build_bom_tree_from_db(
             node["children"].append(child_tree)
         else:
             material_name = map_product_to_emission_factor(
-                calculator, child_product, db_session
+                calculator, child_product, db_session, bom_item.emission_factor_id
             )
 
             node["children"].append(
@@ -185,27 +185,55 @@ def build_bom_tree_from_db(
 
 
 def map_product_to_emission_factor(
-    calculator, product, db_session: Session
+    calculator, product, db_session: Session, bom_emission_factor_id: str = None
 ) -> str:
     """
     Map product code/name to emission factor activity name.
 
     Priority:
-    1. Check product metadata for emission_factor_id (set by user or data ingestion)
-    2. Try exact name match (lowercase)
-    3. Try code-based match (normalized)
-    4. Try underscore-separated name match
-    5. Fall back to product name (will likely fail calculation)
+    1. Check BOM item's emission_factor_id (direct link from BOM editor)
+    2. Check product metadata for emission_factor_id (set by user or data ingestion)
+    3. Try exact name match (lowercase)
+    4. Try code-based match (normalized)
+    5. Try underscore-separated name match
+    6. Fall back to product name (will likely fail calculation)
 
     Args:
         calculator: PCFCalculator instance (for name lookup cache)
         product: Product model instance
         db_session: SQLAlchemy database session for emission factor lookup
+        bom_emission_factor_id: Optional emission_factor_id from BOM item
 
     Returns:
         Emission factor activity name
     """
-    # Priority 1: Check product metadata for emission_factor_id
+    # Priority 1: Check BOM item's emission_factor_id (direct link)
+    # This is set when user selects emission factor in BOM Editor
+    if bom_emission_factor_id:
+        ef = db_session.query(EmissionFactor).filter(
+            EmissionFactor.id == bom_emission_factor_id
+        ).first()
+        if ef:
+            activity_name = ef.activity_name
+            if activity_name in calculator._name_to_activity:
+                logger.debug(
+                    f"Mapped product {product.code} via BOM emission_factor_id "
+                    f"to activity: {activity_name}"
+                )
+                return activity_name
+            else:
+                logger.warning(
+                    f"BOM emission_factor_id {bom_emission_factor_id} found for product "
+                    f"{product.code}, but activity '{activity_name}' not in calculator cache. "
+                    f"Available: {list(calculator._name_to_activity.keys())[:5]}..."
+                )
+        else:
+            logger.warning(
+                f"BOM item has emission_factor_id {bom_emission_factor_id} "
+                f"but emission factor not found in database"
+            )
+
+    # Priority 2: Check product metadata for emission_factor_id
     # This is set when user selects emission factor in BOM Editor or by data ingestion
     if product.metadata and isinstance(product.metadata, dict):
         emission_factor_id = product.metadata.get("emission_factor_id")
@@ -234,24 +262,24 @@ def map_product_to_emission_factor(
                     f"but emission factor not found in database"
                 )
 
-    # Priority 2: Exact name match (lowercase)
+    # Priority 3: Exact name match (lowercase)
     name_exact = product.name.lower()
     if name_exact in calculator._name_to_activity:
         return name_exact
 
-    # Priority 3: Code-based match (normalized)
+    # Priority 4: Code-based match (normalized)
     code_normalized = product.code.lower().replace("-", "_")
     code_normalized = re.sub(r"_?\d+$", "", code_normalized)
 
     if code_normalized in calculator._name_to_activity:
         return code_normalized
 
-    # Priority 4: Underscore-separated name match
+    # Priority 5: Underscore-separated name match
     name_underscored = product.name.lower().replace(" ", "_")
     if name_underscored in calculator._name_to_activity:
         return name_underscored
 
-    # Priority 5: Fall back to product name (will likely fail)
+    # Priority 6: Fall back to product name (will likely fail)
     logger.warning(
         f"Could not map product {product.code} ({product.name}) to emission factor. "
         f"Using name as-is: {name_exact}"
