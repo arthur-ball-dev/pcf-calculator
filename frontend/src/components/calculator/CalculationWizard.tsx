@@ -33,31 +33,65 @@
  * TASK-FE-P7-011: Added swipe gesture navigation for mobile/tablet
  */
 
-import React, { useEffect, useRef } from 'react';
-import { CheckCircle2, Package } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { CheckCircle2, Package, Calculator, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { useAnnouncer } from '@/hooks/useAnnouncer';
 import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { useCalculation } from '@/hooks/useCalculation';
 import { WIZARD_STEPS } from '@/config/wizardSteps';
 import { TourControls } from '@/components/Tour/TourControls';
 import WizardProgress from './WizardProgress';
 import WizardNavigation from './WizardNavigation';
+import { CalculationOverlay } from './CalculationOverlay';
 import { DataSourceAttributions } from '@/components/DataSourceAttributions';
 
 /**
  * Main CalculationWizard component
  */
 const CalculationWizard: React.FC = () => {
-  const { currentStep, completedSteps, markStepComplete, markStepIncomplete, goNext, goBack } =
+  const { currentStep, completedSteps, markStepComplete, markStepIncomplete, goNext, goBack, canProceed: wizardCanProceed } =
     useWizardStore();
-  const { selectedProduct } = useCalculatorStore();
+  const { selectedProduct, calculation, isLoadingBOM } = useCalculatorStore();
   const { announce } = useAnnouncer();
   const { isMobile, isTablet, isDesktop } = useBreakpoints();
+  const { isCalculating, error, elapsedSeconds, startCalculation, stopPolling } = useCalculation();
   const hasValidatedRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // Shared overlay state for both top and bottom Calculate buttons
+  const [showOverlay, setShowOverlay] = useState(false);
+  // Shared navigation loading state for both buttons
+  const [isNavigating, setIsNavigating] = useState(false);
+  const isEditStep = currentStep === 'edit';
+
+  // Handle calculation trigger (used by both buttons)
+  const handleCalculate = useCallback(() => {
+    setShowOverlay(true);
+    startCalculation();
+  }, [startCalculation]);
+
+  // Handle calculation cancel
+  const handleCancelCalculation = useCallback(() => {
+    stopPolling();
+    setShowOverlay(false);
+  }, [stopPolling]);
+
+  // Handle retry after error
+  const handleRetryCalculation = useCallback(() => {
+    startCalculation();
+  }, [startCalculation]);
+
+  // Close overlay when calculation completes
+  useEffect(() => {
+    if (calculation?.status === 'completed' && showOverlay && !isCalculating) {
+      setShowOverlay(false);
+    }
+  }, [calculation?.status, showOverlay, isCalculating]);
 
   // Find current step configuration
   const currentStepConfig = WIZARD_STEPS.find((s) => s.id === currentStep);
@@ -268,12 +302,35 @@ const CalculationWizard: React.FC = () => {
                   {currentStepConfig.description}
                 </p>
               </div>
-              {completedSteps.includes(currentStep) && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Complete</span>
-                </div>
-              )}
+              <div className="flex items-center gap-3">
+                {/* Calculate button - prominent position for Edit BOM step */}
+                {isEditStep && (
+                  <Button
+                    onClick={handleCalculate}
+                    disabled={!wizardCanProceed || isCalculating || isLoadingBOM || isNavigating}
+                    className="gap-2"
+                    data-testid="calculate-button-top"
+                  >
+                    {isLoadingBOM || isNavigating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        Calculate
+                        <Calculator className="w-4 h-4" />
+                      </>
+                    )}
+                  </Button>
+                )}
+                {completedSteps.includes(currentStep) && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Complete</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -288,9 +345,24 @@ const CalculationWizard: React.FC = () => {
 
           {/* Navigation controls - follows content instead of fixed footer */}
           <div className="border-t pt-4 sm:pt-6 mt-6 sm:mt-8">
-            <WizardNavigation />
+            <WizardNavigation
+              onCalculate={handleCalculate}
+              isCalculating={isCalculating}
+              isNavigating={isNavigating}
+              setIsNavigating={setIsNavigating}
+            />
           </div>
         </div>
+
+        {/* Calculation overlay - managed at wizard level for both buttons */}
+        <CalculationOverlay
+          isOpen={showOverlay}
+          isCalculating={isCalculating}
+          elapsedSeconds={elapsedSeconds}
+          error={error}
+          onCancel={handleCancelCalculation}
+          onRetry={handleRetryCalculation}
+        />
       </main>
 
       {/* Data source attributions footer */}
