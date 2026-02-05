@@ -39,7 +39,7 @@ export function useCalculation(): UseCalculationReturn {
   const [error, setError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
   const startTimeRef = useRef<number>(0);
 
@@ -160,7 +160,9 @@ export function useCalculation(): UseCalculationReturn {
       }, POLL_INTERVAL_MS);
     } catch (err) {
       setIsCalculating(false);
-      setError('Failed to submit calculation. Please try again.');
+      // Preserve the original error message for better debugging
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit calculation. Please try again.';
+      setError(errorMessage);
       console.error('Calculation submission error:', err);
     }
   };

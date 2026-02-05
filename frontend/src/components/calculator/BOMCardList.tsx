@@ -46,7 +46,7 @@ interface BOMItem {
   name: string;
   quantity: number;
   unit: string;
-  category: 'material' | 'energy' | 'transport' | 'other';
+  category: 'material' | 'energy' | 'transport' | 'combustion' | 'other';
   emissionFactorId?: string | null;
   /** TASK-FE-P8-005: Data source code for SourceBadge (EPA, DEFRA, PROXY) */
   data_source?: string;
@@ -67,6 +67,7 @@ const categoryColors: Record<BOMItem['category'], string> = {
   material: 'bg-blue-100 text-blue-800',
   energy: 'bg-yellow-100 text-yellow-800',
   transport: 'bg-green-100 text-green-800',
+  combustion: 'bg-orange-100 text-orange-800',
   other: 'bg-gray-100 text-gray-800',
 };
 

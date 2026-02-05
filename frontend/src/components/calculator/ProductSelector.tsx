@@ -213,7 +213,7 @@ const ProductSelector: React.FC = () => {
 
   // Products state
   const [products, setProducts] = useState<ProductDetail[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [bomError, setBomError] = useState<Error | null>(null);

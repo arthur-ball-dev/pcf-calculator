@@ -22,7 +22,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, RotateCcw, Calculator } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Calculator, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -52,11 +52,12 @@ import { CalculationOverlay } from './CalculationOverlay';
 const WizardNavigation: React.FC = () => {
   const { currentStep, canGoBack, canProceed, goBack, goNext, reset } =
     useWizardStore();
-  const { calculation } = useCalculatorStore();
+  const { calculation, isLoadingBOM } = useCalculatorStore();
   const { isCalculating, error, elapsedSeconds, startCalculation, stopPolling } =
     useCalculation();
 
   const [showOverlay, setShowOverlay] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const isLastStep = currentStep === 'results';
   const isEditStep = currentStep === 'edit';
 
@@ -81,6 +82,7 @@ const WizardNavigation: React.FC = () => {
   /**
    * Handle Next button click
    * On BOM step, trigger calculation instead of direct navigation
+   * On Select step, show loading indicator before heavy BOMEditor render
    */
   const handleNext = () => {
     if (isEditStep) {
@@ -88,7 +90,17 @@ const WizardNavigation: React.FC = () => {
       setShowOverlay(true);
       startCalculation();
     } else {
-      goNext();
+      // Show loading state immediately, then navigate after browser paints
+      // Double rAF ensures the browser actually renders the loading state
+      // before React starts the heavy BOMEditor render
+      setIsNavigating(true);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          goNext();
+          // Reset after navigation completes
+          setTimeout(() => setIsNavigating(false), 100);
+        });
+      });
     }
   };
 
@@ -127,8 +139,8 @@ const WizardNavigation: React.FC = () => {
     return <ChevronRight className="w-4 h-4" />;
   };
 
-  // Disable Next button during calculation
-  const isNextDisabled = !canProceed || isCalculating;
+  // Disable Next button during calculation, BOM loading, or navigation transition
+  const isNextDisabled = !canProceed || isCalculating || isLoadingBOM || isNavigating;
 
   return (
     <>
@@ -187,11 +199,20 @@ const WizardNavigation: React.FC = () => {
                     onClick={handleNext}
                     disabled={isNextDisabled}
                     className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6"
-                    aria-label={isEditStep ? 'Calculate carbon footprint' : 'Next step'}
+                    aria-label={isLoadingBOM || isNavigating ? 'Loading...' : isEditStep ? 'Calculate carbon footprint' : 'Next step'}
                     data-testid="next-button"
                   >
-                    {getNextButtonText()}
-                    {getNextButtonIcon()}
+                    {isLoadingBOM || isNavigating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        {getNextButtonText()}
+                        {getNextButtonIcon()}
+                      </>
+                    )}
                   </Button>
                 </span>
               </TooltipTrigger>

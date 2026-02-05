@@ -61,7 +61,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { TableCell, TableRow } from '@/components/ui/table';
-import { useEmissionFactors } from '@/hooks/useEmissionFactors';
+import type { EmissionFactor } from '@/hooks/useEmissionFactors';
 import { classifyComponent } from '@/utils/classifyComponent';
 import { SourceBadge } from '@/components/attribution/SourceBadge';
 import { emissionFactorsAPI } from '@/services/api/emissionFactors';
@@ -101,6 +101,10 @@ interface BOMTableRowProps {
   canRemove: boolean;
   /** Whether this row is being rendered in a virtualized context (TASK-FE-P8-007) */
   isVirtualized?: boolean;
+  /** Emission factors passed from parent (performance optimization) */
+  emissionFactors?: EmissionFactor[];
+  /** Whether emission factors are loading */
+  isLoadingFactors?: boolean;
 }
 
 /**
@@ -121,18 +125,47 @@ interface BOMTableRowProps {
  * When isVirtualized is true, the component renders only the cell contents
  * (without the <tr> wrapper) since the parent handles the row element positioning.
  */
+/**
+ * Maximum number of emission factors to render in dropdown
+ * This prevents rendering 300+ SelectItems which causes severe performance issues
+ */
+const MAX_DROPDOWN_ITEMS = 50;
+
 const BOMTableRow = React.memo(function BOMTableRow({
   index,
   form,
   onRemove,
   canRemove,
   isVirtualized = false,
+  emissionFactors = [],
+  isLoadingFactors = false,
 }: BOMTableRowProps) {
-  const { data: emissionFactors, isLoading: isLoadingFactors } = useEmissionFactors();
+  // Get currently selected emission factor ID
+  const selectedFactorId = form.watch(`items.${index}.emissionFactorId`);
 
-  // Show all emission factors - no category filtering
-  // This ensures pre-selected emission factors always appear in the dropdown
-  const filteredFactors = emissionFactors || [];
+  // Limit emission factors to MAX_DROPDOWN_ITEMS for performance
+  // Always include the currently selected factor if it exists
+  const filteredFactors = React.useMemo(() => {
+    if (emissionFactors.length <= MAX_DROPDOWN_ITEMS) {
+      return emissionFactors;
+    }
+
+    // Take first MAX_DROPDOWN_ITEMS
+    const limited = emissionFactors.slice(0, MAX_DROPDOWN_ITEMS);
+
+    // If selected factor exists and isn't in the limited set, add it
+    if (selectedFactorId) {
+      const selectedInLimited = limited.some(f => f.id === selectedFactorId);
+      if (!selectedInLimited) {
+        const selectedFactor = emissionFactors.find(f => f.id === selectedFactorId);
+        if (selectedFactor) {
+          limited.unshift(selectedFactor); // Add at beginning
+        }
+      }
+    }
+
+    return limited;
+  }, [emissionFactors, selectedFactorId]);
 
   /**
    * Handle name field changes with auto-classification, auto-EF suggestion, and validation
@@ -270,7 +303,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   {...field}
                   id={`items.${index}.name`}
                   placeholder="e.g., Cotton, Electricity"
-                  className="min-w-[200px]"
+                  className="min-w-[150px]"
                   aria-label="Component name"
                   onChange={(e) => handleNameChange(e, field.onChange)}
                 />
@@ -297,7 +330,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   min="0"
                   onChange={(e) => handleQuantityChange(e, field.onChange)}
                   onBlur={field.onBlur}
-                  className="w-28"
+                  className="w-20"
                   aria-label="Quantity"
                 />
               </FormControl>
@@ -346,7 +379,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
                 value={field.value}
               >
                 <FormControl>
-                  <SelectTrigger className="w-40" aria-label="Category">
+                  <SelectTrigger className="w-[100px]" aria-label="Category">
                     <SelectValue />
                   </SelectTrigger>
                 </FormControl>
@@ -382,7 +415,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   disabled={isLoadingFactors || filteredFactors.length === 0}
                 >
                   <FormControl>
-                    <SelectTrigger className="min-w-[200px]" aria-label="Emission factor">
+                    <SelectTrigger className="min-w-[180px]" aria-label="Emission factor">
                       <SelectValue placeholder="Select factor" />
                     </SelectTrigger>
                   </FormControl>
@@ -404,8 +437,8 @@ const BOMTableRow = React.memo(function BOMTableRow({
       {/* Source - Display data source of selected emission factor with link to attribution */}
       <TableCell>
         {(() => {
-          const selectedFactorId = form.watch(`items.${index}.emissionFactorId`);
-          const selectedFactor = filteredFactors.find((f) => f.id === selectedFactorId);
+          // Use selectedFactorId from component scope (already watched above)
+          const selectedFactor = emissionFactors.find((f) => f.id === selectedFactorId);
           return selectedFactor && selectedFactor.data_source ? (
             <SourceBadge
               sourceCode={selectedFactor.data_source}
