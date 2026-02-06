@@ -5,7 +5,7 @@ TASK-DB-P5-002: Extended Database Schema
 TASK-DB-P8-002: Added licenses relationship for compliance tracking
 
 Represents external data sources for emission factors such as
-EPA GHG Emission Factors Hub, DEFRA Conversion Factors, and Exiobase.
+EPA GHG Emission Factors Hub and DEFRA Conversion Factors.
 
 Attributes:
     id: UUID primary key
@@ -42,7 +42,7 @@ class DataSource(Base):
     """
     DataSource model - Tracks external data sources for emission factors.
 
-    Represents sources like EPA, DEFRA, Exiobase where emission
+    Represents sources like EPA and DEFRA where emission
     factor data is sourced from.
     """
     __tablename__ = "data_sources"
