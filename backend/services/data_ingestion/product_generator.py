@@ -51,6 +51,7 @@ from backend.services.data_ingestion.bom_templates import (
     ComponentSpec,
     ALL_TEMPLATES,
 )
+from backend.services.data_ingestion.product_name_pools import ProductNameGenerator
 
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,7 @@ class ProductGenerator:
         }
         self._component_cache: Dict[str, Product] = {}
         self._product_index_counter: Dict[str, int] = {}
+        self._name_generator = ProductNameGenerator()
 
     def _normalize_unit(self, unit: str) -> str:
         """
@@ -179,20 +181,24 @@ class ProductGenerator:
         variant_code = (variant[:3] if variant else "BAS").upper()
         product_code = f"{industry_code}-{template_code}-{variant_code}-{product_index:04d}"
 
-        # Generate product name
-        variant_name = variant.replace("_", " ").title() if variant else "Standard"
-        product_name = f"{template.name.title()} - {variant_name}"
+        # Generate unique product name via fictional brand pools
+        product_name, brand_name = self._name_generator.generate_unique_name(
+            template_name=template.name,
+            variant=variant,
+            industry=template.industry,
+            product_index=product_index,
+        )
 
         # Create product
         product = Product(
             id=str(uuid4()).replace("-", ""),
             code=product_code,
             name=product_name,
-            description=f"{product_name} product generated from {template.name} template",
+            description=f"{product_name} - {template.name.replace('_', ' ').title()} by {brand_name}",
             unit="unit",
             category=template.industry,  # Set category for product selector grouping
             is_finished_product=True,
-            manufacturer=random.choice(["ProTech", "EcoSmart", "GreenEdge", "CorePro"]),
+            manufacturer=brand_name,
             country_of_origin=random.choice(["US", "CN", "DE", "JP", "GB", "KR"]),
             product_metadata={
                 "template": template.name,

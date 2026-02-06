@@ -530,6 +530,73 @@ class TestProductGeneratorStats:
         assert stats2["products_created"] != 999
 
 
+class TestProductNameUniqueness:
+    """Test that generated products have unique, branded names."""
+
+    @pytest.mark.asyncio
+    async def test_200_electronics_products_have_unique_names(
+        self, async_session, mock_emission_factor_mapper
+    ):
+        """Generating 200 electronics products yields 200 unique names."""
+        from backend.services.data_ingestion.product_generator import ProductGenerator
+
+        generator = ProductGenerator(async_session)
+        generator.mapper = mock_emission_factor_mapper
+
+        products = await generator.generate_industry_products(
+            industry="electronics",
+            count=200,
+        )
+
+        names = [p.name for p in products]
+        assert len(set(names)) == 200, (
+            f"Expected 200 unique names, got {len(set(names))}. "
+            f"Duplicates: {[n for n in names if names.count(n) > 1][:5]}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_manufacturer_matches_brand_from_pool(
+        self, async_session, mock_emission_factor_mapper
+    ):
+        """Manufacturer field uses a brand from the name pool, not generic names."""
+        from backend.services.data_ingestion.product_generator import ProductGenerator
+        from backend.services.data_ingestion.product_name_pools import NAME_POOLS
+
+        generator = ProductGenerator(async_session)
+        generator.mapper = mock_emission_factor_mapper
+
+        products = await generator.generate_industry_products(
+            industry="electronics",
+            count=10,
+        )
+
+        valid_brands = set(NAME_POOLS["electronics"]["brands"])
+        for p in products:
+            assert p.manufacturer in valid_brands, (
+                f"Manufacturer '{p.manufacturer}' not in brand pool: {valid_brands}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_product_name_contains_brand(
+        self, async_session, mock_emission_factor_mapper
+    ):
+        """Product name starts with its manufacturer brand."""
+        from backend.services.data_ingestion.product_generator import ProductGenerator
+
+        generator = ProductGenerator(async_session)
+        generator.mapper = mock_emission_factor_mapper
+
+        products = await generator.generate_industry_products(
+            industry="electronics",
+            count=5,
+        )
+
+        for p in products:
+            assert p.name.startswith(p.manufacturer), (
+                f"Product name '{p.name}' should start with brand '{p.manufacturer}'"
+            )
+
+
 # ============================================================================
 # Fixtures
 # ============================================================================
