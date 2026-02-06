@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Seed Production Data If Empty.
+Seed Production Data If Empty or Mismatched.
 
 TASK-DATA-P9: Railway release command to auto-seed production data.
 
-This script is designed to run as a Railway release command. It:
+This script is designed to run as a Railway startup command. It:
 1. Checks if the database has emission factors loaded
 2. If EMPTY → loads production EPA/DEFRA data
-3. If NOT EMPTY → skips (preserves existing data)
+3. If MISMATCHED (few EFs + many products) → clears and reloads production data
+4. If NOT EMPTY and valid → skips (preserves existing data)
 
 This ensures Railway deployments always have production data,
-while not overwriting data that's already been loaded.
+while not overwriting data that's already been loaded correctly.
 
 Usage:
     python backend/scripts/seed_production_if_empty.py
@@ -46,10 +47,15 @@ def check_database_state() -> dict:
         ef_count = session.query(func.count(EmissionFactor.id)).scalar() or 0
         product_count = session.query(func.count(Product.id)).scalar() or 0
 
+    # Detect data mismatch: many products but few emission factors means
+    # test EFs were loaded with production catalog, causing calculation failures
+    is_mismatched = ef_count > 0 and ef_count < 100 and product_count > 100
+
     return {
         "emission_factors": ef_count,
         "products": product_count,
         "is_empty": ef_count == 0,
+        "is_mismatched": is_mismatched,
     }
 
 
@@ -83,6 +89,9 @@ async def load_production_data_async() -> dict:
         generate_production_catalog,
         verify_data,
     )
+    from backend.scripts.create_production_components import (
+        create_production_components,
+    )
     from backend.database.connection import db_context
     from backend.database.seeds.data_sources import seed_data_sources
 
@@ -103,6 +112,9 @@ async def load_production_data_async() -> dict:
     # Load emission factors
     ef_results = await load_emission_factors_async()
 
+    # Create production components (materials, transport, energy, water)
+    component_stats = await create_production_components()
+
     # Generate production catalog
     catalog_results = await generate_production_catalog()
 
@@ -112,6 +124,7 @@ async def load_production_data_async() -> dict:
 
     return {
         "emission_factors_created": ef_results["total_created"],
+        "components_created": component_stats["created"],
         "products_created": catalog_results["products_created"],
         "bom_entries_created": catalog_results["bom_entries_created"],
         "verification": verification,
@@ -141,7 +154,16 @@ def main() -> int:
     print(f"  Products: {state['products']}")
     print()
 
-    if not state["is_empty"]:
+    if state["is_mismatched"]:
+        print("=" * 60)
+        print("DATA MISMATCH DETECTED - RESEEDING")
+        print("=" * 60)
+        print()
+        print(f"Found {state['emission_factors']} emission factors but {state['products']} products.")
+        print("This indicates test emission factors were loaded with a production catalog.")
+        print("Clearing data and reseeding with production EPA/DEFRA data...")
+        print()
+    elif not state["is_empty"]:
         print("=" * 60)
         print("DATABASE ALREADY HAS DATA - SKIPPING SEED")
         print("=" * 60)
@@ -151,8 +173,9 @@ def main() -> int:
         print()
         return 0
 
-    # Database is empty - seed production data
-    print("Step 2: Database is empty - loading production data...")
+    # Database is empty or mismatched - seed production data
+    reason = "mismatched" if state.get("is_mismatched") else "empty"
+    print(f"Step 2: Database is {reason} - loading production data...")
     print()
 
     try:
@@ -163,6 +186,7 @@ def main() -> int:
         print("SEEDING RESULTS")
         print("-" * 60)
         print(f"  Emission Factors: {results['emission_factors_created']}")
+        print(f"  Components: {results['components_created']}")
         print(f"  Products: {results['products_created']}")
         print(f"  BOM Entries: {results['bom_entries_created']}")
 
