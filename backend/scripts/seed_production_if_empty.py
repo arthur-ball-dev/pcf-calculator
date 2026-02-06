@@ -8,7 +8,8 @@ This script is designed to run as a Railway startup command. It:
 1. Checks if the database has emission factors loaded
 2. If EMPTY → loads production EPA/DEFRA data
 3. If MISMATCHED (few EFs + many products) → clears and reloads production data
-4. If NOT EMPTY and valid → skips (preserves existing data)
+4. If OLD NAMES (template-style names like "Beverage_Bottle") → reseeds with fictional brands
+5. If NOT EMPTY and valid → skips (preserves existing data)
 
 This ensures Railway deployments always have production data,
 while not overwriting data that's already been loaded correctly.
@@ -30,7 +31,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from sqlalchemy import func
+from sqlalchemy import func, and_
 
 from backend.database.connection import db_context
 from backend.models import EmissionFactor, Product
@@ -47,15 +48,32 @@ def check_database_state() -> dict:
         ef_count = session.query(func.count(EmissionFactor.id)).scalar() or 0
         product_count = session.query(func.count(Product.id)).scalar() or 0
 
+        # Detect old-format product names (e.g., "Beverage_Bottle - Large 1L")
+        # New names use fictional brands (e.g., "Naturevale PureFlow 110 Classic 500")
+        # Old names always contain " - " separator; new names never do
+        old_format_count = 0
+        if product_count > 0:
+            old_format_count = session.query(func.count(Product.id)).filter(
+                and_(
+                    Product.is_finished_product == True,
+                    Product.name.like('% - %'),
+                )
+            ).scalar() or 0
+
     # Detect data mismatch: many products but few emission factors means
     # test EFs were loaded with production catalog, causing calculation failures
     is_mismatched = ef_count > 0 and ef_count < 100 and product_count > 100
 
+    # Detect outdated naming format: finished products with old template-style names
+    has_old_names = old_format_count > 50
+
     return {
         "emission_factors": ef_count,
         "products": product_count,
+        "old_format_products": old_format_count,
         "is_empty": ef_count == 0,
         "is_mismatched": is_mismatched,
+        "has_old_names": has_old_names,
     }
 
 
@@ -152,6 +170,7 @@ def main() -> int:
     state = check_database_state()
     print(f"  Emission Factors: {state['emission_factors']}")
     print(f"  Products: {state['products']}")
+    print(f"  Old-format products: {state['old_format_products']}")
     print()
 
     if state["is_mismatched"]:
@@ -163,6 +182,14 @@ def main() -> int:
         print("This indicates test emission factors were loaded with a production catalog.")
         print("Clearing data and reseeding with production EPA/DEFRA data...")
         print()
+    elif state["has_old_names"]:
+        print("=" * 60)
+        print("OUTDATED PRODUCT NAMES DETECTED - RESEEDING")
+        print("=" * 60)
+        print()
+        print(f"Found {state['old_format_products']} products with old template-style names.")
+        print("Reseeding with fictional brand naming system...")
+        print()
     elif not state["is_empty"]:
         print("=" * 60)
         print("DATABASE ALREADY HAS DATA - SKIPPING SEED")
@@ -173,8 +200,8 @@ def main() -> int:
         print()
         return 0
 
-    # Database is empty or mismatched - seed production data
-    reason = "mismatched" if state.get("is_mismatched") else "empty"
+    # Database is empty, mismatched, or has old names - seed production data
+    reason = "mismatched" if state.get("is_mismatched") else "has old names" if state.get("has_old_names") else "empty"
     print(f"Step 2: Database is {reason} - loading production data...")
     print()
 
