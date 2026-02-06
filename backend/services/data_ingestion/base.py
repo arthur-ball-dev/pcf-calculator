@@ -231,6 +231,11 @@ class BaseDataIngestion(ABC):
             "data_quality_rating": factor_data.get("data_quality_rating"),
             "data_source_id": self.data_source_id,
             "sync_batch_id": self.sync_log.id if self.sync_log else None,
+            # Unit normalization audit fields
+            "original_unit": factor_data.get("original_unit"),
+            "original_co2e_factor": factor_data.get("original_co2e_factor"),
+            "conversion_factor": factor_data.get("conversion_factor", 1.0),
+            "normalized_at": factor_data.get("normalized_at"),
         }
 
         external_id = factor_data.get("external_id")
@@ -264,6 +269,11 @@ class BaseDataIngestion(ABC):
                     reference_year=insert_data["reference_year"],
                     data_quality_rating=insert_data["data_quality_rating"],
                     sync_batch_id=insert_data["sync_batch_id"],
+                    # Unit normalization audit fields
+                    original_unit=insert_data["original_unit"],
+                    original_co2e_factor=insert_data["original_co2e_factor"],
+                    conversion_factor=insert_data["conversion_factor"],
+                    normalized_at=insert_data["normalized_at"],
                     updated_at=datetime.now(),  # Use naive datetime for PostgreSQL TIMESTAMP WITHOUT TIME ZONE
                 )
             )

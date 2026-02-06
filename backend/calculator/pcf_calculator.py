@@ -340,6 +340,46 @@ class PCFCalculator:
             f"PCFCalculator initialized with {len(self._name_to_activity)} emission factors"
         )
 
+    # ==================== Unit Compatibility Checking ====================
+
+    @staticmethod
+    def _units_compatible(bom_unit: str, ef_unit: str) -> bool:
+        """
+        Check if BOM unit and emission factor unit are compatible.
+
+        This helps detect potential calculation errors from unit mismatches,
+        such as multiplying kg quantities by per-tonne factors without conversion.
+
+        Args:
+            bom_unit: Unit from BOM item (e.g., "kg", "kWh")
+            ef_unit: Unit from emission factor
+
+        Returns:
+            True if units are compatible, False otherwise
+        """
+        # Normalize to lowercase for comparison
+        bom_lower = bom_unit.lower().strip()
+        ef_lower = ef_unit.lower().strip()
+
+        # Define compatible unit groups
+        mass_units = {"kg", "g", "unit", "units", "each"}
+        energy_units = {"kwh", "mj", "gj"}
+        volume_units = {"l", "ml", "gallon", "gallons"}
+        distance_units = {"km", "m", "tkm", "tonne-km"}
+
+        # Check if both units are in the same group
+        if bom_lower in mass_units and ef_lower in mass_units:
+            return True
+        if bom_lower in energy_units and ef_lower in energy_units:
+            return True
+        if bom_lower in volume_units and ef_lower in volume_units:
+            return True
+        if bom_lower in distance_units and ef_lower in distance_units:
+            return True
+
+        # Exact match is always compatible
+        return bom_lower == ef_lower
+
     # ==================== Decoupled Mode Methods (New) ====================
 
     async def calculate(
@@ -390,6 +430,14 @@ class PCFCalculator:
 
             if ef is None:
                 raise EmissionFactorNotFoundError(item.material)
+
+            # Check for unit compatibility and warn if mismatch
+            if not self._units_compatible(item.unit, ef.unit):
+                logger.warning(
+                    f"Unit mismatch for '{item.material}': "
+                    f"BOM has '{item.unit}', emission factor has '{ef.unit}'. "
+                    f"Verify calculation accuracy."
+                )
 
             item_co2e = item.quantity * ef.co2e_kg
             total_co2e += item_co2e

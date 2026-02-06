@@ -40,6 +40,7 @@ from openpyxl import load_workbook
 import httpx
 
 from backend.services.data_ingestion.base import BaseDataIngestion
+from backend.services.data_ingestion.transformers.unit_normalizer import normalize_unit
 
 
 class EPAEmissionFactorsIngestion(BaseDataIngestion):
@@ -645,10 +646,13 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         # Clean up unit
         unit_str = str(unit).strip() if unit else "unit"
 
+        # Apply unit normalization
+        norm_result = normalize_unit(co2e_value, unit_str)
+
         results.append({
             "activity_name": activity_str,
-            "co2e_factor": co2e_value,
-            "unit": unit_str,
+            "co2e_factor": norm_result.normalized_factor,
+            "unit": norm_result.normalized_unit,
             "data_source": "EPA",  # Set data source for BOM display
             "scope": self._determine_scope(record),
             "category": self.file_config["type"],
@@ -656,6 +660,11 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
             "reference_year": 2023,
             "data_quality_rating": 0.90,
             "external_id": f"EPA_{self.file_key}_{activity_str}".replace(" ", "_"),
+            # Unit normalization audit fields
+            "original_unit": norm_result.original_unit if norm_result.was_normalized else None,
+            "original_co2e_factor": norm_result.original_factor if norm_result.was_normalized else None,
+            "conversion_factor": norm_result.conversion_factor,
+            "normalized_at": norm_result.normalized_at,
             "metadata": {
                 "source_sheet": record.get("_source_sheet"),
                 "source_row": record.get("_source_row"),
@@ -753,10 +762,13 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         if co2e_value <= 0:
             return results
 
+        # Apply unit normalization (kWh is already standard, but record for consistency)
+        norm_result = normalize_unit(co2e_value, "kWh")
+
         results.append({
             "activity_name": f"Grid Electricity - {subregion}",
-            "co2e_factor": co2e_value,
-            "unit": "kg CO2e/kWh",
+            "co2e_factor": norm_result.normalized_factor,
+            "unit": norm_result.normalized_unit,
             "data_source": "EPA",  # Set data source for BOM display
             "scope": "Scope 2",
             "category": "electricity",
@@ -764,6 +776,11 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
             "reference_year": 2022,
             "data_quality_rating": 0.95,  # eGRID is highly reliable
             "external_id": f"EPA_eGRID_{subregion}",
+            # Unit normalization audit fields (lb/MWh -> kg/kWh already done above)
+            "original_unit": "lb/MWh",
+            "original_co2e_factor": float(co2_rate),
+            "conversion_factor": 0.000453592,  # lb/MWh to kg/kWh
+            "normalized_at": None,  # Manual conversion, not via normalizer
             "metadata": {
                 "subregion_code": subregion,
                 "source_sheet": record.get("_source_sheet"),
@@ -864,10 +881,13 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
         else:
             category = "passenger_transport"
 
+        # Apply unit normalization
+        norm_result = normalize_unit(co2e_value, unit_str)
+
         results.append({
             "activity_name": f"Transport - {vehicle_str}",
-            "co2e_factor": co2e_value,
-            "unit": unit_str,
+            "co2e_factor": norm_result.normalized_factor,
+            "unit": norm_result.normalized_unit,
             "data_source": "EPA",
             "scope": "Scope 3",
             "category": category,
@@ -877,6 +897,11 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
             "external_id": f"EPA_transport_{vehicle_str}_{unit_str}".replace(
                 " ", "_"
             ).replace("-", "_"),
+            # Unit normalization audit fields
+            "original_unit": norm_result.original_unit if norm_result.was_normalized else None,
+            "original_co2e_factor": norm_result.original_factor if norm_result.was_normalized else None,
+            "conversion_factor": norm_result.conversion_factor,
+            "normalized_at": norm_result.normalized_at,
             "metadata": {
                 "source_sheet": record.get("_source_sheet"),
                 "source_row": record.get("_source_row"),
@@ -983,10 +1008,13 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
                 .replace(")", "")
             )[:200]
 
+            # Apply unit normalization (already converted to kg, record audit trail)
+            norm_result = normalize_unit(co2e_per_kg, "kg")
+
             results.append({
                 "activity_name": f"{material_str} - {method_name}",
-                "co2e_factor": round(co2e_per_kg, 4),
-                "unit": "kg",
+                "co2e_factor": round(norm_result.normalized_factor, 4),
+                "unit": norm_result.normalized_unit,
                 "data_source": "EPA",
                 "scope": "Scope 3",
                 "category": f"materials_{material_category}",
@@ -994,13 +1022,17 @@ class EPAEmissionFactorsIngestion(BaseDataIngestion):
                 "reference_year": 2023,
                 "data_quality_rating": 0.88,
                 "external_id": external_id,
+                # Unit normalization audit fields (manual conversion from short ton)
+                "original_unit": "Metric Tons CO2e per Short Ton",
+                "original_co2e_factor": co2e_value,
+                "conversion_factor": 1000 / 907.185,  # Short ton to kg
+                "normalized_at": None,  # Manual conversion
                 "metadata": {
                     "source_sheet": record.get("_source_sheet"),
                     "source_row": record.get("_source_row"),
                     "source_table": "Table 9",
                     "material": material_str,
                     "disposal_method": method_name,
-                    "original_unit": "Metric Tons CO2e per Short Ton",
                 }
             })
 

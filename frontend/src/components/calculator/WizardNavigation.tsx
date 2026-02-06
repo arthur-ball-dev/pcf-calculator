@@ -21,7 +21,7 @@
  *   - Minimum touch target size (44px)
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw, Calculator, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,33 +43,39 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
-import { useCalculation } from '@/hooks/useCalculation';
-import { CalculationOverlay } from './CalculationOverlay';
+
+/**
+ * Props for WizardNavigation
+ */
+interface WizardNavigationProps {
+  /** Handler to trigger calculation - managed by parent for shared overlay */
+  onCalculate?: () => void;
+  /** Whether calculation is in progress */
+  isCalculating?: boolean;
+  /** Whether navigation transition is in progress (shared with top button) */
+  isNavigating?: boolean;
+  /** Setter for navigation state (shared with top button) */
+  setIsNavigating?: (value: boolean) => void;
+}
 
 /**
  * WizardNavigation component
  */
-const WizardNavigation: React.FC = () => {
+const WizardNavigation: React.FC<WizardNavigationProps> = ({
+  onCalculate,
+  isCalculating: isCalculatingProp,
+  isNavigating: isNavigatingProp,
+  setIsNavigating: setIsNavigatingProp,
+}) => {
   const { currentStep, canGoBack, canProceed, goBack, goNext, reset } =
     useWizardStore();
-  const { calculation, isLoadingBOM } = useCalculatorStore();
-  const { isCalculating, error, elapsedSeconds, startCalculation, stopPolling } =
-    useCalculation();
+  const { isLoadingBOM } = useCalculatorStore();
 
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
   const isLastStep = currentStep === 'results';
   const isEditStep = currentStep === 'edit';
-
-  /**
-   * Close overlay when calculation completes successfully
-   * (The hook auto-advances to results, so we just close the overlay)
-   */
-  useEffect(() => {
-    if (calculation?.status === 'completed' && showOverlay && !isCalculating) {
-      setShowOverlay(false);
-    }
-  }, [calculation?.status, showOverlay, isCalculating]);
+  const isCalculating = isCalculatingProp ?? false;
+  const isNavigating = isNavigatingProp ?? false;
+  const setIsNavigating = setIsNavigatingProp ?? (() => {});
 
   /**
    * Handle reset action - resets both wizard and calculator stores
@@ -85,10 +91,9 @@ const WizardNavigation: React.FC = () => {
    * On Select step, show loading indicator before heavy BOMEditor render
    */
   const handleNext = () => {
-    if (isEditStep) {
-      // Start calculation and show overlay
-      setShowOverlay(true);
-      startCalculation();
+    if (isEditStep && onCalculate) {
+      // Trigger calculation via parent handler (shows overlay at wizard level)
+      onCalculate();
     } else {
       // Show loading state immediately, then navigate after browser paints
       // Double rAF ensures the browser actually renders the loading state
@@ -102,21 +107,6 @@ const WizardNavigation: React.FC = () => {
         });
       });
     }
-  };
-
-  /**
-   * Handle calculation cancel
-   */
-  const handleCancel = () => {
-    stopPolling();
-    setShowOverlay(false);
-  };
-
-  /**
-   * Handle retry after error
-   */
-  const handleRetry = () => {
-    startCalculation();
   };
 
   /**
@@ -236,16 +226,6 @@ const WizardNavigation: React.FC = () => {
           </Button>
         )}
       </div>
-
-      {/* Calculation overlay */}
-      <CalculationOverlay
-        isOpen={showOverlay}
-        isCalculating={isCalculating}
-        elapsedSeconds={elapsedSeconds}
-        error={error}
-        onCancel={handleCancel}
-        onRetry={handleRetry}
-      />
     </>
   );
 };

@@ -220,7 +220,7 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     <TableHeader>
       <TableRow>
         <TableHead className="min-w-[150px]">Component Name</TableHead>
-        <TableHead className="min-w-[80px]">Quantity</TableHead>
+        <TableHead className="min-w-[100px]">Quantity</TableHead>
         <TableHead className="min-w-[70px]">Unit</TableHead>
         <TableHead className="min-w-[100px]">Category</TableHead>
         <TableHead className="min-w-[180px]">Emission Factor</TableHead>

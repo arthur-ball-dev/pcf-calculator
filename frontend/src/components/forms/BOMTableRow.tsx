@@ -330,7 +330,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   min="0"
                   onChange={(e) => handleQuantityChange(e, field.onChange)}
                   onBlur={field.onBlur}
-                  className="w-20"
+                  className="w-24"
                   aria-label="Quantity"
                 />
               </FormControl>
