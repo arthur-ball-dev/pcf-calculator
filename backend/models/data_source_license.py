@@ -49,7 +49,7 @@ class DataSourceLicense(Base):
     Tracks license details for each data source.
 
     Enables compliance tracking, attribution display, and legal audits
-    for emission factor data sources (EPA, DEFRA, EXIOBASE, etc.).
+    for emission factor data sources (EPA, DEFRA, etc.).
     """
     __tablename__ = "data_source_licenses"
 

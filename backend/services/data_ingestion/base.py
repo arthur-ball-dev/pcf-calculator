@@ -4,7 +4,7 @@ Base class for data ingestion connectors.
 TASK-DATA-P5-001: Base Ingestion Framework
 
 This module provides the BaseDataIngestion abstract class that all
-data source connectors (EPA, DEFRA, Exiobase) inherit from.
+data source connectors (EPA, DEFRA) inherit from.
 
 Features:
 - Abstract ETL pipeline (fetch, parse, transform)
