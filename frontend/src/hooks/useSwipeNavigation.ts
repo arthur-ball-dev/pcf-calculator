@@ -80,12 +80,14 @@ export function useSwipeNavigation({
       const target = event.event.target as HTMLElement;
       const formElements = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'];
 
-      // Check if target or any parent is a form element
+      // Check if target or any parent is a form element or scrollable container
       let element: HTMLElement | null = target;
       while (element) {
         if (formElements.includes(element.tagName)) return true;
         if (element.getAttribute('role') === 'slider') return true;
         if (element.getAttribute('contenteditable') === 'true') return true;
+        // Prevent wizard swipe when inside a horizontally-scrollable chart
+        if (element.hasAttribute('data-horizontal-scroll')) return true;
         element = element.parentElement;
       }
 

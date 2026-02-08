@@ -21,7 +21,7 @@
  * </ResponsiveChartContainer>
  */
 
-import { useRef, useEffect, useState, type ReactNode } from 'react';
+import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -114,6 +114,28 @@ export function ResponsiveChartContainer({
   const height = calculateHeight();
   const needsScroll = enableScroll && minWidth > 0 && isMobile;
 
+  // Prevent wizard swipe navigation from firing when user is horizontally
+  // panning the chart. Stops touchmove propagation for horizontal gestures.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches?.[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches?.[0];
+    if (!touch || !touchStartRef.current) return;
+    const dx = Math.abs(touch.clientX - touchStartRef.current.x);
+    const dy = Math.abs(touch.clientY - touchStartRef.current.y);
+    // If horizontal movement dominates, stop propagation to prevent
+    // wizard-level swipe handlers from triggering step navigation
+    if (dx > dy) {
+      e.stopPropagation();
+    }
+  }, []);
+
   // Loading state with skeleton
   if (isLoading) {
     return (
@@ -138,14 +160,26 @@ export function ResponsiveChartContainer({
     <div
       ref={containerRef}
       data-testid="responsive-chart-container"
+      data-horizontal-scroll={needsScroll || undefined}
       className={cn(
         'relative',
         needsScroll && 'overflow-x-auto overflow-y-hidden',
         className
       )}
-      style={{ height }}
+      style={{
+        height,
+        ...(needsScroll && {
+          touchAction: 'pan-x pinch-zoom',
+          overscrollBehaviorX: 'contain',
+          WebkitOverflowScrolling: 'touch',
+        }),
+      }}
       role="img"
       aria-label={ariaLabel}
+      {...(needsScroll && {
+        onTouchStart,
+        onTouchMove,
+      })}
     >
       {needsScroll ? (
         <div style={{ minWidth, height: '100%' }}>
