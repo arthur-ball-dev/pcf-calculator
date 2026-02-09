@@ -49,6 +49,7 @@ import WizardProgress from './WizardProgress';
 import WizardNavigation from './WizardNavigation';
 import { CalculationOverlay } from './CalculationOverlay';
 import { DataSourceAttributions } from '@/components/DataSourceAttributions';
+import { AppFooter } from '@/components/AppFooter';
 
 /**
  * Main CalculationWizard component
@@ -369,6 +370,9 @@ const CalculationWizard: React.FC = () => {
       <footer role="contentinfo" id="attributions" className="flex flex-col sm:flex-row gap-2 sm:gap-4">
         <DataSourceAttributions variant="footer" />
       </footer>
+
+      {/* Application footer with Data Disclaimer link */}
+      <AppFooter />
     </div>
   );
 };

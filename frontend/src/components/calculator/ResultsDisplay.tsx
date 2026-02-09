@@ -4,6 +4,7 @@
  * Final step (Step 4) of the wizard showing calculation results:
  * - Disclaimer: Legal disclaimer for data accuracy (at TOP for prominence)
  * - ResultsSummary: Total CO2e with timestamp
+ * - ResultsDataCallout: Brief info callout about illustrative data
  * - SankeyDiagram: Visual flow of emissions with in-chart drill-down
  * - BreakdownTable: Detailed category breakdown with expandable items
  * - Action buttons: New Calculation, Export (CSV/Excel)
@@ -27,6 +28,7 @@ import SankeyDiagram from '../visualizations/SankeyDiagram';
 import { ExportButton } from '../ExportButton';
 import { LicenseFooter } from '../attribution/LicenseFooter';
 import { Disclaimer } from '../attribution/Disclaimer';
+import { ResultsDataCallout } from '../ResultsDataCallout';
 import { classifyComponent } from '../../utils/classifyComponent';
 
 /**
@@ -171,6 +173,9 @@ export default function ResultsDisplay() {
         unit="kg"
         calculatedAt={new Date(calculation.created_at || new Date().toISOString())}
       />
+
+      {/* Data disclaimer callout -- subtle info about illustrative data */}
+      <ResultsDataCallout />
 
       {/* Two-column layout: Sankey left, Breakdown right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
