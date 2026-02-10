@@ -107,7 +107,7 @@ export const TOUR_STEPS: Step[] = [
     target: '[data-tour="results-summary"]',
     content: (
       <StepContent
-        title="Step 4: View Results"
+        title="Step 3: View Results"
         description="View your product's total carbon footprint in kg CO2 equivalent. The breakdown shows contributions from each material and process."
       />
     ),
@@ -118,7 +118,7 @@ export const TOUR_STEPS: Step[] = [
     content: (
       <StepContent
         title="Explore Visualizations"
-        description="Switch between different views: Treemap shows hierarchical breakdown, Sankey diagram shows material flows, and Trends show changes over time."
+        description="The Sankey diagram shows how emissions flow from materials and processes to the total carbon footprint. The breakdown table lets you drill into each category."
       />
     ),
     placement: 'bottom',

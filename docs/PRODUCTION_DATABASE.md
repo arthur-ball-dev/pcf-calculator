@@ -2,10 +2,10 @@
 
 ## Overview
 
-The PCF Calculator uses PostgreSQL as its primary database for both development and production environments.
+The PCF Calculator uses PostgreSQL as its primary database for all environments (development, testing, and production).
 The application automatically detects the database configuration from the `DATABASE_URL` environment variable.
 
-**Note:** As of Phase 9 (2026-01-14), SQLite is no longer used. All environments use PostgreSQL.
+**Note:** SQLite is no longer used. All environments use PostgreSQL as of Phase 9 (2026-01-14).
 
 ## Database Environments
 
@@ -108,6 +108,8 @@ TEST_DATABASE_URL=postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_c
 
 [Railway](https://railway.app) provides simple, fast cloud deployment with built-in PostgreSQL.
 
+**Production URL:** https://pcf.glideslopeintelligence.ai
+
 ### 1. Create Railway Project
 
 1. Sign up at [railway.app](https://railway.app)
@@ -170,19 +172,33 @@ startCommand = "sh -c 'PYTHONPATH=/app python3 -m alembic -c backend/alembic.ini
 healthcheckPath = "/health"
 ```
 
-### 6. Verify Deployment
+### 6. Git Flow for Deployment
+
+The project uses a three-branch deployment flow:
+
+```
+develop/* -> main -> production (Railway auto-deploy)
+```
+
+- `develop/*` branches: Active development work
+- `main`: Stable integration branch
+- `production`: Railway auto-deploys from this branch
+
+**Note:** Force push to `production` is expected (it's a deployment-only branch).
+
+### 7. Verify Deployment
 
 After deployment, verify the database connection:
 
 ```bash
 # Health check
-curl https://your-app.up.railway.app/health
+curl https://pcf.glideslopeintelligence.ai/health
 
 # API test
-curl https://your-app.up.railway.app/api/v1/emission-factors?limit=5
+curl https://pcf.glideslopeintelligence.ai/api/v1/emission-factors?limit=5
 ```
 
-### 7. Troubleshooting Railway
+### 8. Troubleshooting Railway
 
 **Build Fails:**
 - Check Railway logs for Python dependency issues
@@ -233,6 +249,28 @@ engine = create_engine(
 )
 ```
 
+## Database Schema
+
+### Core Tables
+
+| Table | Purpose | Row Count (Production) |
+|-------|---------|----------------------|
+| `products` | Finished goods and components | 817 (725 finished + 92 components) |
+| `bill_of_materials` | Parent-child relationships with quantities | 7,025+ |
+| `emission_factors` | CO2e values with provenance | 342 (268 EPA + 74 DEFRA) |
+| `pcf_calculations` | Calculation results and metadata | Variable |
+| `data_sources` | EPA, DEFRA configuration | 2 |
+| `data_source_licenses` | License terms and attribution requirements | 2 |
+| `emission_factor_provenance` | Source document references | Variable |
+| `product_categories` | Hierarchical categories | 424 |
+
+### Data Sources
+
+| Source | License | Factors |
+|--------|---------|---------|
+| EPA | US Public Domain | 268 |
+| DEFRA | OGL v3.0 (attribution required) | 74 |
+
 ## Migration Management
 
 ### Check Migration Status
@@ -268,13 +306,13 @@ alembic downgrade -1
 
 ### Dialect-Aware Migrations
 
-Some migrations contain dialect-specific SQL. The migrations use context detection:
+All migrations target PostgreSQL exclusively (SQLite is no longer supported):
 
 ```python
 from alembic import context
 
 def upgrade():
-    # PostgreSQL-only (SQLite no longer supported)
+    # PostgreSQL-only
     op.execute("ALTER TABLE ... SET ... DEFAULT TRUE")
 ```
 
@@ -290,7 +328,7 @@ alembic upgrade head
 
 ### Backend Tests
 
-All backend tests now use PostgreSQL (`pcf_calculator_test` database) instead of SQLite in-memory.
+All backend tests use PostgreSQL (`pcf_calculator_test` database).
 
 **Transaction rollback pattern:**
 ```python
@@ -459,4 +497,4 @@ DB_MAX_OVERFLOW=20
 ---
 
 **Document Owner:** Technical-Lead / Database-Architect
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-02-10

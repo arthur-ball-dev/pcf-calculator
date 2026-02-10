@@ -193,7 +193,10 @@ export function useGuidedTour(
     saveCompletionStatus(false);
     setHasCompletedTour(false);
     setCurrentStepState(0);
-    setIsTourActive(true);
+    // Force deactivate first so the GuidedTour useEffect always
+    // re-runs when we reactivate, even if isTourActive was already true
+    setIsTourActive(false);
+    requestAnimationFrame(() => setIsTourActive(true));
   }, []);
 
   /**

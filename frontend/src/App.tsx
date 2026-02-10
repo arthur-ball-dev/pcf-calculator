@@ -19,7 +19,7 @@ import { GuidedTour } from '@/components/Tour/GuidedTour';
 import CalculationWizard from '@/components/calculator/CalculationWizard';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
-import './App.css';
+
 
 function App() {
   // Reset wizard and calculator state on app load to always start at Step 1

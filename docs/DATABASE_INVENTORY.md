@@ -2,7 +2,7 @@
 
 This document provides a breakdown of emission factors and products in the PCF Calculator database.
 
-**Last Updated:** 2026-02-06
+**Last Updated:** 2026-02-10
 **Database:** PostgreSQL (all environments)
 **Data Sources:** EPA (US Public Domain), DEFRA (UK OGL v3.0)
 
@@ -18,7 +18,7 @@ This document provides a breakdown of emission factors and products in the PCF C
 | DEFRA | 74 |
 | **Total** | **342** |
 
-**Note:** Exiobase was removed 2026-01-13 (requires academic license). Ecoinvent was removed 2026-01-20 (requires commercial license). Only EPA and DEFRA emission factors remain.
+**Note:** Only EPA and DEFRA emission factors are used. Previously evaluated data sources (Exiobase, Ecoinvent) were removed due to licensing requirements (academic and commercial licenses, respectively).
 
 ### By Category
 
@@ -179,5 +179,5 @@ python backend/scripts/load_production_data.py
 
 ---
 
-*Generated from production database inventory on 2026-02-06*
+*Generated from production database inventory on 2026-02-10*
 *Document Owner: Technical-Lead*
