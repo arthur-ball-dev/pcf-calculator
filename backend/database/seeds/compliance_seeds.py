@@ -157,7 +157,7 @@ def verify_license_compliance(
 
     Args:
         session: SQLAlchemy database session
-        source_code: Source code (EPA, DEFRA, EXIOBASE)
+        source_code: Source code (EPA, DEFRA)
 
     Returns:
         Dict with compliance status information
