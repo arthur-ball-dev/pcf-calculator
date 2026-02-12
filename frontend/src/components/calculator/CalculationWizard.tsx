@@ -19,7 +19,11 @@
  * - Mobile-responsive layout (TASK-FE-P7-009)
  * - Swipe gesture navigation on mobile/tablet (TASK-FE-P7-011)
  *
- * UI Redesign: 3-step wizard with calculation triggered from Edit step
+ * Emerald Night (5B) UI Rebuild - Phase 2:
+ * - New header: AppLogo left, TourControls + StepProgress right
+ * - InfoSection: collapsible disclaimer & attributions
+ * - ContextBar: selected product context with step-specific actions
+ * - Dark theme layout with glass-card styling
  *
  * Integration:
  * - wizardStore: Navigation state and step completion
@@ -27,29 +31,26 @@
  * - WIZARD_STEPS: Step configuration with components and validation
  * - useAnnouncer: Screen reader announcements
  * - useSwipeNavigation: Touch gesture navigation
- *
- * TASK-FE-P5-012: Added TourControls button to header for guided tour
- * TASK-FE-P7-009: Added mobile responsive layouts
- * TASK-FE-P7-011: Added swipe gesture navigation for mobile/tablet
+ * - useBreakpoints: JS-based responsive breakpoints for dynamic class switching
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { CheckCircle2, Package, Calculator, Loader2 } from 'lucide-react';
+import { ArrowRight, Calculator } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { useAnnouncer } from '@/hooks/useAnnouncer';
-import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useCalculation } from '@/hooks/useCalculation';
+import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { WIZARD_STEPS } from '@/config/wizardSteps';
 import { TourControls } from '@/components/Tour/TourControls';
-import WizardProgress from './WizardProgress';
+import AppLogo from '@/components/common/AppLogo';
+import StepProgress from '@/components/calculator/StepProgress';
+import InfoSection from '@/components/common/InfoSection';
+import ContextBar from '@/components/common/ContextBar';
 import WizardNavigation from './WizardNavigation';
 import { CalculationOverlay } from './CalculationOverlay';
-import { DataSourceAttributions } from '@/components/DataSourceAttributions';
-import { AppFooter } from '@/components/AppFooter';
 
 /**
  * Main CalculationWizard component
@@ -57,10 +58,10 @@ import { AppFooter } from '@/components/AppFooter';
 const CalculationWizard: React.FC = () => {
   const { currentStep, completedSteps, markStepComplete, markStepIncomplete, goNext, goBack, canProceed: wizardCanProceed } =
     useWizardStore();
-  const { selectedProduct, calculation, isLoadingBOM } = useCalculatorStore();
+  const { selectedProduct, calculation, isLoadingBOM, bomItems } = useCalculatorStore();
   const { announce } = useAnnouncer();
-  const { isMobile, isTablet, isDesktop } = useBreakpoints();
   const { isCalculating, error, elapsedSeconds, startCalculation, stopPolling } = useCalculation();
+  const { isMobile, isTablet } = useBreakpoints();
   const hasValidatedRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -68,7 +69,6 @@ const CalculationWizard: React.FC = () => {
   const [showOverlay, setShowOverlay] = useState(false);
   // Shared navigation loading state for both buttons
   const [isNavigating, setIsNavigating] = useState(false);
-  const isEditStep = currentStep === 'edit';
 
   // Handle calculation trigger (used by both buttons)
   const handleCalculate = useCallback(() => {
@@ -227,125 +227,147 @@ const CalculationWizard: React.FC = () => {
     );
   }
 
-  // Determine padding class based on viewport
-  // Mobile: p-4 (16px), Tablet: p-6 (24px), Desktop: p-8 (32px)
-  // Using both breakpoint-aware and CSS responsive classes for robustness
-  const mainPaddingClass = cn(
-    'flex-1 bg-background w-full max-w-full overflow-x-hidden',
-    // Dynamic classes based on useBreakpoints hook
-    isMobile && 'p-4',
-    isTablet && 'p-6',
-    isDesktop && 'p-8 lg:p-8',
-    // CSS-only responsive fallback classes
-    'sm:p-6 md:p-8'
-  );
+  /**
+   * Extract display name from step label
+   * Maps step IDs to display headings for the h2 element
+   * Uses progressLabel for concise display (e.g. "Edit BOM" instead of "Edit Bill of Materials")
+   */
+  const getStepHeading = (): string => {
+    switch (currentStep) {
+      case 'select':
+        return 'Select Product';
+      case 'edit':
+        return 'Edit BOM';
+      case 'results':
+        return 'Results';
+      default:
+        return currentStepConfig?.label || '';
+    }
+  };
 
-  // Step indicator layout class based on viewport
-  const stepIndicatorClass = cn(
-    'flex',
-    isMobile && 'flex-col',
-    !isMobile && 'flex-row',
-    // CSS responsive fallback
-    'sm:flex-row'
-  );
+  /**
+   * Determine ContextBar props based on current step
+   */
+  const getContextBarProps = () => {
+    if (!selectedProduct) return null;
+
+    switch (currentStep) {
+      case 'select':
+        return {
+          productName: selectedProduct.name,
+          productCode: selectedProduct.code,
+          actionLabel: `Continue with ${selectedProduct.name}`,
+          actionIcon: <ArrowRight className="w-[15px] h-[15px]" />,
+          onAction: goNext,
+          disabled: !wizardCanProceed,
+        };
+      case 'edit':
+        return {
+          productName: selectedProduct.name,
+          productCode: selectedProduct.code,
+          badge: `${bomItems.length} component${bomItems.length !== 1 ? 's' : ''}`,
+          actionLabel: 'Calculate PCF',
+          actionIcon: <Calculator className="w-[15px] h-[15px]" />,
+          onAction: handleCalculate,
+          disabled: !wizardCanProceed || isCalculating || isLoadingBOM,
+        };
+      case 'results':
+        // No context bar on results - hero section shows the info
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  const contextBarProps = getContextBarProps();
+
+  /**
+   * Dynamic responsive classes via JS-based breakpoints.
+   * These work with JSDOM tests where CSS media queries don't apply.
+   * Static Tailwind responsive prefixes (sm:, md:, lg:) are also included
+   * for real browser CSS behavior.
+   *
+   * Note: Using template strings (not cn/tailwind-merge) to preserve all classes
+   * since both static responsive prefixes and dynamic overrides must coexist.
+   */
+  const mainPadding = isMobile ? 'p-4' : isTablet ? 'p-6' : 'p-8';
+  const headingSize = isMobile ? 'text-xl' : isTablet ? 'text-2xl' : 'text-3xl';
+  const stepIndicatorDirection = isMobile ? 'flex-col' : 'flex-row';
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header with title and progress indicator */}
-      <header className="border-b bg-white sticky top-0 z-50 shadow-sm" role="banner">
-        <div className="container mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-4">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h1 className="text-xl sm:text-2xl font-semibold">PCF Calculator</h1>
-            <TourControls />
-          </div>
-          {/* Step indicator with responsive layout */}
-          <div data-testid="step-indicator" className={stepIndicatorClass}>
-            <WizardProgress steps={WIZARD_STEPS} currentStep={currentStep} />
-          </div>
-        </div>
-      </header>
-
-      {/* Main content area - renders current step component */}
-      {/* Swipe handlers are applied for mobile/tablet navigation */}
-      <main
+      {/* Page wrapper */}
+      <div
         {...swipeHandlers}
         data-testid="wizard-container"
         data-swipe-active={isSwipeActive}
-        className={mainPaddingClass}
-        role="main"
+        className="max-w-[1280px] mx-auto w-full px-4 sm:px-8 flex-1 flex flex-col"
       >
-        <div className="container mx-auto max-w-[1800px]">
-          {/* Selected product indicator - shown when product is selected */}
-          {selectedProduct && currentStep !== 'select' && (
-            <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-muted/50 rounded-lg flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-              <Package className="w-5 h-5 text-primary flex-shrink-0" />
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                <span className="text-xs sm:text-sm text-muted-foreground">Selected Product:</span>
-                <span className="font-medium text-sm sm:text-base">{selectedProduct.name}</span>
-                <span className="text-xs sm:text-sm text-muted-foreground">({selectedProduct.code})</span>
-              </div>
+        {/* Header: AppLogo left, TourControls + StepProgress right */}
+        <header
+          className={cn(
+            'py-6 flex items-center justify-between',
+            'border-b border-[var(--card-border)] mb-8',
+            // Mobile: stack vertically
+            'max-[768px]:flex-col max-[768px]:gap-4 max-[768px]:items-start'
+          )}
+          role="banner"
+        >
+          <AppLogo />
+          <div className="flex items-center gap-4">
+            <TourControls />
+            <div
+              data-testid="step-indicator"
+              className={`${stepIndicatorDirection} flex items-center`}
+            >
+              <StepProgress steps={WIZARD_STEPS} currentStep={currentStep} />
             </div>
+          </div>
+        </header>
+
+        {/* Main content area - responsive padding and overflow control */}
+        {/* Template string preserves both static Tailwind responsive prefixes and JS-dynamic classes */}
+        <main
+          role="main"
+          className={`flex-1 w-full overflow-x-hidden p-4 ${mainPadding} sm:p-6 md:p-8 lg:p-8`}
+        >
+          {/* InfoSection - collapsible disclaimer & attributions */}
+          <InfoSection />
+
+          {/* ContextBar - shown when product selected, content varies by step */}
+          {contextBarProps && (
+            <ContextBar
+              productName={contextBarProps.productName}
+              productCode={contextBarProps.productCode}
+              badge={contextBarProps.badge}
+              actionLabel={contextBarProps.actionLabel}
+              actionIcon={contextBarProps.actionIcon}
+              onAction={contextBarProps.onAction}
+              disabled={contextBarProps.disabled}
+            />
           )}
 
-          {/* Step heading and description with completion indicator */}
-          <div className="mb-4 sm:mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-              <div>
-                {/* Heading with mobile-first responsive text sizes: text-xl sm:text-2xl md:text-3xl */}
-                <h2
-                  ref={headingRef}
-                  className="text-xl sm:text-2xl md:text-3xl font-semibold"
-                  tabIndex={-1}
-                >
-                  {currentStepConfig.label}
-                </h2>
-                <p className="text-sm sm:text-base text-muted-foreground mt-1">
-                  {currentStepConfig.description}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Calculate button - prominent position for Edit BOM step */}
-                {isEditStep && (
-                  <Button
-                    onClick={handleCalculate}
-                    disabled={!wizardCanProceed || isCalculating || isLoadingBOM || isNavigating}
-                    className="gap-2"
-                    data-testid="calculate-button-top"
-                  >
-                    {isLoadingBOM || isNavigating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        Calculate
-                        <Calculator className="w-4 h-4" />
-                      </>
-                    )}
-                  </Button>
-                )}
-                {completedSteps.includes(currentStep) && (
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Complete</span>
-                  </div>
-                )}
-              </div>
-            </div>
+          {/* Step heading and description */}
+          <div className="mb-6">
+            <h2
+              ref={headingRef}
+              className={`font-heading font-bold tracking-tight text-[var(--text-primary)] text-xl ${headingSize} sm:text-2xl md:text-3xl`}
+              tabIndex={-1}
+            >
+              {getStepHeading()}
+            </h2>
+            <p className="text-[var(--text-muted)] text-[0.9375rem]">
+              {currentStepConfig.description}
+            </p>
           </div>
 
-          {/* Current step component with responsive grid */}
+          {/* Current step component */}
           <div className="mb-6 sm:mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <div className="md:col-span-2 lg:col-span-3">
-                <CurrentStepComponent />
-              </div>
-            </div>
+            <CurrentStepComponent />
           </div>
 
-          {/* Navigation controls - follows content instead of fixed footer */}
-          <div className="border-t pt-4 sm:pt-6 mt-6 sm:mt-8">
+          {/* Navigation controls */}
+          <div className="border-t border-[var(--card-border)] pt-4 sm:pt-6 mt-6 sm:mt-8 pb-8">
             <WizardNavigation
               onCalculate={handleCalculate}
               isCalculating={isCalculating}
@@ -353,7 +375,17 @@ const CalculationWizard: React.FC = () => {
               setIsNavigating={setIsNavigating}
             />
           </div>
-        </div>
+        </main>
+
+        {/* Footer - semantic structure with responsive layout */}
+        <footer
+          role="contentinfo"
+          className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 py-4 border-t border-[var(--card-border)]"
+        >
+          <p className="text-xs text-[var(--text-dim)]">
+            PCF Calculator - Product Carbon Footprint
+          </p>
+        </footer>
 
         {/* Calculation overlay - managed at wizard level for both buttons */}
         <CalculationOverlay
@@ -364,15 +396,7 @@ const CalculationWizard: React.FC = () => {
           onCancel={handleCancelCalculation}
           onRetry={handleRetryCalculation}
         />
-      </main>
-
-      {/* Data source attributions footer */}
-      <footer role="contentinfo" id="attributions" className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-        <DataSourceAttributions variant="footer" />
-      </footer>
-
-      {/* Application footer with Data Disclaimer link */}
-      <AppFooter />
+      </div>
     </div>
   );
 };

@@ -16,9 +16,12 @@
  * - ARIA labels for screen readers
  * - Visual feedback for disabled states (tooltips)
  * - Mobile-responsive layout (TASK-FE-P7-009)
- *   - Full-width buttons on mobile
- *   - Auto-width buttons on tablet/desktop
- *   - Minimum touch target size (44px)
+ * - Emerald Night dark theme styling
+ *   - Previous: ghost with glass border
+ *   - Next/Calculate: emerald primary with glow
+ *   - Start Over: destructive variant
+ *   - New Calculation: ghost outline
+ *   - AlertDialog: dark background
  */
 
 import React from 'react';
@@ -135,12 +138,12 @@ const WizardNavigation: React.FC<WizardNavigationProps> = ({
   return (
     <>
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4">
-        {/* Previous button - full width on mobile, auto on larger screens */}
+        {/* Previous button - ghost with glass border, dark theme */}
         <Button
           variant="outline"
           onClick={goBack}
           disabled={!canGoBack || isCalculating}
-          className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6"
+          className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6 border-[var(--card-border)] text-[var(--text-muted)] hover:border-[var(--card-hover-border)] hover:text-[var(--text-primary)] hover:bg-white/[0.03]"
           aria-label="Previous step"
           data-testid="previous-button"
         >
@@ -163,17 +166,17 @@ const WizardNavigation: React.FC<WizardNavigationProps> = ({
                 Start Over
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="mx-4 sm:mx-0">
+            <AlertDialogContent className="mx-4 sm:mx-0 bg-[var(--bg-surface)] border-[var(--card-border)]">
               <AlertDialogHeader>
-                <AlertDialogTitle>Reset Calculator?</AlertDialogTitle>
-                <AlertDialogDescription>
+                <AlertDialogTitle className="text-[var(--text-primary)]">Reset Calculator?</AlertDialogTitle>
+                <AlertDialogDescription className="text-[var(--text-muted)]">
                   This will clear all your current selections and progress. This
                   action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-                <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleReset} className="min-h-11">Reset</AlertDialogAction>
+                <AlertDialogCancel className="min-h-11 border-[var(--card-border)] text-[var(--text-muted)] hover:bg-white/[0.03] hover:text-[var(--text-primary)]">Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReset} className="min-h-11 bg-destructive text-white hover:bg-destructive/90">Reset</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -188,7 +191,7 @@ const WizardNavigation: React.FC<WizardNavigationProps> = ({
                   <Button
                     onClick={handleNext}
                     disabled={isNextDisabled}
-                    className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6"
+                    className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6 bg-emerald-500 text-white hover:bg-emerald-600 shadow-[0_1px_3px_rgba(16,185,129,0.3)]"
                     aria-label={isLoadingBOM || isNavigating ? 'Loading...' : isEditStep ? 'Calculate carbon footprint' : 'Next step'}
                     data-testid="next-button"
                   >
@@ -217,7 +220,7 @@ const WizardNavigation: React.FC<WizardNavigationProps> = ({
           <Button
             variant="outline"
             onClick={handleReset}
-            className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6"
+            className="w-full sm:w-auto gap-2 min-h-11 py-3 px-4 sm:px-6 border-[var(--card-border)] text-[var(--text-muted)] hover:border-[var(--card-hover-border)] hover:text-[var(--text-primary)] hover:bg-white/[0.03]"
             aria-label="Start new calculation"
             data-testid="new-calculation-button"
           >
