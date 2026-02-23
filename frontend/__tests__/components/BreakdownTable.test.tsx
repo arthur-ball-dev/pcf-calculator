@@ -5,10 +5,10 @@
  * - Category display with totals
  * - Expand/collapse functionality
  * - Individual item rendering
- * - Sorting functionality
  * - Accessibility features
  *
  * TASK-FE-P8-003: Expand Items in Detailed Breakdown Section
+ * Emerald Night 5B Rebuild: Raw HTML table with colored bars and category dots
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -96,15 +96,14 @@ describe('BreakdownTable', () => {
       expect(screen.queryByText('Transport')).not.toBeInTheDocument();
     });
 
-    it('shows item count when breakdown data is available', () => {
+    it('renders table headers for Category, Amount, Percentage, Distribution', () => {
       render(<BreakdownTable {...mockProps} />);
 
-      // Materials has 2 items (cotton, polyester)
-      expect(screen.getByText('(2 items)')).toBeInTheDocument();
-
-      // Energy and Transport each have 1 item - use getAllByText since both show "(1 item)"
-      const singleItemTexts = screen.getAllByText('(1 item)');
-      expect(singleItemTexts).toHaveLength(2); // energy + transport
+      // Emerald Night 5B uses raw HTML table with these column headers
+      expect(screen.getByText('Category')).toBeInTheDocument();
+      expect(screen.getByText('Amount')).toBeInTheDocument();
+      expect(screen.getByText('Percentage')).toBeInTheDocument();
+      expect(screen.getByText('Distribution')).toBeInTheDocument();
     });
   });
 
@@ -197,15 +196,16 @@ describe('BreakdownTable', () => {
   });
 
   describe('Item Display', () => {
-    it('displays item names correctly', async () => {
+    it('displays item names correctly with Title Case formatting', async () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
       await user.click(screen.getByTestId('expand-materials'));
 
+      // Emerald Night formatComponentName converts to Title Case
       await waitFor(() => {
-        expect(screen.getByText('cotton')).toBeInTheDocument();
-        expect(screen.getByText('polyester')).toBeInTheDocument();
+        expect(screen.getByText('Cotton')).toBeInTheDocument();
+        expect(screen.getByText('Polyester')).toBeInTheDocument();
       });
     });
 
@@ -289,55 +289,14 @@ describe('BreakdownTable', () => {
   });
 
   describe('Sorting', () => {
-    it('sorts by CO2e descending by default', () => {
+    it('sorts categories by CO2e descending by default', () => {
       render(<BreakdownTable {...mockProps} />);
 
       const categoryRows = screen.getAllByTestId(/^category-row-/);
       // Materials (1.8) > Energy (0.15) > Transport (0.1)
       expect(categoryRows[0]).toHaveAttribute('data-testid', 'category-row-materials');
-    });
-
-    it('clicking CO2e header toggles sort direction', async () => {
-      const user = userEvent.setup();
-      render(<BreakdownTable {...mockProps} />);
-
-      const co2eHeader = screen.getByRole('button', { name: /sort by co2e/i });
-      await user.click(co2eHeader);
-
-      // Should now be ascending
-      const categoryRows = screen.getAllByTestId(/^category-row-/);
-      expect(categoryRows[0]).toHaveAttribute('data-testid', 'category-row-transport');
-    });
-
-    it('clicking Category header sorts alphabetically', async () => {
-      const user = userEvent.setup();
-      render(<BreakdownTable {...mockProps} />);
-
-      const categoryHeader = screen.getByRole('button', { name: /sort by category/i });
-      await user.click(categoryHeader);
-
-      const categoryRows = screen.getAllByTestId(/^category-row-/);
-      // When clicking category (from default co2e desc sort), it sorts alphabetically descending first
-      // Then clicking again would be ascending: Energy < Materials < Transport
-      // Default sort is by CO2e desc, clicking category header changes to category desc
-      // So it becomes: Transport > Materials > Energy (reverse alphabetical)
-      // Actually the default direction when switching fields is desc
-      expect(categoryRows[0]).toHaveAttribute('data-testid', 'category-row-transport');
-    });
-
-    it('double-clicking Category header sorts alphabetically ascending', async () => {
-      const user = userEvent.setup();
-      render(<BreakdownTable {...mockProps} />);
-
-      const categoryHeader = screen.getByRole('button', { name: /sort by category/i });
-      // First click: category descending
-      await user.click(categoryHeader);
-      // Second click: category ascending
-      await user.click(categoryHeader);
-
-      const categoryRows = screen.getAllByTestId(/^category-row-/);
-      // Ascending: Energy < Materials < Transport
-      expect(categoryRows[0]).toHaveAttribute('data-testid', 'category-row-energy');
+      expect(categoryRows[1]).toHaveAttribute('data-testid', 'category-row-energy');
+      expect(categoryRows[2]).toHaveAttribute('data-testid', 'category-row-transport');
     });
   });
 
@@ -371,12 +330,11 @@ describe('BreakdownTable', () => {
       expect(progressBars[0]).toHaveAttribute('aria-label');
     });
 
-    it('sort buttons have accessible labels', () => {
+    it('expand buttons have aria-controls pointing to category items', () => {
       render(<BreakdownTable {...mockProps} />);
 
-      expect(screen.getByRole('button', { name: /sort by category/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /sort by co2e/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /sort by percentage/i })).toBeInTheDocument();
+      const expandButton = screen.getByTestId('expand-materials');
+      expect(expandButton).toHaveAttribute('aria-controls', 'materials-items');
     });
   });
 
@@ -435,7 +393,7 @@ describe('BreakdownTable', () => {
       expect(screen.getByText('Materials')).toBeInTheDocument();
     });
 
-    it('handles very large CO2e values', () => {
+    it('handles very large CO2e values with locale formatting', () => {
       render(
         <BreakdownTable
           totalCO2e={1000000}
@@ -445,7 +403,8 @@ describe('BreakdownTable', () => {
       );
 
       expect(screen.getByText('Materials')).toBeInTheDocument();
-      expect(screen.getByText('1000000.00')).toBeInTheDocument();
+      // Emerald Night formatAmount uses Intl.NumberFormat with thousand separators
+      expect(screen.getByText('1,000,000.00')).toBeInTheDocument();
     });
   });
 
@@ -458,7 +417,8 @@ describe('BreakdownTable', () => {
 
       await waitFor(() => {
         const itemRow = screen.getByTestId('item-row-cotton');
-        expect(itemRow).toHaveClass('bg-muted/30');
+        // Emerald Night uses subtle white overlay for expanded item rows
+        expect(itemRow).toHaveClass('bg-white/[0.015]');
       });
     });
 

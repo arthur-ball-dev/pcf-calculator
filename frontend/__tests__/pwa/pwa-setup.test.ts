@@ -46,12 +46,12 @@ describe('TASK-FE-P7-012: PWA Setup Configuration', () => {
       expect(themeColor).toBeTruthy();
     });
 
-    test('theme-color meta tag has correct brand color (#003f7f)', () => {
+    test('theme-color meta tag has correct Emerald Night color (#0B1026)', () => {
       const doc = getDocument();
       const themeColor = doc.querySelector('meta[name="theme-color"]');
 
       expect(themeColor).toBeTruthy();
-      expect(themeColor?.getAttribute('content')).toBe('#003f7f');
+      expect(themeColor?.getAttribute('content')).toBe('#0B1026');
     });
 
     test('manifest link tag is present', () => {
@@ -169,7 +169,7 @@ describe('TASK-FE-P7-012: PWA Setup Configuration', () => {
       const tileColor = doc.querySelector('meta[name="msapplication-TileColor"]');
 
       expect(tileColor).toBeTruthy();
-      expect(tileColor?.getAttribute('content')).toBe('#003f7f');
+      expect(tileColor?.getAttribute('content')).toBe('#0B1026');
     });
   });
 

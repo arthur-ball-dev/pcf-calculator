@@ -26,10 +26,10 @@ vi.mock('@/components/ExportButton', () => ({
   ExportButton: () => <button data-testid="mock-export-button">Export</button>,
 }));
 
-// Mock ResultsSummary to simplify testing
-vi.mock('../ResultsSummary', () => ({
+// Mock ResultsHero to simplify testing (replaces ResultsSummary in Emerald Night 5B)
+vi.mock('../ResultsHero', () => ({
   default: ({ totalCO2e }: { totalCO2e: number }) => (
-    <div data-testid="mock-results-summary">Total: {totalCO2e} kg CO2e</div>
+    <div data-testid="mock-results-hero">Total: {totalCO2e} kg CO2e</div>
   ),
 }));
 
@@ -37,6 +37,7 @@ vi.mock('../ResultsSummary', () => ({
 vi.mock('../BreakdownTable', () => ({
   default: () => <div data-testid="mock-breakdown-table">Breakdown Table</div>,
 }));
+
 
 /**
  * Factory function to create a completed calculation
@@ -437,7 +438,7 @@ describe('ResultsDisplay - LicenseFooter Integration', () => {
 
       // Assert: All main components should still render
       expect(screen.getByTestId('results-display')).toBeInTheDocument();
-      expect(screen.getByTestId('mock-results-summary')).toBeInTheDocument();
+      expect(screen.getByTestId('mock-results-hero')).toBeInTheDocument();
       expect(screen.getByTestId('mock-sankey-diagram')).toBeInTheDocument();
       expect(screen.getByTestId('mock-breakdown-table')).toBeInTheDocument();
       expect(screen.getByTestId('new-calculation-action-button')).toBeInTheDocument();

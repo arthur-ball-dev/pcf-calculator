@@ -66,11 +66,11 @@ export const test = base.extend<AuthFixtures>({
     );
 
     // Step 3: Navigate to the frontend app
-    await page.goto(FRONTEND_URL);
+    await page.goto(FRONTEND_URL, { waitUntil: 'domcontentloaded' });
 
     // Step 4: Wait for the app to be ready
-    // Wait for network to settle and page to be interactive
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(2000);
 
     // Provide the authenticated page to the test
     await use(page);

@@ -1,51 +1,46 @@
 /**
  * Color Constants for PCF Calculator
  *
- * ESG-Authority Color Palette
- * ==========================
- * Professionally restrained, high-contrast colors for carbon accounting.
+ * Carbon Command Color Palette (Emerald Night)
+ * =============================================
+ * High-contrast colors optimized for dark backgrounds.
  * Each color occupies distinct hue territory for Sankey diagrams.
  *
  * Design Philosophy:
- * - Instantly distinguishable in data visualizations
- * - Passes WCAG contrast ratios for text overlays
- * - Works in both light and potential dark mode
- * - Professional feel without garish saturation
- *
- * Reference: knowledge/frontend/VISUALIZATION_PATTERNS.md
- *
- * TASK-FE-007: Calculate Flow with Polling (Color System Alignment)
- * UI Redesign: ESG-Authority Palette Update
+ * - Instantly distinguishable in data visualizations on dark backgrounds
+ * - Matches the Emerald Night prototype Sankey diagram colors
+ * - Works at varying opacities for glassmorphic surfaces
+ * - Professional feel with vibrant accents
  */
 
 /**
- * Emission category color mapping
+ * Emission category color mapping (Carbon Command palette)
  *
  * These colors are used for:
  * - Progress bars in ResultsDisplayContent
- * - Node colors in Sankey diagrams (TASK-FE-008)
+ * - Node colors in Sankey diagrams
  * - Category badges and indicators
- * - Treemap segments
+ * - Breakdown table bar charts
  *
- * Hue Distribution (for visual separation):
- * - materials:   Navy      (220°) - foundational, solid
- * - energy:      Amber     (30°)  - warmth, power
- * - transport:   Teal      (175°) - movement, theme-aligned
- * - combustion:  Rose      (340°) - heat without garish red
- * - process:     Violet    (270°) - industrial, distinct
- * - other:       Slate     (215°) - neutral, recessive
+ * Hue Distribution:
+ * - materials:   Blue      (207°) - foundational, dominant category
+ * - energy:      Amber     (36°)  - warmth, power
+ * - transport:   Green     (122°) - movement, nature
+ * - combustion:  Rose      (340°) - heat
+ * - process:     Purple    (291°) - industrial, distinct
+ * - other:       Blue-Gray (200°) - neutral, recessive
  * - waste:       Stone     (30°)  - earthy, end-of-life
- * - total:       Slate-900 (215°) - anchoring, definitive
+ * - total:       Light     (0°)   - anchoring summary node
  */
 export const EMISSION_CATEGORY_COLORS = {
-  materials: '#1E3A5F',   // Deep navy - solid, foundational
-  energy: '#B45309',      // Burnt amber - warmth, power
-  transport: '#0F766E',   // Teal-700 - movement, aligned with theme
-  combustion: '#9F1239',  // Rose-800 - heat without garish red
-  process: '#5B21B6',     // Violet-800 - industrial, distinct
-  other: '#64748B',       // Slate-500 - neutral, recessive
-  waste: '#78716C',       // Stone-500 - earthy, end-of-life
-  total: '#0F172A',       // Slate-900 - anchoring, definitive
+  materials: '#2196F3',   // Blue - foundational, dominant
+  energy: '#FF9800',      // Amber - warmth, power
+  transport: '#4CAF50',   // Green - movement, nature
+  combustion: '#E91E63',  // Pink - heat
+  process: '#9C27B0',     // Purple - industrial, distinct
+  other: '#78909C',       // Blue-gray - neutral, recessive
+  waste: '#795548',       // Brown - earthy, end-of-life
+  total: '#E8EAED',       // Light gray - summary node on dark bg
 } as const;
 
 /**

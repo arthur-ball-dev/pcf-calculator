@@ -11,3 +11,7 @@ export {
   ChartSkeleton,
   default as LazyChartDefault,
 } from './LazyChart';
+
+export { default as AppLogo } from './AppLogo';
+export { default as InfoSection } from './InfoSection';
+export { default as ContextBar } from './ContextBar';

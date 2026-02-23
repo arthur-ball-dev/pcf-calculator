@@ -11,6 +11,7 @@
  * - Tooltip with contextual text (Start/Restart)
  * - Ghost variant for minimal visual footprint
  * - Accessible with proper ARIA labels
+ * - Emerald Night dark theme styling
  *
  * Usage:
  * ```tsx
@@ -56,7 +57,7 @@ export function TourControls() {
           onClick={handleClick}
           data-testid="tour-restart-button"
           aria-label={tooltipText}
-          className="h-9 gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+          className="h-9 gap-2 border-white/20 text-emerald-400 hover:bg-white/10 hover:text-emerald-300"
         >
           <HelpCircle className="h-4 w-4" />
           <span className="text-sm font-medium">Tour</span>

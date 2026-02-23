@@ -43,12 +43,12 @@ export default defineConfig({
   // Global setup runs before all tests (authentication)
   globalSetup: './tests/e2e/global-setup.ts',
 
-  // Maximum time one test can run
-  timeout: 30 * 1000,
+  // Maximum time one test can run (120s for production data + dev server overhead)
+  timeout: 120 * 1000,
 
   // Expect assertions timeout
   expect: {
-    timeout: 5000
+    timeout: 10000
   },
 
   // Run tests sequentially for API state stability
@@ -77,14 +77,17 @@ export default defineConfig({
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
 
-    // Capture screenshot on every test (for documentation)
-    screenshot: 'on',
+    // Capture screenshot only on failure
+    screenshot: 'only-on-failure',
 
-    // Video recording
+    // Video recording only on failure
     video: 'retain-on-failure',
 
     // Action timeout
-    actionTimeout: 10000,
+    actionTimeout: 15000,
+
+    // Navigation timeout
+    navigationTimeout: 60000,
   },
 
   // Configure projects for major browsers

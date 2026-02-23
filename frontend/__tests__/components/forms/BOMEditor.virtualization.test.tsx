@@ -14,6 +14,9 @@
  * In JSDOM (test environment), there's no real layout, so we mock the virtualizer
  * to return predictable virtual items for testing.
  *
+ * NOTE: BOMEditor uses progressive rendering (double-rAF) so the skeleton shows first.
+ * Tests must use waitFor() to wait for the skeleton to disappear before asserting content.
+ *
  * Following TDD protocol: Tests written BEFORE implementation.
  */
 
@@ -89,6 +92,15 @@ function generateBOMItems(count: number): BOMItem[] {
   }));
 }
 
+/**
+ * Helper: Wait for progressive rendering skeleton to disappear
+ */
+async function waitForEditorReady() {
+  await waitFor(() => {
+    expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+  }, { timeout: 5000 });
+}
+
 // Virtualization threshold from BOMEditor.tsx
 const VIRTUALIZATION_THRESHOLD = 20;
 
@@ -122,16 +134,19 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Component should render without errors - there may be multiple tables
       // (header table and virtual row tables)
       const tables = screen.getAllByRole('table');
       expect(tables.length).toBeGreaterThan(0);
 
-      // Total count should show 100 components
+      // Total count should show 100 components (footer text)
       await waitFor(() => {
         expect(screen.getByText(/100 components/i)).toBeInTheDocument();
       });
-    });
+    }, 15000);
 
     test('uses virtualization for lists >= threshold (20 items)', async () => {
       const items = generateBOMItems(VIRTUALIZATION_THRESHOLD);
@@ -144,11 +159,14 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Should use virtualized container
       await waitFor(() => {
         expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
       });
-    });
+    }, 15000);
 
     test('only renders visible rows plus buffer (not all 100+)', async () => {
       const largeItemList = generateBOMItems(100);
@@ -161,6 +179,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // With virtualization, we should NOT have 100 rows in the DOM
       // Instead, only visible rows + overscan buffer should be rendered
       // Our mock renders 11 items (6 visible + 5 overscan)
@@ -170,7 +191,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         expect(virtualRows.length).toBeLessThan(30);
         expect(virtualRows.length).toBeGreaterThan(0);
       });
-    });
+    }, 15000);
 
     test('renders with exactly 50 items efficiently', async () => {
       const items = generateBOMItems(50);
@@ -183,13 +204,16 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Should render and show correct count
       await waitFor(() => {
         expect(screen.getByText(/50 components/i)).toBeInTheDocument();
         // Should be using virtualization
         expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
       });
-    });
+    }, 15000);
   });
 
   // ============================================================================
@@ -208,6 +232,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Find the virtualized scroll container
       const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
       expect(scrollContainer).toBeInTheDocument();
@@ -218,7 +245,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Also verify the height style is set (for fixed container height)
       expect(scrollContainer.style.height).toBe('400px');
-    });
+    }, 15000);
 
     test('maintains scroll position after re-render', async () => {
       const largeItemList = generateBOMItems(100);
@@ -230,6 +257,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       });
 
       const { rerender } = render(<BOMEditor />);
+
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
 
       const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
 
@@ -248,7 +278,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         const container = screen.getByTestId('bom-virtual-scroll-container');
         expect(container).toBeInTheDocument();
       });
-    });
+    }, 15000);
   });
 
   // ============================================================================
@@ -268,6 +298,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       });
 
       render(<BOMEditor />);
+
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
 
       // Find a visible input and modify it
       const visibleInputs = screen.getAllByPlaceholderText(/e.g., Cotton, Electricity/i);
@@ -296,7 +329,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(mockSetBomItems).toHaveBeenCalled();
       });
-    }, 15000); // Increase timeout to 15 seconds
+    }, 15000);
 
     test('validation state persists across virtualized items', async () => {
       const items = generateBOMItems(50);
@@ -311,12 +344,15 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Validation errors should be visible for invalid items
       // The form should track validation state even for virtualized (unmounted) items
       await waitFor(() => {
         expect(mockMarkStepIncomplete).toHaveBeenCalledWith('edit');
       });
-    });
+    }, 15000);
   });
 
   // ============================================================================
@@ -336,6 +372,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Scroll down
       const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
       Object.defineProperty(scrollContainer, 'scrollTop', { writable: true, value: 500 });
@@ -349,7 +388,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByText(/51 components/i)).toBeInTheDocument();
       });
-    });
+    }, 15000);
 
     test('removing item works correctly when virtualized', async () => {
       const user = userEvent.setup();
@@ -362,6 +401,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       });
 
       render(<BOMEditor />);
+
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
 
       // Find and click a delete button (opens AlertDialog)
       // With our mock, we render 11 visible rows, so there should be delete buttons
@@ -387,7 +429,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
         expect(screen.getByText(/49 components/i)).toBeInTheDocument();
       });
-    });
+    }, 15000);
   });
 
   // ============================================================================
@@ -406,14 +448,17 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Should NOT have virtualized container
       await waitFor(() => {
         expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
       });
 
-      // Should still show correct count
+      // Should still show correct count in footer
       expect(screen.getByText(/19 components/i)).toBeInTheDocument();
-    });
+    }, 15000);
 
     test('handles empty list without virtualization', async () => {
       (useCalculatorStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -424,6 +469,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Should render with default 1 item (minimum constraint)
       await waitFor(() => {
         expect(screen.getByText(/1 component[^s]/)).toBeInTheDocument();
@@ -431,7 +479,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should NOT have virtualized container (only 1 item)
       expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
-    });
+    }, 15000);
 
     test('handles single item list without virtualization', async () => {
       const singleItem = generateBOMItems(1);
@@ -444,6 +492,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Should render the single item
       await waitFor(() => {
         expect(screen.getByText(/1 component[^s]/)).toBeInTheDocument();
@@ -455,7 +506,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should NOT have virtualized container
       expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
-    });
+    }, 15000);
 
     test('total quantity updates correctly after adding item', async () => {
       const user = userEvent.setup();
@@ -471,6 +522,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Verify initial total (10 items, not virtualized)
       await waitFor(() => {
         expect(screen.getByText(new RegExp(`total quantity: ${expectedTotal.toFixed(2)}`, 'i'))).toBeInTheDocument();
@@ -484,7 +538,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByText(new RegExp(`total quantity: ${(expectedTotal + 1).toFixed(2)}`, 'i'))).toBeInTheDocument();
       });
-    });
+    }, 15000);
 
     test('handles rapid add operations', async () => {
       const user = userEvent.setup();
@@ -497,6 +551,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       });
 
       render(<BOMEditor />);
+
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
 
       const addButton = screen.getByRole('button', { name: /add component/i });
 
@@ -516,7 +573,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByText(/13 components/i)).toBeInTheDocument();
       });
-    });
+    }, 15000);
   });
 
   // ============================================================================
@@ -537,6 +594,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       render(<BOMEditor />);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Should NOT be virtualized initially
       expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
 
@@ -548,7 +608,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
       });
-    });
+    }, 15000);
 
     test('virtualization works when loading state transitions', async () => {
       // Start with loading state
@@ -579,7 +639,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         expect(screen.getByText(/100 components/i)).toBeInTheDocument();
         expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
       });
-    });
+    }, 15000);
   });
 
   // ============================================================================
@@ -607,6 +667,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       // The key is that virtualization renders fewer items than 100
       expect(renderTime).toBeLessThan(5000);
 
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
+
       // Verify component rendered successfully
       await waitFor(() => {
         expect(screen.getByText(/100 components/i)).toBeInTheDocument();
@@ -615,7 +678,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       // More importantly, verify we're not rendering all 100 rows
       const virtualRows = screen.getAllByTestId('bom-virtual-row');
       expect(virtualRows.length).toBeLessThan(20);
-    });
+    }, 15000);
 
     test('scroll does not cause excessive re-renders', async () => {
       const largeItemList = generateBOMItems(100);
@@ -627,6 +690,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       });
 
       render(<BOMEditor />);
+
+      // Wait for progressive rendering to complete
+      await waitForEditorReady();
 
       const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
 
@@ -642,6 +708,6 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         expect(scrollContainer).toBeInTheDocument();
         expect(screen.getByText(/100 components/i)).toBeInTheDocument();
       });
-    });
+    }, 15000);
   });
 });

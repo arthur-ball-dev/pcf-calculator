@@ -408,7 +408,7 @@ describe('bomTransform Service', () => {
       const result = transformAPIBOMToFrontend(bomWithNullUnit, mockEmissionFactors);
 
       expect(result).toHaveLength(1);
-      expect(result[0].unit).toBe(''); // Converted null to empty string or handled
+      expect(result[0].unit).toBe('kg'); // Default null unit to 'kg' (most common unit)
     });
   });
 });

@@ -152,9 +152,9 @@ describe('TASK-FE-P7-012: PWA Manifest Validation', () => {
       expect(manifest.name).toContain('PCF');
     });
 
-    test('theme color matches brand color (#003f7f)', () => {
+    test('theme color matches Emerald Night brand color (#0B1026)', () => {
       const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf-8'));
-      expect(manifest.theme_color).toBe('#003f7f');
+      expect(manifest.theme_color).toBe('#0B1026');
     });
 
     test('manifest has description field for app stores', () => {

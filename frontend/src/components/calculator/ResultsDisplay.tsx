@@ -1,43 +1,46 @@
 /**
  * ResultsDisplay Component
  *
- * Final step (Step 4) of the wizard showing calculation results:
- * - Disclaimer: Legal disclaimer for data accuracy (at TOP for prominence)
- * - ResultsSummary: Total CO2e with timestamp
- * - ResultsDataCallout: Brief info callout about illustrative data
- * - SankeyDiagram: Visual flow of emissions with in-chart drill-down
- * - BreakdownTable: Detailed category breakdown with expandable items
- * - Action buttons: New Calculation, Export (CSV/Excel)
- * - LicenseFooter: Data source attribution links and disclaimer
+ * Final step (Step 3) of the wizard showing calculation results.
+ * Emerald Night 5B vertical stack layout:
+ * 1. ResultsHero - Large PCF value with radial glow and rating badges
+ * 2. Sankey section - Full-width glassmorphic card with "Carbon Flow Analysis" header
+ * 3. Breakdown section - Full-width glassmorphic card with "Emission Breakdown" header
+ * 4. Export row - Horizontal button row (New Calculation, CSV, Excel)
+ * 5. LicenseFooter - Data source attribution
+ *
+ * Design Source: frontend/prototypes/approach-5b-single-card/03-results.html
+ *
+ * Note: Disclaimer and ResultsDataCallout are removed from this component
+ * because the InfoSection in the wizard shell already handles disclaimer
+ * and attribution display at the page level.
  *
  * TASK-FE-009: Results Dashboard Implementation
  * TASK-FE-P5-011: Integrated ExportButton component for CSV/Excel export
- * TASK-FE-P8-002: Category Drill-Down in Carbon Flow Visualization (in-chart expansion)
+ * TASK-FE-P8-002: Category Drill-Down in Carbon Flow Visualization
  * TASK-FE-P8-003: Pass breakdown data to BreakdownTable for expandable items
- * TASK-FE-P8-006: Wire LicenseFooter into ResultsDisplay for attribution compliance
- * TASK-FE-P8-007: Add Disclaimer to ResultsDisplay for legal compliance
+ * TASK-FE-P8-006: Wire LicenseFooter into ResultsDisplay
+ * Emerald Night 5B Rebuild: Vertical stack, hero section, glass cards
  */
 
 import { useWizardStore } from '../../store/wizardStore';
 import { useCalculatorStore } from '../../store/calculatorStore';
 import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
-import ResultsSummary from './ResultsSummary';
+import ResultsHero from './ResultsHero';
 import BreakdownTable from './BreakdownTable';
 import SankeyDiagram from '../visualizations/SankeyDiagram';
 import { ExportButton } from '../ExportButton';
 import { LicenseFooter } from '../attribution/LicenseFooter';
-import { Disclaimer } from '../attribution/Disclaimer';
-import { ResultsDataCallout } from '../ResultsDataCallout';
 import { classifyComponent } from '../../utils/classifyComponent';
+import { RotateCcw } from 'lucide-react';
 
 /**
  * ResultsDisplay Component
  *
- * Displays calculation results with summary, visualization, and detailed breakdown.
+ * Displays calculation results with hero summary, visualization, and detailed breakdown.
  * Provides actions to start new calculation or export data.
  * Sankey diagram supports in-chart drill-down when clicking on category nodes.
- * Includes Disclaimer at top for legal compliance and LicenseFooter for data source attribution.
+ * Includes LicenseFooter for data source attribution.
  */
 export default function ResultsDisplay() {
   const { reset: resetWizard } = useWizardStore();
@@ -62,22 +65,18 @@ export default function ResultsDisplay() {
   }
 
   // Prepare calculation results for export
-  // Map the Calculation type to the expected CalculationStatusResponse format
   const totalCO2e = calculation.total_co2e_kg || 0;
 
   // Calculate category totals from breakdown items for consistent classification
-  // This ensures percentages add up correctly (avoiding double-counting with backend totals)
   const breakdown = calculation.breakdown || {};
   const categoryTotals = { materials: 0, energy: 0, transport: 0, combustion: 0, other: 0 };
 
   if (Object.keys(breakdown).length > 0) {
-    // Calculate totals from breakdown items using frontend classification
     Object.entries(breakdown).forEach(([componentName, co2e]) => {
       const category = classifyComponent(componentName);
       categoryTotals[category] += co2e;
     });
   } else {
-    // Fallback to backend totals if no breakdown available
     categoryTotals.materials = calculation.materials_co2e || 0;
     categoryTotals.energy = calculation.energy_co2e || 0;
     categoryTotals.transport = calculation.transport_co2e || 0;
@@ -118,25 +117,17 @@ export default function ResultsDisplay() {
   ].filter(item => item.emissions > 0);
 
   // Build BOM details with emission values from breakdown
-  // Use normalized lookup since breakdown keys may have different casing/formatting
-  // e.g., breakdown has "transport_ship" but BOM has "Transport Ship"
-  // Note: breakdown is already defined above for calculating otherCO2e
-
-  // Normalize string for comparison: lowercase, replace spaces/underscores/hyphens
   const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, '');
 
   const bomDetails = bomItems.map(item => {
-    // Try exact match first
     let emissions = breakdown[item.name];
     if (emissions === undefined) {
-      // Normalized lookup - handles case, spaces, underscores, hyphens
       const normalizedName = normalize(item.name);
       const key = Object.keys(breakdown).find(
         k => normalize(k) === normalizedName
       );
       emissions = key ? breakdown[key] : 0;
     }
-    // Calculate emission factor from emissions and quantity
     const emissionFactor = item.quantity > 0 ? emissions / item.quantity : 0;
     return {
       component_name: item.name,
@@ -162,69 +153,80 @@ export default function ResultsDisplay() {
     bom_details: bomDetails,
   };
 
-  return (
-    <div className="space-y-8 bg-background" data-testid="results-display">
-      {/* Disclaimer for legal compliance - MUST be at top for prominence */}
-      <Disclaimer variant="full" defaultExpanded={true} />
+  // Derive a simple data quality rating from available data
+  // If we have breakdown data, that's higher quality than just totals
+  const dataQualityRating = Object.keys(breakdown).length > 0 ? 3.5 : 2.5;
 
-      {/* Summary Card */}
-      <ResultsSummary
-        totalCO2e={calculation.total_co2e_kg || 0}
-        unit="kg"
-        calculatedAt={new Date(calculation.created_at || new Date().toISOString())}
+  return (
+    <div className="space-y-10" data-testid="results-display">
+      {/* 1. Hero Section - Large PCF value with badges */}
+      <ResultsHero
+        totalCO2e={totalCO2e}
+        dataQualityRating={dataQualityRating}
+        componentCount={bomItems.length}
+        productName={selectedProduct?.name || 'Product'}
       />
 
-      {/* Data disclaimer callout -- subtle info about illustrative data */}
-      <ResultsDataCallout />
+      {/* 2. Sankey Diagram Section - Full-width glass card */}
+      <section
+        data-tour="visualization-tabs"
+        className="glass-card p-4 sm:p-6 animate-fadeInUp"
+        style={{ animationDelay: '0.1s' }}
+      >
+        <div className="mb-5">
+          <h3 className="font-heading text-lg font-semibold text-[var(--text-primary)]">
+            Carbon Flow Analysis
+          </h3>
+          <p className="text-[0.8125rem] text-[var(--text-dim)] mt-1">
+            Emission flow from BOM components through categories to total PCF
+          </p>
+        </div>
+        <SankeyDiagram calculation={calculation} />
+      </section>
 
-      {/* Two-column layout: Sankey left, Breakdown right */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sankey Diagram with in-chart drill-down */}
-        <Card data-tour="visualization-tabs" className="bg-card">
-          <CardHeader>
-            <CardTitle>Carbon Flow: {selectedProduct?.name || 'Product'}</CardTitle>
-            <CardDescription>
-              Click on a category to see detailed breakdown
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SankeyDiagram calculation={calculation} />
-          </CardContent>
-        </Card>
+      {/* 3. Breakdown Table Section - Full-width glass card */}
+      <section
+        className="glass-card overflow-hidden animate-fadeInUp"
+        style={{ animationDelay: '0.2s' }}
+      >
+        <div className="px-6 py-5 border-b border-[var(--card-border)]">
+          <h3 className="font-heading text-base font-semibold text-[var(--text-primary)]">
+            Category Breakdown
+          </h3>
+        </div>
+        <BreakdownTable
+          totalCO2e={calculation.total_co2e_kg || 0}
+          materialsCO2e={calculation.materials_co2e}
+          energyCO2e={calculation.energy_co2e}
+          transportCO2e={calculation.transport_co2e}
+          breakdown={calculation.breakdown}
+        />
+      </section>
 
-        {/* Breakdown Table with expandable items */}
-        <Card className="bg-card overflow-hidden">
-          <CardHeader>
-            <CardTitle>Detailed Breakdown: {selectedProduct?.name || 'Product'}</CardTitle>
-            <CardDescription>
-              Click on a category to expand and see individual items
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BreakdownTable
-              totalCO2e={calculation.total_co2e_kg || 0}
-              materialsCO2e={calculation.materials_co2e}
-              energyCO2e={calculation.energy_co2e}
-              transportCO2e={calculation.transport_co2e}
-              breakdown={calculation.breakdown}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-4 items-start" data-tour="export-buttons">
-        <Button onClick={handleNewCalculation} variant="outline" data-testid="new-calculation-action-button">
-          New Calculation
-        </Button>
+      {/* 4. Export Row - Horizontal button row */}
+      <div
+        className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 animate-fadeInUp"
+        style={{ animationDelay: '0.3s' }}
+        data-tour="export-buttons"
+      >
         <ExportButton
           results={exportResults}
           productName={selectedProduct?.name || 'Unknown Product'}
           productCode={selectedProduct?.code || 'UNKNOWN'}
         />
+        <div className="flex-1" />
+        <Button
+          onClick={handleNewCalculation}
+          variant="outline"
+          data-testid="new-calculation-action-button"
+          className="border-[var(--card-border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/[0.03]"
+        >
+          <RotateCcw className="w-4 h-4 mr-2" />
+          New Calculation
+        </Button>
       </div>
 
-      {/* License Footer for attribution compliance */}
+      {/* 5. License Footer for attribution compliance */}
       <LicenseFooter className="mt-8" />
     </div>
   );

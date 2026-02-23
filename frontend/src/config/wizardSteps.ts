@@ -15,9 +15,11 @@
  * - description: Help text shown below heading
  * - component: React component to render for this step
  * - validate: Optional async function to check step completion
+ *
+ * Updated Phase 9: Replaced ProductSelector with ProductList (Emerald Night 5B)
  */
 
-import ProductSelector from '@/components/calculator/ProductSelector';
+import ProductList from '@/components/calculator/ProductList';
 import BOMEditor from '@/components/forms/BOMEditor';
 import ResultsDisplay from '@/components/calculator/ResultsDisplay';
 import { useCalculatorStore } from '@/store/calculatorStore';
@@ -26,10 +28,10 @@ import type { StepConfig } from '@/types/store.types';
 export const WIZARD_STEPS: StepConfig[] = [
   {
     id: 'select',
-    label: 'Step 1: Select Product',
+    label: 'Select Product',
     progressLabel: 'Select Product',
-    description: 'Choose a product to calculate its carbon footprint',
-    component: ProductSelector,
+    description: 'Choose a product to calculate its cradle-to-gate carbon footprint',
+    component: ProductList,
     validate: async () => {
       // Check if product is selected
       const selectedProductId = useCalculatorStore.getState().selectedProductId;
@@ -38,7 +40,7 @@ export const WIZARD_STEPS: StepConfig[] = [
   },
   {
     id: 'edit',
-    label: 'Step 2: Edit Bill of Materials (BOM)',
+    label: 'Edit Bill of Materials',
     progressLabel: 'Edit BOM',
     description: 'Review and modify the Bill of Materials',
     component: BOMEditor,
@@ -53,7 +55,7 @@ export const WIZARD_STEPS: StepConfig[] = [
   },
   {
     id: 'results',
-    label: 'Step 3: Results',
+    label: 'Results',
     progressLabel: 'Results',
     description: 'View carbon footprint results',
     component: ResultsDisplay,

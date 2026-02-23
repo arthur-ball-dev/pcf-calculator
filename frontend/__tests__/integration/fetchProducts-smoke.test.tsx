@@ -1,14 +1,17 @@
 /**
- * Smoke Test - fetchProducts Export
- * TASK-FE-011: Verify fetchProducts export fixes integration test hang
+ * Smoke Test - fetchProducts Export & ProductList Component
+ * TASK-FE-011: Verify fetchProducts export and ProductList rendering
  *
- * This is a minimal test to verify the ProductSelector component
- * can actually call fetchProducts without hanging.
+ * Updated for Emerald Night UI rebuild:
+ * - ProductSelector replaced by ProductList component
+ * - ProductList uses productsAPI.search (not productsAPI.list)
+ * - No combobox/dropdown; products display in a full-page list
+ * - Loading skeleton has testid "product-list-skeleton"
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '../testUtils';
-import ProductSelector from '../../src/components/calculator/ProductSelector';
+import ProductList from '../../src/components/calculator/ProductList';
 import { useWizardStore } from '../../src/store/wizardStore';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 
@@ -19,25 +22,28 @@ describe('Integration: fetchProducts Export Smoke Test', () => {
     useCalculatorStore.getState().reset();
   });
 
-  test('ProductSelector renders and loads products without hanging', async () => {
-    // Render ProductSelector
-    render(<ProductSelector />);
+  test('ProductList renders and loads products without hanging', async () => {
+    // Render ProductList
+    render(<ProductList />);
 
     // Verify loading skeleton appears first
-    expect(screen.getByTestId('product-selector-skeleton')).toBeInTheDocument();
+    expect(screen.getByTestId('product-list-skeleton')).toBeInTheDocument();
 
     // Wait for products to load from MSW (with reasonable timeout)
     await waitFor(
       () => {
-        expect(screen.queryByTestId('product-selector-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('product-list-skeleton')).not.toBeInTheDocument();
       },
       { timeout: 5000 }
     );
 
-    // Verify the select component is rendered
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    // Verify the product list container is rendered
+    expect(screen.getByTestId('product-list')).toBeInTheDocument();
 
-    // Success! If we got here, fetchProducts export works
+    // Verify search input is present
+    expect(screen.getByTestId('product-search-input')).toBeInTheDocument();
+
+    // Success! If we got here, ProductList renders and loads data
   }, 10000); // 10 second timeout for the entire test
 
   test('fetchProducts export exists and is usable', async () => {
