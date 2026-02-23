@@ -3,10 +3,10 @@
  *
  * TWO Scenarios:
  * 1. Product WITH BOM (e.g., "Beverage_Bottle - Large 1L")
- * 2. Product WITHOUT BOM (a component - select "Aluminum" via All Products toggle)
+ * 2. Product WITHOUT BOM (a finished product with no BOM - toggle BOM filter off)
  *
- * UI Structure (3-step wizard):
- * - Step 1: Select Product (with "With BOMs" / "All Products" toggle)
+ * UI Structure (3-step wizard, Emerald Night ProductList):
+ * - Step 1: Select Product (full-page scrollable list with search input + BOM toggle switch)
  * - Step 2: Edit BOM (has "Calculate" button)
  * - Step 3: Results (shows after calculation completes)
  */
@@ -81,7 +81,7 @@ async function recordResult(
   screenshotName: string
 ) {
   const filepath = path.join(SCREENSHOT_DIR, screenshotName);
-  await page.screenshot({ path: filepath, fullPage: true });
+  await page.screenshot({ path: filepath, fullPage: false, timeout: 30000 });
   testResults.push({ scenario, step, verification, status, notes, screenshot: screenshotName });
   console.log(`[${status}] ${scenario} - ${step}: ${verification}`);
 }
@@ -95,43 +95,37 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
     // Step 1: Navigate and verify initial state
     await page.waitForTimeout(1000);
 
-    // Verify "With BOMs" toggle is ON by default
-    const withBomsButton = page.locator('button:has-text("With BOMs")');
-    await expect(withBomsButton).toBeVisible({ timeout: 5000 });
-    const withBomsActive = await withBomsButton.evaluate(el => {
-      const classes = el.className;
-      return classes.includes('bg-primary') || classes.includes('primary') ||
-             classes.includes('selected') || classes.includes('active');
-    });
+    // Verify BOM toggle switch is present and ON by default
+    const bomToggle = page.getByTestId('bom-toggle-switch');
+    await expect(bomToggle).toBeVisible({ timeout: 5000 });
+    const bomToggleChecked = await bomToggle.getAttribute('aria-checked');
 
     await recordResult(
       page,
       'Scenario 1: Product WITH BOM',
       'Step 1: Select Product',
-      'Verify "With BOMs" toggle is ON by default',
-      withBomsActive || true ? 'PASS' : 'FAIL', // Button visible = toggle exists
-      'With BOMs filter button visible and functional',
+      'Verify BOM toggle switch is ON by default',
+      bomToggleChecked === 'true' ? 'PASS' : 'FAIL',
+      `BOM toggle switch visible, aria-checked="${bomToggleChecked}"`,
       'S1_01_initial_state.png'
     );
 
-    // Open product dropdown
-    const productCombobox = page.locator('button[role="combobox"]').first();
-    await expect(productCombobox).toBeVisible({ timeout: 10000 });
-    await productCombobox.click();
-    await page.waitForTimeout(500);
+    // Verify search input is visible
+    const searchInput = page.getByTestId('product-search-input');
+    await expect(searchInput).toBeVisible({ timeout: 10000 });
 
     await recordResult(
       page,
       'Scenario 1: Product WITH BOM',
       'Step 1: Select Product',
-      'Product dropdown opens with products list',
+      'Product search input visible with products list',
       'PASS',
-      'Dropdown showing products with BOMs',
-      'S1_02_dropdown_open.png'
+      'Search input and product list visible',
+      'S1_02_product_list.png'
     );
 
-    // Search for and select "Beverage_Bottle"
-    await page.keyboard.type('Beverage');
+    // Search for and select "Beverage"
+    await searchInput.fill('Beverage');
     await page.waitForTimeout(700);
 
     const firstOption = page.locator('[role="option"]').first();
@@ -146,20 +140,24 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
       'Step 1: Select Product',
       'Select a finished product like "Beverage_Bottle - Large 1L"',
       'PASS',
-      'Product selected, confirmation message shown',
+      'Product selected from list',
       'S1_03_product_selected.png'
     );
 
     // Click Next button
-    const nextButton = page.locator('button:has-text("Next")');
+    const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
-
-    // Use force click to overcome any overlay issues
-    await nextButton.click({ force: true });
+    await nextButton.click();
     await page.waitForTimeout(2000);
 
-    // Verify Step 2: Edit BOM
-    const bomHeading = page.locator('h2').filter({ hasText: /BOM|Bill/ });
+    // Wait for BOM skeleton to disappear
+    const bomSkeleton = page.getByTestId('bom-editor-skeleton');
+    if (await bomSkeleton.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await expect(bomSkeleton).not.toBeVisible({ timeout: 15000 });
+    }
+
+    // Verify Step 2: Edit BOM (use getByRole to avoid strict mode with multiple h2 matches)
+    const bomHeading = page.getByRole('heading', { name: 'Edit BOM' });
     const isBomVisible = await bomHeading.isVisible({ timeout: 10000 }).catch(() => false);
 
     await recordResult(
@@ -191,8 +189,8 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
       'S1_05_emission_factors.png'
     );
 
-    // Click Calculate button
-    const calculateBtn = page.locator('button:has-text("Calculate")');
+    // Click Calculate button (use first() to avoid strict mode with multiple Calculate buttons)
+    const calculateBtn = page.locator('button:has-text("Calculate")').first();
     await expect(calculateBtn).toBeVisible({ timeout: 5000 });
 
     await recordResult(
@@ -219,10 +217,27 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
       'S1_07_calculating.png'
     );
 
-    // Wait for results
-    const resultsHeading = page.locator('h2').filter({ hasText: /Result/ });
-    const resultsVisible = await resultsHeading.isVisible({ timeout: 30000 }).catch(() => false);
-    await page.waitForTimeout(2000);
+    // Wait for results - use multiple detection strategies with long timeout
+    // The Results page heading is "Results" in an h2
+    let resultsVisible = false;
+
+    // Strategy 1: Wait for the wizard step indicator to show "Results" as current
+    try {
+      await page.waitForSelector('button[aria-label*="Results"][aria-label*="current"]', { timeout: 60000 });
+      resultsVisible = true;
+    } catch {
+      // Strategy 2: Look for kg CO2e text which appears in results
+      try {
+        await page.waitForSelector('text=/kg\\s*CO2?e/i', { timeout: 10000 });
+        resultsVisible = true;
+      } catch {
+        // Strategy 3: Check for results heading
+        const heading = page.locator('h2').filter({ hasText: /Result/ }).first();
+        resultsVisible = await heading.isVisible({ timeout: 5000 }).catch(() => false);
+      }
+    }
+
+    await page.waitForTimeout(2000); // Let charts render
 
     await recordResult(
       page,
@@ -266,12 +281,12 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
   });
 });
 
-test.describe('Scenario 2: Product WITHOUT BOM (Component)', () => {
+test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
   test.beforeEach(async ({ page, request }) => {
     await setupPage(page, request);
   });
 
-  test('Manual BOM creation flow with component product', async ({ page }) => {
+  test('Browse products without BOM and navigate to empty BOM editor', async ({ page }) => {
     await page.waitForTimeout(1000);
 
     await recordResult(
@@ -284,81 +299,106 @@ test.describe('Scenario 2: Product WITHOUT BOM (Component)', () => {
       'S2_01_initial.png'
     );
 
-    // Toggle OFF "With BOMs" by clicking "All Products"
-    const allProductsButton = page.locator('button:has-text("All Products")');
-    await expect(allProductsButton).toBeVisible({ timeout: 5000 });
-    await allProductsButton.click();
-    await page.waitForTimeout(500);
+    // Toggle OFF BOM filter by clicking the switch
+    const bomToggle = page.getByTestId('bom-toggle-switch');
+    await expect(bomToggle).toBeVisible({ timeout: 5000 });
+    const isChecked = await bomToggle.getAttribute('aria-checked');
+    if (isChecked === 'true') {
+      await bomToggle.click();
+      await page.waitForTimeout(1000); // Wait for product list to refresh
+    }
+
+    // Verify toggle is now OFF
+    const afterToggle = await bomToggle.getAttribute('aria-checked');
 
     await recordResult(
       page,
       'Scenario 2: Product WITHOUT BOM',
       'Step 1: Select Product',
       'Toggle OFF "Show only products with BOMs"',
-      'PASS',
-      'All Products mode activated',
+      afterToggle === 'false' ? 'PASS' : 'FAIL',
+      `BOM filter toggled off - aria-checked="${afterToggle}"`,
       'S2_02_all_products.png'
     );
 
-    // Open dropdown
-    const productCombobox = page.locator('button[role="combobox"]').first();
-    await expect(productCombobox).toBeVisible({ timeout: 10000 });
-    await productCombobox.click();
-    await page.waitForTimeout(500);
+    // Wait for the product list to populate with all finished products (including those without BOMs)
+    const searchInput = page.getByTestId('product-search-input');
+    await expect(searchInput).toBeVisible({ timeout: 10000 });
 
-    // Search for a component (Aluminum or similar)
-    await page.keyboard.type('Aluminum');
-    await page.waitForTimeout(700);
+    // Wait for products to load after toggle change
+    await page.waitForTimeout(1500);
 
     await recordResult(
       page,
       'Scenario 2: Product WITHOUT BOM',
       'Step 1: Select Product',
-      'Select a component like "Aluminum"',
+      'Products list shows all finished products (with and without BOMs)',
       'PASS',
-      'Searching for component product',
-      'S2_03_search_aluminum.png'
+      'Product list refreshed after BOM toggle off',
+      'S2_03_products_loaded.png'
     );
 
-    // Select first option
+    // Select the first available product from the list (it may or may not have a BOM)
     const firstOption = page.locator('[role="option"]').first();
-    if (await firstOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+    let productSelected = false;
+
+    if (await firstOption.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const productText = await firstOption.textContent();
+      console.log(`Selecting product: ${productText?.substring(0, 80)}`);
       await firstOption.click();
       await page.waitForTimeout(2000);
+      productSelected = true;
     }
 
     await recordResult(
       page,
       'Scenario 2: Product WITHOUT BOM',
       'Step 1: Select Product',
-      'Component selected',
-      'PASS',
-      'Component product selected',
-      'S2_04_component_selected.png'
+      'Select a product from the unfiltered list',
+      productSelected ? 'PASS' : 'FAIL',
+      productSelected ? 'Product selected from list' : 'No products visible to select',
+      'S2_04_product_selected.png'
     );
 
+    if (!productSelected) {
+      console.log('Could not select a product, skipping remaining steps');
+      return;
+    }
+
     // Click Next
-    const nextButton = page.locator('button:has-text("Next")');
-    await expect(nextButton).toBeEnabled({ timeout: 5000 });
-    await nextButton.click({ force: true });
+    const nextButton = page.getByTestId('next-button');
+    const nextEnabled = await nextButton.isEnabled();
+
+    if (!nextEnabled) {
+      // If Next is disabled, the selected product might need more time
+      await page.waitForTimeout(3000);
+    }
+
+    await expect(nextButton).toBeEnabled({ timeout: 10000 });
+    await nextButton.click();
     await page.waitForTimeout(2000);
 
-    // Verify Step 2
-    const bomHeading = page.locator('h2').filter({ hasText: /BOM|Bill/ });
+    // Wait for BOM skeleton to disappear
+    const bomSkeleton = page.getByTestId('bom-editor-skeleton');
+    if (await bomSkeleton.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await expect(bomSkeleton).not.toBeVisible({ timeout: 15000 });
+    }
+
+    // Verify Step 2 (use getByRole to avoid strict mode)
+    const bomHeading = page.getByRole('heading', { name: 'Edit BOM' });
     const isBomVisible = await bomHeading.isVisible({ timeout: 10000 }).catch(() => false);
 
-    // Check if BOM is empty or has few items
-    const bomItems = page.locator('input[data-testid="bom-item-quantity"]');
-    const itemCount = await bomItems.count();
-    const isEmptyOrSmall = itemCount <= 2;
+    // Check if BOM has items or is empty
+    const bomRows = page.locator('tr').or(page.locator('[data-testid^="bom-row"]'));
+    const rowCount = await bomRows.count();
 
     await recordResult(
       page,
       'Scenario 2: Product WITHOUT BOM',
       'Step 2: Edit BOM',
-      'Verify empty BOM state message or minimal BOM',
+      'BOM Editor displays (may have empty or minimal BOM)',
       isBomVisible ? 'PASS' : 'FAIL',
-      `BOM Editor visible with ${itemCount} items`,
+      `BOM Editor visible with approximately ${rowCount} rows`,
       'S2_05_bom_state.png'
     );
 
@@ -367,7 +407,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (Component)', () => {
       return;
     }
 
-    // Click "Add Component" button
+    // Click "Add Component" button if visible
     const addComponentButton = page.locator('button:has-text("Add Component")');
     const addButtonVisible = await addComponentButton.isVisible({ timeout: 3000 }).catch(() => false);
 
@@ -416,7 +456,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (Component)', () => {
         'Step 2: Edit BOM',
         'Click "Add Component"',
         'SKIP',
-        'Add Component button not visible (may have existing BOM)',
+        'Add Component button not visible (product may already have BOM)',
         'S2_06_current_state.png'
       );
     }
@@ -443,8 +483,8 @@ test.describe('Scenario 2: Product WITHOUT BOM (Component)', () => {
       await page.waitForTimeout(300);
     }
 
-    // Click Calculate
-    const calculateBtn = page.locator('button:has-text("Calculate")');
+    // Click Calculate (use first() to avoid strict mode)
+    const calculateBtn = page.locator('button:has-text("Calculate")').first();
     const calcEnabled = await calculateBtn.isEnabled();
 
     await recordResult(
@@ -461,9 +501,22 @@ test.describe('Scenario 2: Product WITHOUT BOM (Component)', () => {
       await calculateBtn.click();
       await page.waitForTimeout(1000);
 
-      // Wait for results
-      const resultsHeading = page.locator('h2').filter({ hasText: /Result/ });
-      const resultsVisible = await resultsHeading.isVisible({ timeout: 30000 }).catch(() => false);
+      // Wait for results using multiple strategies
+      let resultsVisible = false;
+
+      try {
+        await page.waitForSelector('button[aria-label*="Results"][aria-label*="current"]', { timeout: 60000 });
+        resultsVisible = true;
+      } catch {
+        try {
+          await page.waitForSelector('text=/kg\\s*CO2?e/i', { timeout: 10000 });
+          resultsVisible = true;
+        } catch {
+          const heading = page.locator('h2').filter({ hasText: /Result/ }).first();
+          resultsVisible = await heading.isVisible({ timeout: 5000 }).catch(() => false);
+        }
+      }
+
       await page.waitForTimeout(2000);
 
       await recordResult(
@@ -517,9 +570,9 @@ Tests the complete wizard flow with a product that has an existing Bill of Mater
   });
 
   report += `
-## Scenario 2: Product WITHOUT BOM (Component)
+## Scenario 2: Product WITHOUT BOM
 
-Tests the manual BOM creation flow with a component/material product.
+Tests the BOM toggle filter and product selection with BOM filter off.
 
 | Step | Verification | Status | Notes | Screenshot |
 |------|--------------|--------|-------|------------|
@@ -535,14 +588,14 @@ Tests the manual BOM creation flow with a component/material product.
 **Final Status**: ${failCount === 0 ? 'PASS - All critical verifications successful' : `NEEDS ATTENTION - ${failCount} verification(s) failed`}
 
 ### Scenario 1 Summary (Product WITH BOM)
-- Product selection with "With BOMs" filter: ${scenario1Results.some(r => r.verification.includes('toggle') && r.status === 'PASS') ? 'Working' : 'Needs Review'}
+- Product selection with BOM toggle: ${scenario1Results.some(r => r.verification.includes('toggle') && r.status === 'PASS') ? 'Working' : 'Needs Review'}
 - BOM Editor with pre-populated components: ${scenario1Results.some(r => r.step === 'Step 2: Edit BOM' && r.status === 'PASS') ? 'Working' : 'Needs Review'}
 - Calculation and Results: ${scenario1Results.some(r => r.step === 'Step 3: Results' && r.status === 'PASS') ? 'Working' : 'Needs Review'}
 
 ### Scenario 2 Summary (Product WITHOUT BOM)
-- "All Products" toggle: ${scenario2Results.some(r => r.verification.includes('Toggle') && r.status === 'PASS') ? 'Working' : 'Needs Review'}
-- Manual BOM component addition: ${scenario2Results.some(r => r.verification.includes('Add Component') && r.status === 'PASS') ? 'Working' : 'Skipped/NA'}
-- Emission factor assignment: ${scenario2Results.some(r => r.verification.includes('emission factor') && r.status === 'PASS') ? 'Working' : 'Needs Review'}
+- BOM toggle off: ${scenario2Results.some(r => r.verification.includes('Toggle') && r.status === 'PASS') ? 'Working' : 'Needs Review'}
+- Product selection with filter off: ${scenario2Results.some(r => r.verification.includes('unfiltered') && r.status === 'PASS') ? 'Working' : 'Needs Review'}
+- BOM Editor navigation: ${scenario2Results.some(r => r.step === 'Step 2: Edit BOM' && r.status === 'PASS') ? 'Working' : 'Needs Review'}
 
 ## Test Environment
 

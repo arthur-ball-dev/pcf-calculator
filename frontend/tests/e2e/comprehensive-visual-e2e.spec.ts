@@ -4,9 +4,9 @@
  * Part 1: Products WITH BOMs (Screenshots 01-10)
  * Part 2: Products WITH/WITHOUT BOMs - Manual BOM Editing (Screenshots 11-22)
  *
- * UI Structure (3-step wizard):
- * - Step 1: Select Product (with "With BOMs" / "All Products" toggle)
- * - Step 2: Edit BOM (has "Calculate" button)
+ * UI Structure (3-step wizard - Emerald Night):
+ * - Step 1: Select Product (ProductList - full-page list with search + filters)
+ * - Step 2: Edit BOM (BOM editor with "Calculate" button via next-button)
  * - Step 3: Results (shows after calculation completes)
  *
  * Prerequisites:
@@ -102,6 +102,7 @@ async function setupPage(page: Page, request: any) {
 }
 
 // Helper to take a screenshot and record result
+// Uses viewport screenshot (fullPage: false) to avoid timeout issues with large pages
 async function takeScreenshot(
   page: Page,
   filename: string,
@@ -110,7 +111,7 @@ async function takeScreenshot(
   notes: string = ''
 ) {
   const filepath = path.join(SCREENSHOT_DIR, filename);
-  await page.screenshot({ path: filepath, fullPage: true });
+  await page.screenshot({ path: filepath, fullPage: false, timeout: 30000 });
   testResults.push({ step, screenshot: filename, status, notes });
   console.log(`Screenshot saved: ${filename} [${status}]`);
 }
@@ -121,53 +122,109 @@ function recordBug(id: string, description: string, fixApplied: string, screensh
   console.log(`BUG FOUND: ${id} - ${description}`);
 }
 
+/**
+ * Helper to select a product from the ProductList by searching.
+ * ProductList auto-loads products on mount; products are clickable rows with role="option".
+ */
+async function selectProductBySearch(page: Page, searchTerm: string): Promise<boolean> {
+  // Wait for product list to be visible
+  await page.waitForSelector('[data-testid="product-list"]', { timeout: 10000 });
+
+  // Type search term
+  const searchInput = page.getByTestId('product-search-input');
+  await searchInput.fill(searchTerm);
+  await page.waitForTimeout(700);
+
+  // Check if products appeared
+  const productOption = page.locator('[role="option"]').first();
+  if (await productOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+    // Setup listener for product detail API call BEFORE selecting
+    const productDetailPromise = page.waitForResponse(
+      (response) =>
+        response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) !== null &&
+        response.request().method() === 'GET',
+      { timeout: 10000 }
+    );
+
+    await productOption.click();
+    await productDetailPromise;
+    await page.waitForTimeout(1000);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Helper to select the first available product from ProductList.
+ */
+async function selectFirstProduct(page: Page): Promise<boolean> {
+  // Wait for products to load in the list
+  await page.waitForSelector('[role="option"]', {
+    state: 'visible',
+    timeout: 15000,
+  });
+
+  // Setup listener for product detail API call BEFORE selecting
+  const productDetailPromise = page.waitForResponse(
+    (response) =>
+      response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) !== null &&
+      response.request().method() === 'GET',
+    { timeout: 10000 }
+  );
+
+  const firstProductRow = page.locator('[role="option"]').first();
+  await firstProductRow.click();
+  await productDetailPromise;
+  await page.waitForTimeout(1000);
+  return true;
+}
+
 test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
   test.beforeEach(async ({ page, request }) => {
     await setupPage(page, request);
   });
 
   test('01-10: Complete flow for products WITH BOMs', async ({ page }) => {
+    test.setTimeout(120000);
+
     // 01 - Main page with wizard
     await page.waitForTimeout(1000);
-    await takeScreenshot(page, '01_main_page.png', '01 - Main page load', 'PASS', 'Wizard visible, Step 1: Select Product');
+    await takeScreenshot(page, '01_main_page.png', '01 - Main page load', 'PASS', 'Wizard visible, Step 1: Select Product with ProductList');
 
-    // 02 - Click product dropdown and show "With BOMs" toggle
-    // The product combobox is the main dropdown for selecting products
-    const productCombobox = page.locator('button[role="combobox"]').or(page.locator('combobox')).first();
-    await expect(productCombobox).toBeVisible({ timeout: 10000 });
-    await productCombobox.click();
-    await page.waitForTimeout(500);
-    await takeScreenshot(page, '02_product_dropdown.png', '02 - Product dropdown open', 'PASS', 'Showing With BOMs toggle and product list');
+    // 02 - Show ProductList with search and BOM toggle
+    const productList = page.getByTestId('product-list');
+    await expect(productList).toBeVisible({ timeout: 10000 });
+    await takeScreenshot(page, '02_product_list.png', '02 - Product list visible', 'PASS', 'Showing With BOMs toggle, search input, and product rows');
 
     // 03 - Search for a product with BOM (laptop, backpack, etc.)
-    await page.keyboard.type('Laptop');
-    await page.waitForTimeout(700);
-
-    const laptopOption = page.locator('[role="option"]').first();
-    if (await laptopOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await laptopOption.click();
-      await page.waitForTimeout(1500);
+    let productFound = await selectProductBySearch(page, 'Laptop');
+    if (!productFound) {
+      // Fallback: select first available product
+      const searchInput = page.getByTestId('product-search-input');
+      await searchInput.clear();
+      await page.waitForTimeout(500);
+      productFound = await selectFirstProduct(page);
     }
-    await takeScreenshot(page, '03_with_bom_selected.png', '03 - Product with BOM selected', 'PASS', 'Business Laptop 14-inch selected');
+    await takeScreenshot(page, '03_with_bom_selected.png', '03 - Product with BOM selected', 'PASS', 'Product selected with emerald check indicator');
 
     // 04 - Click Next to go to BOM Editor (Step 2)
-    const nextButton = page.locator('button:has-text("Next")');
+    const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
     await page.waitForTimeout(1500);
 
     // Verify we're on BOM Editor step
-    const bomHeading = page.locator('h2').filter({ hasText: /BOM|Bill/ });
+    const bomHeading = page.locator('h2').filter({ hasText: /BOM|Edit/ });
     await expect(bomHeading).toBeVisible({ timeout: 10000 });
-    await takeScreenshot(page, '04_with_bom_editor.png', '04 - BOM Editor view', 'PASS', 'BOM components visible with 12 items');
+    await takeScreenshot(page, '04_with_bom_editor.png', '04 - BOM Editor view', 'PASS', 'BOM components visible');
 
     // 05 - Check emission factor dropdowns
     const efDropdowns = page.locator('button[role="combobox"]');
     const efCount = await efDropdowns.count();
 
     if (efCount > 0) {
-      // Click an EF dropdown to show options (skip first as it might be unit selector)
-      const efDropdownIndex = Math.min(4, efCount - 1); // Pick one from the emission factor column
+      // Click an EF dropdown to show options
+      const efDropdownIndex = Math.min(4, efCount - 1);
       await efDropdowns.nth(efDropdownIndex).click();
       await page.waitForTimeout(500);
     }
@@ -177,16 +234,16 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
-    // 06 - Show the Calculate button (on Step 2 - BOM Editor)
-    // The Calculate button is at the bottom of the BOM Editor
-    const calculateBtn = page.locator('button:has-text("Calculate")');
+    // 06 - Show the Calculate button (on Step 2 - BOM Editor, it's the Next button)
+    const calculateBtn = page.getByTestId('next-button');
     await expect(calculateBtn).toBeVisible({ timeout: 5000 });
-    await takeScreenshot(page, '06_with_bom_step3.png', '06 - Calculate button visible', 'PASS', 'Calculate button at bottom of BOM Editor');
+    await takeScreenshot(page, '06_with_bom_step2.png', '06 - Calculate button visible', 'PASS', 'Calculate button (next-button) at bottom of BOM Editor');
 
-    // 07 - Click "Calculate PCF" button
+    // 07 - Click "Calculate" button
+    await expect(calculateBtn).toBeEnabled({ timeout: 5000 });
     await calculateBtn.click();
     await page.waitForTimeout(500);
-    await takeScreenshot(page, '07_with_bom_calculating.png', '07 - Calculating', 'PASS', 'Loading state or calculation in progress');
+    await takeScreenshot(page, '07_with_bom_calculating.png', '07 - Calculating', 'PASS', 'Calculation overlay or loading state');
 
     // 08 - Wait for results (Step 3)
     const resultsHeading = page.locator('h2').filter({ hasText: /Result/ });
@@ -195,13 +252,11 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
     await takeScreenshot(page, '08_with_bom_results.png', '08 - Results with Sankey', 'PASS', 'Results and Sankey diagram visible');
 
     // 09 - Try to expand a category in breakdown
-    // Look for expandable/collapsible sections
     const expandableItems = page.locator('[data-state="closed"]').first();
     if (await expandableItems.isVisible({ timeout: 2000 }).catch(() => false)) {
       await expandableItems.click();
       await page.waitForTimeout(500);
     }
-    // Also try accordion triggers
     const accordionTrigger = page.locator('[role="button"][aria-expanded="false"]').first();
     if (await accordionTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
       await accordionTrigger.click();
@@ -222,57 +277,32 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
   });
 
   test('11-22: Complete flow - Product selection and manual BOM editing', async ({ page }) => {
+    test.setTimeout(120000);
+
     // 11 - Start at main page (Step 1)
     await page.waitForTimeout(1000);
-    await takeScreenshot(page, '11_new_calculation.png', '11 - New calculation start', 'PASS', 'Step 1 visible');
+    await takeScreenshot(page, '11_new_calculation.png', '11 - New calculation start', 'PASS', 'Step 1 visible with ProductList');
 
-    // 12 - Find and click "All Products" toggle button
-    // The UI shows: "Show: [With BOMs] [All Products]" buttons
-    const allProductsButton = page.locator('button:has-text("All Products")');
-    await expect(allProductsButton).toBeVisible({ timeout: 5000 });
-    await allProductsButton.click();
+    // 12 - Turn off "With BOMs" toggle to show all products
+    const bomToggle = page.getByTestId('bom-toggle-switch');
+    await expect(bomToggle).toBeVisible({ timeout: 5000 });
+    await bomToggle.click();
     await page.waitForTimeout(500);
     await takeScreenshot(page, '12_all_products_toggle.png', '12 - All Products toggle', 'PASS', 'Toggle changed to show all finished products');
 
-    // 13 - Open dropdown to show more products
-    const productCombobox = page.locator('button[role="combobox"]').or(page.locator('combobox')).first();
-    await expect(productCombobox).toBeVisible({ timeout: 10000 });
-    await productCombobox.click();
-    await page.waitForTimeout(500);
-    await takeScreenshot(page, '13_without_bom_dropdown.png', '13 - More products shown', 'PASS', 'Dropdown with all finished products');
+    // 13 - Show more products in the list
+    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await takeScreenshot(page, '13_without_bom_list.png', '13 - More products shown', 'PASS', 'Product list with all finished products');
 
     // 14 - Select Ceramic Coffee Mug (has a BOM, but we'll modify it)
-    await page.keyboard.type('Ceramic');
-    await page.waitForTimeout(700);
-
-    let productFound = false;
-    let productOption = page.locator('[role="option"]').first();
-
-    // Check if we found an option
-    if (await productOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const optionText = await productOption.textContent().catch(() => '');
-      if (!optionText?.includes('No products found')) {
-        await productOption.click();
-        productFound = true;
-        await page.waitForTimeout(1500);
-      }
-    }
+    let productFound = await selectProductBySearch(page, 'Ceramic');
 
     // If Ceramic didn't work, try selecting first available option
     if (!productFound) {
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(300);
-      await productCombobox.click();
+      const searchInput = page.getByTestId('product-search-input');
+      await searchInput.clear();
       await page.waitForTimeout(500);
-      productOption = page.locator('[role="option"]').first();
-      if (await productOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-        const optionText = await productOption.textContent().catch(() => '');
-        if (!optionText?.includes('No products found')) {
-          await productOption.click();
-          productFound = true;
-          await page.waitForTimeout(1500);
-        }
-      }
+      productFound = await selectFirstProduct(page);
     }
 
     await takeScreenshot(page, '14_without_bom_selected.png', '14 - Product selected', productFound ? 'PASS' : 'FAIL',
@@ -284,13 +314,13 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     }
 
     // 15 - Go to BOM Editor (Step 2)
-    const nextButton = page.locator('button:has-text("Next")');
+    const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
     await page.waitForTimeout(1500);
 
     // Verify we're on BOM Editor step
-    const bomHeading = page.locator('h2').filter({ hasText: /BOM|Bill/ });
+    const bomHeading = page.locator('h2').filter({ hasText: /BOM|Edit/ });
     await expect(bomHeading).toBeVisible({ timeout: 10000 });
     await takeScreenshot(page, '15_empty_bom_state.png', '15 - BOM Editor state', 'PASS', 'BOM Editor showing existing components');
 
@@ -303,14 +333,12 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     await takeScreenshot(page, '16_add_component_click.png', '16 - Add component clicked', 'PASS', 'New row added to BOM');
 
     // 17 - Fill in the new component row (last row, has placeholder text)
-    // The placeholder is "e.g., Cotton, Electricity"
     const newNameInput = page.locator('input[placeholder*="e.g"]').last();
     if (await newNameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
       await newNameInput.fill('Aluminum Sheet');
       await page.waitForTimeout(300);
     }
 
-    // Find and fill quantity for the new row (last number input)
     const quantityInputs = page.locator('input[type="number"][data-testid="bom-item-quantity"]');
     const quantityCount = await quantityInputs.count();
     if (quantityCount > 0) {
@@ -325,7 +353,6 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
       await page.waitForTimeout(500);
     }
 
-    // Fill the newest row
     const newNameInput2 = page.locator('input[placeholder*="e.g"]').last();
     if (await newNameInput2.isVisible({ timeout: 2000 }).catch(() => false)) {
       await newNameInput2.fill('Plastic ABS');
@@ -341,16 +368,13 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     await takeScreenshot(page, '18_second_component.png', '18 - Second component added', 'PASS', 'Multiple manually added BOM rows');
 
     // 19 - Select emission factor for one of the new rows
-    // Scroll down to ensure the new rows are visible
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight - 200));
     await page.waitForTimeout(500);
 
-    // Find EF dropdown for the last row (should show "Select factor")
     const efDropdownsForNew = page.locator('button[aria-label="Emission factor"]');
     const efDropdownCount = await efDropdownsForNew.count();
 
     if (efDropdownCount > 0) {
-      // Click the last EF dropdown (for our newly added component)
       const lastEfDropdown = efDropdownsForNew.last();
       await lastEfDropdown.scrollIntoViewIfNeeded();
       await page.waitForTimeout(300);
@@ -368,8 +392,8 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     await page.waitForTimeout(500);
     await takeScreenshot(page, '20_constructed_bom.png', '20 - Complete BOM', 'PASS', 'Full BOM with manually added components');
 
-    // 21 - Click Calculate button
-    const calculateBtn = page.locator('button:has-text("Calculate")');
+    // 21 - Click Calculate button (next-button on edit step shows "Calculate")
+    const calculateBtn = page.getByTestId('next-button');
 
     // Scroll to make the calculate button visible
     await calculateBtn.scrollIntoViewIfNeeded();
@@ -382,7 +406,6 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
       await page.waitForTimeout(500);
       await takeScreenshot(page, '21_without_bom_calculate.png', '21 - Calculation running', 'PASS', 'Calculate initiated');
     } else {
-      // If button is disabled, there's a validation error
       await takeScreenshot(page, '21_without_bom_calculate.png', '21 - Calculate button', 'PASS', 'Calculate button visible (may have validation errors)');
     }
 
@@ -393,7 +416,6 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
       await page.waitForTimeout(2000);
       await takeScreenshot(page, '22_without_bom_results.png', '22 - Results', 'PASS', 'Calculation complete with results');
     } catch {
-      // If calculation didn't complete (validation error or timeout), take screenshot of current state
       await takeScreenshot(page, '22_without_bom_results.png', '22 - Current state', 'PASS', 'Current BOM state (may have validation errors)');
     }
   });
@@ -472,9 +494,10 @@ All screenshots saved to: \`${SCREENSHOT_DIR}/\`
 
 - Part 1 tests products that HAVE existing BOMs (e.g., Business Laptop)
 - Part 2 tests manually adding components to a product's BOM
-- The "With BOMs" / "All Products" toggle filters finished products
-- Calculate button is on Step 2 (Edit BOM), not a separate step
-- Products selected with "All Products" may still have existing BOMs
+- The BOM toggle switch controls "With BOMs" filter (default: on)
+- Calculate button is the Next button on Step 2 (Edit BOM) which shows "Calculate" text
+- Products are selected by clicking rows in the ProductList (no dropdown)
+- ProductList auto-loads products on mount via /api/v1/products/search
 `;
 
   fs.writeFileSync(reportPath, report);

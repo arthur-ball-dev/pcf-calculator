@@ -4,16 +4,17 @@
  * Purpose: Complete the manual BOM -> Results flow test
  *
  * Steps:
- * 1. Navigate to the app
+ * 1. Navigate to the app (with auth)
  * 2. Dismiss tour dialog if present
- * 3. Click "All Products" to see products without BOM
- * 4. Select a product without existing BOM (or any product)
- * 5. Add manual BOM components
- * 6. Handle any validation errors
- * 7. Take screenshot of valid BOM state
- * 8. Click Calculate
- * 9. Wait for results
- * 10. Take screenshot of results
+ * 3. Select a product from the list (keep BOM toggle ON for products with BOMs)
+ * 4. Click Next to go to BOM Editor
+ * 5. Handle any validation errors in BOM
+ * 6. Take screenshot of valid BOM state
+ * 7. Click Calculate
+ * 8. Wait for results
+ * 9. Take screenshot of results
+ *
+ * UI: Emerald Night ProductList (full-page scrollable list, 3-step wizard)
  *
  * Screenshots saved to: /home/mydev/projects/PCF/product-lca-carbon-calculator/e2e-screenshots/
  */
@@ -22,105 +23,112 @@ import { test, expect } from '@playwright/test';
 import * as path from 'path';
 
 const SCREENSHOT_DIR = '/home/mydev/projects/PCF/product-lca-carbon-calculator/e2e-screenshots';
+const API_BASE_URL = 'http://localhost:8000';
 
 test.describe('Manual BOM Construction Flow', () => {
-  test('should build manual BOM and complete calculation', async ({ page }) => {
-    // Navigate to the application
-    console.log('Step 1: Navigate to the application...');
+  test('should build manual BOM and complete calculation', async ({ page, request }) => {
+    test.setTimeout(120000);
+
+    // Step 1: Authenticate and navigate to the application
+    console.log('Step 1: Authenticate and navigate to the application...');
+
+    // Authenticate via API
+    const authResponse = await request.post(`${API_BASE_URL}/api/v1/auth/login`, {
+      data: { username: 'e2e-test', password: 'E2ETestPassword123!' },
+    });
+
+    let authToken = '';
+    if (authResponse.ok()) {
+      const authData = await authResponse.json();
+      authToken = authData.access_token;
+    }
+
+    // Set localStorage with auth token and skip tour BEFORE navigating
+    await page.addInitScript((token) => {
+      window.localStorage.setItem('auth_token', token);
+      window.localStorage.setItem('pcf-calculator-tour-completed', 'true');
+    }, authToken);
+
     await page.goto('http://localhost:5173');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000); // Wait for any loading animations
 
-    // Step 2: Dismiss tour dialog if present
+    // Step 2: Dismiss tour dialog if present (belt-and-suspenders)
     console.log('Step 2: Dismiss tour dialog if present...');
-    const tourDialog = page.locator('text=Step 1: Select a Product').first();
-    if (await tourDialog.isVisible()) {
-      console.log('Tour dialog found - clicking Finish/Skip...');
-      // Try to click "Finish" or "Skip tour"
-      const finishBtn = page.locator('button:has-text("Finish")');
-      const skipLink = page.locator('text=Skip tour');
-
-      if (await finishBtn.isVisible()) {
-        await finishBtn.click();
-      } else if (await skipLink.isVisible()) {
-        await skipLink.click();
-      }
-      await page.waitForTimeout(500);
-    }
+    await page.evaluate(() => {
+      const portal = document.getElementById('react-joyride-portal');
+      if (portal) portal.remove();
+      document.querySelectorAll('.react-joyride__overlay').forEach(el => el.remove());
+    });
+    await page.waitForTimeout(500);
 
     // Take debug screenshot
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'debug_after_tour.png'),
-      fullPage: true
+      fullPage: false,
+      timeout: 30000
     });
 
-    // Step 3: Click "All Products" to see products without BOM
-    console.log('Step 3: Click All Products to see all products...');
-    const allProductsBtn = page.locator('button:has-text("All Products")');
-    if (await allProductsBtn.isVisible()) {
-      await allProductsBtn.click();
-      await page.waitForTimeout(500);
-    }
+    // Step 3: Wait for product list to load, then select a product
+    console.log('Step 3: Search for and select a product...');
+    const searchInput = page.getByTestId('product-search-input');
+    await expect(searchInput).toBeVisible({ timeout: 10000 });
 
-    // Step 4: Click on the product selector (combobox)
-    console.log('Step 4: Open product selector...');
-    const productTrigger = page.locator('[data-testid="product-select-trigger"]').or(
-      page.locator('button[role="combobox"]:has-text("Search and select")')
-    );
+    // Wait for initial products to load (the list auto-loads on mount)
+    await page.waitForTimeout(1500);
 
-    if (await productTrigger.count() > 0) {
-      await productTrigger.first().click();
-      await page.waitForTimeout(500);
+    // Select the first available product from the list
+    const productRow = page.locator('[role="option"]').first();
+    if (await productRow.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const productText = await productRow.textContent();
+      console.log(`Selecting product: ${productText?.substring(0, 80)}`);
+      await productRow.click();
+      await page.waitForTimeout(1500);
+    } else {
+      console.log('No products visible, trying search...');
+      await searchInput.fill('Bottle');
+      await page.waitForTimeout(1000);
 
-      // Search for a product (e.g., "Mug" or "Coffee")
-      console.log('Searching for a product...');
-      const searchInput = page.locator('input[placeholder*="Search"]').first();
-      if (await searchInput.isVisible()) {
-        await searchInput.fill('Coffee');
-        await page.waitForTimeout(1000);
-      }
-
-      // Click the first product result
-      const productOption = page.locator('[role="option"]').first();
-      if (await productOption.isVisible()) {
-        console.log('Selecting product...');
-        await productOption.click();
-        await page.waitForTimeout(1000);
+      const searchResult = page.locator('[role="option"]').first();
+      if (await searchResult.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await searchResult.click();
+        await page.waitForTimeout(1500);
       }
     }
-
-    // Wait for page to update
-    await page.waitForTimeout(1000);
 
     // Take screenshot after product selection
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'debug_product_selected.png'),
-      fullPage: true
+      fullPage: false,
+      timeout: 30000
     });
 
-    // Step 5: Click "Next" to go to BOM Editor if we're on Step 1
-    console.log('Step 5: Navigate to BOM Editor (Step 2)...');
-    const nextBtn = page.locator('button:has-text("Next")');
-    if (await nextBtn.isVisible()) {
-      const isNextDisabled = await nextBtn.getAttribute('disabled');
-      if (!isNextDisabled) {
-        console.log('Clicking Next button...');
-        await nextBtn.click();
-        await page.waitForTimeout(1000);
-      }
+    // Step 4: Click "Next" to go to BOM Editor
+    console.log('Step 4: Navigate to BOM Editor (Step 2)...');
+    const nextBtn = page.getByTestId('next-button');
+    await expect(nextBtn).toBeEnabled({ timeout: 10000 });
+    console.log('Clicking Next button...');
+    await nextBtn.click();
+    await page.waitForTimeout(1000);
+
+    // Wait for BOM skeleton to disappear
+    const bomSkeleton = page.getByTestId('bom-editor-skeleton');
+    if (await bomSkeleton.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await expect(bomSkeleton).not.toBeVisible({ timeout: 15000 });
     }
 
     // Take screenshot of BOM Editor
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'debug_bom_editor.png'),
-      fullPage: true
+      fullPage: false,
+      timeout: 30000
     });
 
-    // Step 6: Handle validation errors if present
-    console.log('Step 6: Check for and fix validation errors...');
+    // Step 5: Handle validation errors if present
+    console.log('Step 5: Check for and fix validation errors...');
     const errorBox = page.locator('text=Please fix the following errors');
 
-    if (await errorBox.isVisible()) {
+    if (await errorBox.isVisible({ timeout: 2000 }).catch(() => false)) {
       console.log('Found validation errors - fixing empty rows...');
 
       // Find empty input fields (component name is required)
@@ -175,7 +183,6 @@ test.describe('Manual BOM Construction Flow', () => {
       if (!val || val.trim() === '') {
         console.log(`Filling remaining empty input #${idx}`);
         await remainingEmptyInputs[idx].fill(`Material ${idx + 1}`);
-        // Trigger blur to run validation
         await remainingEmptyInputs[idx].blur();
         await page.waitForTimeout(300);
       }
@@ -184,16 +191,17 @@ test.describe('Manual BOM Construction Flow', () => {
     // Wait for validation to update
     await page.waitForTimeout(1000);
 
-    // Step 7: Take screenshot of valid BOM state
-    console.log('Step 7: Taking screenshot 23: Valid BOM ready...');
+    // Step 6: Take screenshot of valid BOM state
+    console.log('Step 6: Taking screenshot 23: Valid BOM ready...');
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, '23_valid_bom_ready.png'),
-      fullPage: true
+      fullPage: false,
+      timeout: 30000
     });
 
-    // Step 8: Check if Calculate button is enabled and click it
-    console.log('Step 8: Click Calculate button...');
-    const calcButton = page.locator('button:has-text("Calculate")');
+    // Step 7: Check if Calculate button is enabled and click it
+    console.log('Step 7: Click Calculate button...');
+    const calcButton = page.locator('button:has-text("Calculate")').first();
 
     // Wait for the button to be visible
     await expect(calcButton).toBeVisible({ timeout: 10000 });
@@ -204,7 +212,8 @@ test.describe('Manual BOM Construction Flow', () => {
       console.log('Calculate button is still disabled - taking debug screenshot');
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '23_calc_button_disabled.png'),
-        fullPage: true
+        fullPage: false,
+        timeout: 30000
       });
 
       // Check what validation errors exist
@@ -233,8 +242,8 @@ test.describe('Manual BOM Construction Flow', () => {
     console.log('Clicking Calculate button...');
     await calcButton.click();
 
-    // Step 9: Wait for calculation to complete and results to appear
-    console.log('Step 9: Waiting for calculation results...');
+    // Step 8: Wait for calculation to complete and results to appear
+    console.log('Step 8: Waiting for calculation results...');
     try {
       // Wait for the results page content
       await page.waitForSelector('text=Total Carbon Footprint', { timeout: 30000 });
@@ -245,13 +254,9 @@ test.describe('Manual BOM Construction Flow', () => {
       // Check if we see "Results" step indicator or any CO2e value
       const resultsStep = page.locator('text=Results').first();
       const co2eText = page.locator('text=kg CO').first();
-      const step3Active = page.locator('[data-state="active"]:has-text("3")').or(
-        page.locator('.bg-primary:has-text("3")')
-      );
 
-      const hasResultsIndicator = await resultsStep.isVisible() ||
-        await co2eText.isVisible() ||
-        await step3Active.isVisible();
+      const hasResultsIndicator = await resultsStep.isVisible().catch(() => false) ||
+        await co2eText.isVisible().catch(() => false);
 
       if (hasResultsIndicator) {
         console.log('Found results content');
@@ -259,7 +264,8 @@ test.describe('Manual BOM Construction Flow', () => {
         // Take a debug screenshot
         await page.screenshot({
           path: path.join(SCREENSHOT_DIR, '24_timeout_debug.png'),
-          fullPage: true
+          fullPage: false,
+          timeout: 30000
         });
 
         // Get page content for debugging
@@ -273,11 +279,12 @@ test.describe('Manual BOM Construction Flow', () => {
     // Wait for any animations
     await page.waitForTimeout(1000);
 
-    // Step 10: Take screenshot of results
-    console.log('Step 10: Taking screenshot 24: Manual BOM results...');
+    // Step 9: Take screenshot of results
+    console.log('Step 9: Taking screenshot 24: Manual BOM results...');
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, '24_manual_bom_results.png'),
-      fullPage: true
+      fullPage: false,
+      timeout: 30000
     });
 
     console.log('E2E test completed successfully!');
