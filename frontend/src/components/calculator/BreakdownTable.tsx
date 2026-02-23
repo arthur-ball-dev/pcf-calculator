@@ -1,29 +1,29 @@
 /**
  * BreakdownTable Component
  *
- * Interactive table showing emissions breakdown by category with:
- * - Collapsible category sections with smooth animation
- * - Individual items within each category
- * - Sortable columns (CO2e, percentage)
- * - Progress bars showing percentage contribution
- * - WCAG 2.1 AA accessible
- * - SourceBadge for data source attribution (TASK-FE-P8-005)
+ * Emerald Night 5B category breakdown table with:
+ * - Category name with colored dot indicator
+ * - Horizontal bar chart (proportional width, category color)
+ * - Amount and percentage columns
+ * - Collapsible category rows showing individual items
+ * - SourceBadge for data source attribution
+ *
+ * Design Source: frontend/prototypes/approach-5b-single-card/03-results.html
+ *
+ * The table uses the dark theme styling from the prototype:
+ * - Subtle row hover backgrounds
+ * - Colored dot indicators matching EMISSION_CATEGORY_COLORS
+ * - Bar tracks with rounded fills
+ * - Tabular numbers for alignment
  *
  * TASK-FE-009: Results Dashboard - Breakdown Table
  * TASK-FE-P8-003: Expandable items in detailed breakdown section
  * TASK-FE-P8-005: Integrate SourceBadge into Breakdown Table
+ * Emerald Night 5B Rebuild: Simplified table matching prototype
  */
 
 import React, { useState, useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../ui/table';
 import { EMISSION_CATEGORY_COLORS } from '../../constants/colors';
 import { SourceBadge } from '@/components/attribution/SourceBadge';
 import type { BreakdownByComponent } from '../../types/store.types';
@@ -36,7 +36,6 @@ interface BreakdownItem {
   co2e: number;
   quantity?: number;
   unit?: string;
-  /** TASK-FE-P8-005: Data source code for SourceBadge */
   data_source?: string;
 }
 
@@ -55,14 +54,9 @@ interface BreakdownTableProps {
   materialsCO2e?: number;
   energyCO2e?: number;
   transportCO2e?: number;
-  /** Component-level breakdown (component_name -> co2e_kg) */
   breakdown?: BreakdownByComponent;
-  /** TASK-FE-P8-005: Data source mapping (component_name -> source_code) */
   itemSources?: Record<string, string>;
 }
-
-type SortField = 'category' | 'co2e' | 'percentage';
-type SortDirection = 'asc' | 'desc';
 
 /**
  * Capitalize first letter of string
@@ -74,7 +68,6 @@ function capitalize(str: string): string {
 /**
  * Format a component name for display
  * Converts snake_case and kebab-case to Title Case
- * e.g., "transport_ship" -> "Transport Ship"
  */
 function formatComponentName(name: string): string {
   return name
@@ -87,19 +80,11 @@ function formatComponentName(name: string): string {
 }
 
 /**
- * Classify a component name into a category based on naming patterns
- *
- * Categories:
- * - Energy: contains "electricity", "power", "energy", "kwh"
- * - Transport: contains "transport", "truck", "ship", "freight", "logistics"
- * - Other/Processing: contains "process", "coating", "treatment", "welding", "machining",
- *   "assembly", "packaging", "testing", "finishing", "curing", "molding", "casting"
- * - Materials: everything else (default)
+ * Classify a component name into a category
  */
 function classifyComponent(name: string): 'materials' | 'energy' | 'transport' | 'other' {
   const nameLower = name.toLowerCase();
 
-  // Energy patterns
   if (
     nameLower.includes('electricity') ||
     nameLower.includes('power') ||
@@ -109,7 +94,6 @@ function classifyComponent(name: string): 'materials' | 'energy' | 'transport' |
     return 'energy';
   }
 
-  // Transport patterns
   if (
     nameLower.includes('transport') ||
     nameLower.includes('truck') ||
@@ -120,7 +104,6 @@ function classifyComponent(name: string): 'materials' | 'energy' | 'transport' |
     return 'transport';
   }
 
-  // Processing/Other patterns
   if (
     nameLower.includes('process') ||
     nameLower.includes('coating') ||
@@ -142,22 +125,24 @@ function classifyComponent(name: string): 'materials' | 'energy' | 'transport' |
     return 'other';
   }
 
-  // Default to materials
   return 'materials';
+}
+
+/**
+ * Format number for display with locale thousand separators
+ */
+function formatAmount(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 /**
  * BreakdownTable Component
  *
- * Displays emissions breakdown with collapsible categories and sorting.
- * Category rows expand to show individual component items.
- *
- * @param totalCO2e - Total CO2e for calculating percentages
- * @param materialsCO2e - Materials emissions
- * @param energyCO2e - Energy emissions
- * @param transportCO2e - Transport emissions
- * @param breakdown - Component-level breakdown map
- * @param itemSources - TASK-FE-P8-005: Mapping of component names to data source codes
+ * Displays emissions breakdown per category with horizontal bar charts,
+ * matching the Emerald Night 5B prototype design.
  */
 export default function BreakdownTable({
   totalCO2e,
@@ -168,46 +153,19 @@ export default function BreakdownTable({
   itemSources,
 }: BreakdownTableProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [sortField, setSortField] = useState<SortField>('co2e');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   // Build breakdown data with items categorized from component breakdown
-  // IMPORTANT: Calculate ALL category totals from breakdown items to ensure consistency
-  // Backend's category totals may classify items differently than our frontend classification
   const breakdownData: CategoryBreakdown[] = useMemo(() => {
-    // Initialize categories - totals will be calculated from items
     const categoriesMap: Record<string, CategoryBreakdown> = {
-      materials: {
-        category: 'materials',
-        total: 0,
-        percentage: 0,
-        items: [],
-      },
-      energy: {
-        category: 'energy',
-        total: 0,
-        percentage: 0,
-        items: [],
-      },
-      transport: {
-        category: 'transport',
-        total: 0,
-        percentage: 0,
-        items: [],
-      },
-      other: {
-        category: 'other',
-        total: 0,
-        percentage: 0,
-        items: [],
-      },
+      materials: { category: 'materials', total: 0, percentage: 0, items: [] },
+      energy: { category: 'energy', total: 0, percentage: 0, items: [] },
+      transport: { category: 'transport', total: 0, percentage: 0, items: [] },
+      other: { category: 'other', total: 0, percentage: 0, items: [] },
     };
 
-    // If breakdown data is available, categorize individual items
     if (breakdown && Object.keys(breakdown).length > 0) {
       Object.entries(breakdown).forEach(([componentName, co2e]) => {
         const category = classifyComponent(componentName);
-        // TASK-FE-P8-005: Include data_source from itemSources mapping
         const dataSource = itemSources?.[componentName];
         categoriesMap[category].items.push({
           name: componentName,
@@ -216,15 +174,12 @@ export default function BreakdownTable({
         });
       });
 
-      // Calculate ALL category totals from their items for consistency
       Object.values(categoriesMap).forEach((cat) => {
         cat.total = cat.items.reduce((sum, item) => sum + item.co2e, 0);
         cat.percentage = totalCO2e > 0 ? (cat.total / totalCO2e) * 100 : 0;
-        // Sort items by CO2e (descending)
         cat.items.sort((a, b) => b.co2e - a.co2e);
       });
     } else {
-      // Fallback to backend totals if no breakdown available
       categoriesMap.materials.total = materialsCO2e;
       categoriesMap.materials.percentage = totalCO2e > 0 ? (materialsCO2e / totalCO2e) * 100 : 0;
       categoriesMap.energy.total = energyCO2e;
@@ -233,34 +188,10 @@ export default function BreakdownTable({
       categoriesMap.transport.percentage = totalCO2e > 0 ? (transportCO2e / totalCO2e) * 100 : 0;
     }
 
-    // Return only categories with non-zero totals
-    return Object.values(categoriesMap).filter((cat) => cat.total > 0);
+    return Object.values(categoriesMap)
+      .filter((cat) => cat.total > 0)
+      .sort((a, b) => b.total - a.total);
   }, [totalCO2e, materialsCO2e, energyCO2e, transportCO2e, breakdown, itemSources]);
-
-  // Sort breakdown data
-  const sortedBreakdown = useMemo(() => {
-    const sorted = [...breakdownData];
-
-    sorted.sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortField) {
-        case 'category':
-          comparison = a.category.localeCompare(b.category);
-          break;
-        case 'co2e':
-          comparison = a.total - b.total;
-          break;
-        case 'percentage':
-          comparison = a.percentage - b.percentage;
-          break;
-      }
-
-      return sortDirection === 'desc' ? -comparison : comparison;
-    });
-
-    return sorted;
-  }, [breakdownData, sortField, sortDirection]);
 
   /**
    * Toggle category expansion
@@ -275,55 +206,26 @@ export default function BreakdownTable({
     setExpandedCategories(newExpanded);
   };
 
-  /**
-   * Handle column header click for sorting
-   */
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      // Toggle direction
-      setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc');
-    } else {
-      // New field, default to descending
-      setSortField(field);
-      setSortDirection('desc');
-    }
-  };
-
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[40%]">
-            <button
-              onClick={() => handleSort('category')}
-              className="font-medium hover:underline focus:outline-none focus:underline"
-              aria-label="Sort by category"
-            >
-              Category
-            </button>
-          </TableHead>
-          <TableHead className="w-[25%]">
-            <button
-              onClick={() => handleSort('co2e')}
-              className="font-medium hover:underline focus:outline-none focus:underline"
-              aria-label="Sort by CO2e"
-            >
-              CO2e (kg)
-            </button>
-          </TableHead>
-          <TableHead className="w-[35%]">
-            <button
-              onClick={() => handleSort('percentage')}
-              className="font-medium hover:underline focus:outline-none focus:underline"
-              aria-label="Sort by percentage"
-            >
-              Percentage
-            </button>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {sortedBreakdown.map((item) => {
+    <table className="w-full border-collapse" data-testid="breakdown-table">
+      <thead>
+        <tr>
+          <th className="px-6 py-3 text-left text-[0.6875rem] font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em] border-b border-[var(--card-border)]">
+            Category
+          </th>
+          <th className="px-6 py-3 text-left text-[0.6875rem] font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em] border-b border-[var(--card-border)]">
+            Amount
+          </th>
+          <th className="px-6 py-3 text-left text-[0.6875rem] font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em] border-b border-[var(--card-border)]">
+            Percentage
+          </th>
+          <th className="px-6 py-3 text-left text-[0.6875rem] font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em] border-b border-[var(--card-border)] min-w-[200px] max-[768px]:min-w-[120px]">
+            Distribution
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {breakdownData.map((item) => {
           const isExpanded = expandedCategories.has(item.category);
           const hasItems = item.items.length > 0;
           const categoryColor =
@@ -333,12 +235,14 @@ export default function BreakdownTable({
           return (
             <React.Fragment key={item.category}>
               {/* Category row */}
-              <TableRow
-                className={hasItems ? 'cursor-pointer hover:bg-muted/50' : ''}
+              <tr
+                className={`transition-colors duration-150 ${
+                  hasItems ? 'cursor-pointer' : ''
+                } hover:bg-white/[0.025]`}
                 data-testid={`category-row-${item.category}`}
                 onClick={() => hasItems && toggleCategory(item.category)}
               >
-                <TableCell>
+                <td className="px-6 py-4 text-[0.9375rem] text-[var(--text-primary)] border-b border-white/[0.04] align-middle">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -346,7 +250,7 @@ export default function BreakdownTable({
                     }}
                     aria-expanded={isExpanded}
                     aria-controls={`${item.category}-items`}
-                    className={`flex items-center gap-2 w-full text-left ${
+                    className={`flex items-center gap-2.5 w-full text-left font-semibold ${
                       hasItems
                         ? 'hover:underline focus:outline-none focus:underline'
                         : 'cursor-default'
@@ -354,129 +258,101 @@ export default function BreakdownTable({
                     disabled={!hasItems}
                     data-testid={`expand-${item.category}`}
                   >
-                    <ChevronRight
-                      className={`h-4 w-4 transition-transform duration-200 ${
-                        isExpanded ? 'rotate-90' : ''
-                      } ${!hasItems ? 'opacity-30' : ''}`}
-                      aria-hidden="true"
-                    />
-                    <div
-                      className="w-3 h-3 rounded-sm flex-shrink-0"
+                    {hasItems && (
+                      <ChevronRight
+                        className={`h-4 w-4 transition-transform duration-200 flex-shrink-0 ${
+                          isExpanded ? 'rotate-90' : ''
+                        }`}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span
+                      className="w-2.5 h-2.5 rounded-[3px] flex-shrink-0"
                       style={{ backgroundColor: categoryColor }}
                       aria-hidden="true"
                     />
-                    <span className="font-medium">{capitalize(item.category)}</span>
-                    {hasItems && (
-                      <span className="text-xs text-muted-foreground ml-1">
-                        ({item.items.length} {item.items.length === 1 ? 'item' : 'items'})
-                      </span>
-                    )}
+                    {capitalize(item.category)}
                   </button>
-                </TableCell>
-                <TableCell>
-                  <span className="tabular-nums font-medium">{item.total.toFixed(2)}</span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span className="tabular-nums w-12">{item.percentage.toFixed(1)}%</span>
+                </td>
+                <td className="px-6 py-4 text-[0.9375rem] text-[var(--text-primary)] font-semibold tabular-nums border-b border-white/[0.04] align-middle">
+                  {formatAmount(item.total)}{' '}
+                  <span className="text-[var(--text-dim)] font-normal text-[0.8125rem]">
+                    kg CO<sub>2</sub>e
+                  </span>
+                </td>
+                <td className="px-6 py-4 tabular-nums text-[var(--text-muted)] border-b border-white/[0.04] align-middle">
+                  {item.percentage.toFixed(1)}%
+                </td>
+                <td className="px-6 py-4 border-b border-white/[0.04] align-middle min-w-[200px] max-[768px]:min-w-[120px]">
+                  <div
+                    className="w-full h-2.5 bg-white/[0.06] rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={item.percentage}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${item.category} contributes ${item.percentage.toFixed(1)}% of total emissions`}
+                  >
                     <div
-                      className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[200px]"
-                      role="progressbar"
-                      aria-valuenow={item.percentage}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`${item.category} contributes ${item.percentage.toFixed(1)}% of total emissions`}
-                    >
-                      <div
-                        className="h-full transition-all duration-300"
-                        style={{
-                          width: `${item.percentage}%`,
-                          backgroundColor: categoryColor,
-                        }}
-                        aria-hidden="true"
-                      />
-                    </div>
+                      className="h-full rounded-full transition-all duration-600"
+                      style={{
+                        width: `${item.percentage}%`,
+                        backgroundColor: categoryColor,
+                      }}
+                      aria-hidden="true"
+                    />
                   </div>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
 
-              {/* Expanded items - render when expanded */}
+              {/* Expanded items */}
               {isExpanded && item.items.map((subItem, index) => {
                 const itemPercentage =
                   totalCO2e > 0 ? (subItem.co2e / totalCO2e) * 100 : 0;
 
                 return (
-                  <TableRow
+                  <tr
                     key={`${item.category}-${subItem.name}-${index}`}
-                    className="bg-muted/30 animate-in fade-in-0 slide-in-from-top-1 duration-200"
+                    className="bg-white/[0.015] animate-in fade-in-0 slide-in-from-top-1 duration-200"
                     data-testid={`item-row-${subItem.name}`}
                   >
-                    <TableCell className="pl-10">
-                      <span className="text-sm text-muted-foreground">
+                    <td className="px-6 py-3 pl-14 text-sm text-[var(--text-muted)] border-b border-white/[0.04]">
+                      <span>
                         {formatComponentName(subItem.name)}
                         {subItem.quantity !== undefined && subItem.unit && (
-                          <span className="ml-2 text-xs">
+                          <span className="ml-2 text-xs text-[var(--text-dim)]">
                             ({subItem.quantity} {subItem.unit})
                           </span>
                         )}
-                        {/* TASK-FE-P8-005: SourceBadge for data source attribution */}
                         {subItem.data_source && (
                           <SourceBadge sourceCode={subItem.data_source} className="ml-2" />
                         )}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="tabular-nums text-sm text-muted-foreground">
-                        {subItem.co2e.toFixed(3)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="tabular-nums w-12 text-sm text-muted-foreground">
-                          {itemPercentage.toFixed(1)}%
-                        </span>
-                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-[200px]">
-                          <div
-                            className="h-full transition-all duration-300 opacity-60"
-                            style={{
-                              width: `${itemPercentage}%`,
-                              backgroundColor: categoryColor,
-                            }}
-                            aria-hidden="true"
-                          />
-                        </div>
+                    </td>
+                    <td className="px-6 py-3 text-sm tabular-nums text-[var(--text-muted)] border-b border-white/[0.04]">
+                      {subItem.co2e.toFixed(3)}
+                    </td>
+                    <td className="px-6 py-3 text-sm tabular-nums text-[var(--text-dim)] border-b border-white/[0.04]">
+                      {itemPercentage.toFixed(1)}%
+                    </td>
+                    <td className="px-6 py-3 border-b border-white/[0.04] min-w-[200px] max-[768px]:min-w-[120px]">
+                      <div className="w-full h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full opacity-60"
+                          style={{
+                            width: `${itemPercentage}%`,
+                            backgroundColor: categoryColor,
+                          }}
+                          aria-hidden="true"
+                        />
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 );
               })}
             </React.Fragment>
           );
         })}
-
-        {/* Total row */}
-        <TableRow className="border-t-2 bg-muted/20 font-semibold">
-          <TableCell>
-            {/* Use same flex structure as category rows for perfect alignment */}
-            <div className="flex items-center gap-2">
-              {/* Invisible chevron placeholder */}
-              <div className="h-4 w-4" aria-hidden="true" />
-              {/* Invisible color box placeholder */}
-              <div className="w-3 h-3" aria-hidden="true" />
-              <span className="font-semibold">Total</span>
-            </div>
-          </TableCell>
-          <TableCell>
-            <span className="tabular-nums font-semibold">{totalCO2e.toFixed(2)}</span>
-          </TableCell>
-          <TableCell>
-            {/* Match the flex layout and w-12 of category percentage cells */}
-            <div className="flex items-center gap-2">
-              <span className="tabular-nums w-12 font-semibold">100.0%</span>
-            </div>
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
+      </tbody>
+    </table>
   );
 }
