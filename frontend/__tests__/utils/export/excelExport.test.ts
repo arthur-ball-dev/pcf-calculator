@@ -265,7 +265,7 @@ describe('Excel Export Utility', () => {
     it('should add BOM sheet to workbook', () => {
       const workbook = createWorkbook();
 
-      addBOMSheet(workbook, sampleExportData.bomEntries);
+      addBOMSheet(workbook, sampleExportData.bomEntries, 410);
 
       expect(XLSX.utils.book_append_sheet).toHaveBeenCalledWith(
         workbook,
@@ -277,12 +277,13 @@ describe('Excel Export Utility', () => {
     it('should include header row with correct columns', () => {
       const workbook = createWorkbook();
 
-      addBOMSheet(workbook, sampleExportData.bomEntries);
+      addBOMSheet(workbook, sampleExportData.bomEntries, 410);
 
       const aoaCall = (XLSX.utils.aoa_to_sheet as ReturnType<typeof vi.fn>).mock.calls[0][0];
       const headers = aoaCall[0];
 
       expect(headers).toContain('Component');
+      expect(headers).toContain('Category');
       expect(headers).toContain('Quantity');
       expect(headers).toContain('Unit');
       expect(headers).toContain('Emission Factor');
@@ -292,7 +293,7 @@ describe('Excel Export Utility', () => {
     it('should include all BOM entries', () => {
       const workbook = createWorkbook();
 
-      addBOMSheet(workbook, sampleExportData.bomEntries);
+      addBOMSheet(workbook, sampleExportData.bomEntries, 410);
 
       const aoaCall = (XLSX.utils.aoa_to_sheet as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
@@ -303,7 +304,7 @@ describe('Excel Export Utility', () => {
     it('should include totals row at the end', () => {
       const workbook = createWorkbook();
 
-      addBOMSheet(workbook, sampleExportData.bomEntries);
+      addBOMSheet(workbook, sampleExportData.bomEntries, 410);
 
       const aoaCall = (XLSX.utils.aoa_to_sheet as ReturnType<typeof vi.fn>).mock.calls[0][0];
       const lastRow = aoaCall[aoaCall.length - 1];
@@ -329,7 +330,7 @@ describe('Excel Export Utility', () => {
     it('should handle empty BOM entries', () => {
       const workbook = createWorkbook();
 
-      addBOMSheet(workbook, []);
+      addBOMSheet(workbook, [], 0);
 
       const aoaCall = (XLSX.utils.aoa_to_sheet as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
@@ -366,7 +367,7 @@ describe('Excel Export Utility', () => {
     it('should set column widths for BOM sheet', () => {
       const workbook = createWorkbook();
 
-      addBOMSheet(workbook, sampleExportData.bomEntries);
+      addBOMSheet(workbook, sampleExportData.bomEntries, 410);
 
       // Verify aoa_to_sheet was called
       expect(XLSX.utils.aoa_to_sheet).toHaveBeenCalled();
@@ -402,15 +403,15 @@ describe('Excel Export Utility', () => {
   // ==========================================================================
 
   describe('exportToExcel', () => {
-    it('should create workbook with all three sheets', () => {
-      exportToExcel(sampleExportData, 'test-report');
+    it('should create workbook with all four sheets (including Attribution)', async () => {
+      await exportToExcel(sampleExportData, 'test-report');
 
-      // Should call book_append_sheet 3 times (Summary, Breakdown, BOM)
-      expect(XLSX.utils.book_append_sheet).toHaveBeenCalledTimes(3);
+      // Should call book_append_sheet 4 times (Summary, Breakdown, BOM, Data Sources)
+      expect(XLSX.utils.book_append_sheet).toHaveBeenCalledTimes(4);
     });
 
-    it('should write workbook to array buffer', () => {
-      exportToExcel(sampleExportData, 'test-report');
+    it('should write workbook to array buffer', async () => {
+      await exportToExcel(sampleExportData, 'test-report');
 
       expect(XLSX.write).toHaveBeenCalledWith(
         expect.anything(),
@@ -421,8 +422,8 @@ describe('Excel Export Utility', () => {
       );
     });
 
-    it('should trigger download with correct filename', () => {
-      exportToExcel(sampleExportData, 'test-report');
+    it('should trigger download with correct filename', async () => {
+      await exportToExcel(sampleExportData, 'test-report');
 
       expect(saveAs).toHaveBeenCalledWith(
         expect.any(Blob),
@@ -430,8 +431,8 @@ describe('Excel Export Utility', () => {
       );
     });
 
-    it('should create blob with correct MIME type', () => {
-      exportToExcel(sampleExportData, 'test-report');
+    it('should create blob with correct MIME type', async () => {
+      await exportToExcel(sampleExportData, 'test-report');
 
       const blobCall = (saveAs as ReturnType<typeof vi.fn>).mock.calls[0][0] as Blob;
       expect(blobCall.type).toBe(
@@ -439,8 +440,8 @@ describe('Excel Export Utility', () => {
       );
     });
 
-    it('should handle special characters in filename', () => {
-      exportToExcel(sampleExportData, 'test/report:with*special');
+    it('should handle special characters in filename', async () => {
+      await exportToExcel(sampleExportData, 'test/report:with*special');
 
       // Should sanitize filename or handle gracefully
       expect(saveAs).toHaveBeenCalled();
@@ -452,48 +453,48 @@ describe('Excel Export Utility', () => {
   // ==========================================================================
 
   describe('Error Handling', () => {
-    it('should handle missing productName gracefully', () => {
+    it('should handle missing productName gracefully', async () => {
       const incompleteData = {
         ...sampleExportData,
         productName: '',
       };
 
-      expect(() => exportToExcel(incompleteData, 'test')).not.toThrow();
+      await expect(exportToExcel(incompleteData, 'test')).resolves.not.toThrow();
     });
 
-    it('should handle missing categoryBreakdown gracefully', () => {
+    it('should handle missing categoryBreakdown gracefully', async () => {
       const incompleteData = {
         ...sampleExportData,
         categoryBreakdown: [],
       };
 
-      expect(() => exportToExcel(incompleteData, 'test')).not.toThrow();
+      await expect(exportToExcel(incompleteData, 'test')).resolves.not.toThrow();
     });
 
-    it('should handle missing bomEntries gracefully', () => {
+    it('should handle missing bomEntries gracefully', async () => {
       const incompleteData = {
         ...sampleExportData,
         bomEntries: [],
       };
 
-      expect(() => exportToExcel(incompleteData, 'test')).not.toThrow();
+      await expect(exportToExcel(incompleteData, 'test')).resolves.not.toThrow();
     });
 
-    it('should handle null date gracefully', () => {
+    it('should handle null date gracefully', async () => {
       const incompleteData = {
         ...sampleExportData,
         calculationDate: null as unknown as Date,
       };
 
-      expect(() => exportToExcel(incompleteData, 'test')).not.toThrow();
+      await expect(exportToExcel(incompleteData, 'test')).resolves.not.toThrow();
     });
 
-    it('should throw if XLSX write fails', () => {
+    it('should throw if XLSX write fails', async () => {
       (XLSX.write as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
         throw new Error('Write failed');
       });
 
-      expect(() => exportToExcel(sampleExportData, 'test')).toThrow('Write failed');
+      await expect(exportToExcel(sampleExportData, 'test')).rejects.toThrow('Write failed');
     });
   });
 
@@ -562,25 +563,25 @@ describe('Excel Export Utility', () => {
       expect(() => addBreakdownSheet(workbook, dataWithNegative.categoryBreakdown)).not.toThrow();
     });
 
-    it('should handle very large numbers', () => {
+    it('should handle very large numbers', async () => {
       const dataWithLargeNumber = {
         ...sampleExportData,
         totalEmissions: 9999999999.99,
       };
 
-      expect(() => exportToExcel(dataWithLargeNumber, 'test')).not.toThrow();
+      await expect(exportToExcel(dataWithLargeNumber, 'test')).resolves.not.toThrow();
     });
 
-    it('should handle unicode characters in product names', () => {
+    it('should handle unicode characters in product names', async () => {
       const dataWithUnicode = {
         ...sampleExportData,
         productName: 'Widget Pro',
         bomEntries: [
-          { component: 'Materiau special', quantity: 1, unit: 'kg', emissionFactor: 1, emissions: 1 },
+          { component: 'Materiau special', category: 'material', quantity: 1, unit: 'kg', emissionFactor: 1, emissions: 1 },
         ],
       };
 
-      expect(() => exportToExcel(dataWithUnicode, 'test')).not.toThrow();
+      await expect(exportToExcel(dataWithUnicode, 'test')).resolves.not.toThrow();
     });
   });
 });

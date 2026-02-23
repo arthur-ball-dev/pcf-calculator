@@ -6,6 +6,7 @@
  *
  * TASK-FE-009: Results Dashboard Implementation
  * TASK-FE-P5-011: Updated tests for ExportButton integration (TDD Exception approved)
+ * Emerald Night 5B: Updated assertions for rebuilt component structure
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -108,7 +109,10 @@ describe('ResultsDisplay', () => {
 
       // Use testid to get the specific total element (avoid duplicate match with table total row)
       expect(screen.getByTestId('total-co2e')).toHaveTextContent('12.50');
-      expect(screen.getByText(/kg CO₂e/i)).toBeInTheDocument();
+      // The unit text is split across elements due to <sub> tag: "kg CO" + "2" + "e"
+      // Check the unit text exists within the results hero
+      const hero = screen.getByTestId('results-hero');
+      expect(hero).toHaveTextContent(/kg CO/);
     });
 
     it('should display total CO2e with large font size', () => {
@@ -116,21 +120,17 @@ describe('ResultsDisplay', () => {
 
       // Use testid to get the specific total element
       const totalElement = screen.getByTestId('total-co2e');
-      expect(totalElement).toHaveClass('text-5xl'); // Tailwind class for ~48px
+      // Emerald Night 5B uses text-[2.5rem] instead of text-5xl
+      expect(totalElement).toHaveClass('text-[2.5rem]');
     });
 
-    it('should display calculation timestamp', () => {
+    it('should display results hero section', () => {
       render(<ResultsDisplay />);
 
-      expect(screen.getByText(/calculated at/i)).toBeInTheDocument();
-    });
-
-    it('should format date correctly', () => {
-      render(<ResultsDisplay />);
-
-      // Should show formatted date (Nov 8, 2024 or similar)
-      const dateText = screen.getByText(/nov 8, 2024/i);
-      expect(dateText).toBeInTheDocument();
+      // Emerald Night 5B uses ResultsHero with badges instead of timestamp
+      expect(screen.getByTestId('results-hero')).toBeInTheDocument();
+      expect(screen.getByTestId('quality-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('iso-badge')).toBeInTheDocument();
     });
   });
 
@@ -165,9 +165,11 @@ describe('ResultsDisplay', () => {
     it('should display table headers', () => {
       render(<ResultsDisplay />);
 
+      // Emerald Night 5B uses text headers (not sort buttons)
       expect(screen.getByText('Category')).toBeInTheDocument();
-      expect(screen.getByText('CO2e (kg)')).toBeInTheDocument();
+      expect(screen.getByText('Amount')).toBeInTheDocument();
       expect(screen.getByText('Percentage')).toBeInTheDocument();
+      expect(screen.getByText('Distribution')).toBeInTheDocument();
     });
   });
 
@@ -209,45 +211,18 @@ describe('ResultsDisplay', () => {
     });
   });
 
-  describe('Sorting', () => {
-    it('should sort categories by CO2e when column header clicked', async () => {
+  describe('Category Sorting', () => {
+    it('should display categories sorted by CO2e descending by default', () => {
       render(<ResultsDisplay />);
 
-      // Click the CO2e sort button
-      const co2eHeader = screen.getByRole('button', { name: /sort by co2e/i });
-      fireEvent.click(co2eHeader);
+      // All category rows should be present (sorted by value in BreakdownTable)
+      const materialsRow = screen.getByTestId('category-row-materials');
+      const energyRow = screen.getByTestId('category-row-energy');
+      const transportRow = screen.getByTestId('category-row-transport');
 
-      await waitFor(() => {
-        // Check order by looking at category row test IDs
-        const materialsRow = screen.getByTestId('category-row-materials');
-        const energyRow = screen.getByTestId('category-row-energy');
-        const transportRow = screen.getByTestId('category-row-transport');
-
-        // All should be present - sorting is already descending by default
-        expect(materialsRow).toBeInTheDocument();
-        expect(energyRow).toBeInTheDocument();
-        expect(transportRow).toBeInTheDocument();
-      });
-    });
-
-    it('should reverse sort when clicked again', async () => {
-      render(<ResultsDisplay />);
-
-      // Click the CO2e sort button
-      const co2eHeader = screen.getByRole('button', { name: /sort by co2e/i });
-
-      // First click - descending (default already desc, so first click toggles)
-      fireEvent.click(co2eHeader);
-
-      // Second click - ascending
-      fireEvent.click(co2eHeader);
-
-      await waitFor(() => {
-        // All rows should still be visible after sorting
-        expect(screen.getByTestId('category-row-materials')).toBeInTheDocument();
-        expect(screen.getByTestId('category-row-energy')).toBeInTheDocument();
-        expect(screen.getByTestId('category-row-transport')).toBeInTheDocument();
-      });
+      expect(materialsRow).toBeInTheDocument();
+      expect(energyRow).toBeInTheDocument();
+      expect(transportRow).toBeInTheDocument();
     });
   });
 
@@ -390,14 +365,16 @@ describe('ResultsDisplay', () => {
     it('should render all sections in correct order', () => {
       const { container } = render(<ResultsDisplay />);
 
-      const sections = container.querySelectorAll('.space-y-8 > *');
-      expect(sections.length).toBeGreaterThanOrEqual(3); // Summary, Sankey, Breakdown, Actions
+      // Emerald Night 5B uses space-y-10 for section spacing
+      const sections = container.querySelectorAll('.space-y-10 > *');
+      expect(sections.length).toBeGreaterThanOrEqual(3); // Hero, Sankey, Breakdown, Actions, Footer
     });
 
     it('should have proper spacing between sections', () => {
       const { container } = render(<ResultsDisplay />);
 
-      const mainContainer = container.querySelector('.space-y-8');
+      // Emerald Night 5B uses space-y-10 for main container
+      const mainContainer = container.querySelector('.space-y-10');
       expect(mainContainer).toBeInTheDocument();
     });
   });
@@ -420,10 +397,14 @@ describe('ResultsDisplay', () => {
     it('should have table headers', () => {
       render(<ResultsDisplay />);
 
-      // Headers contain sortable buttons
-      expect(screen.getByRole('button', { name: /sort by category/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /sort by co2e/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /sort by percentage/i })).toBeInTheDocument();
+      // Emerald Night 5B uses plain text column headers (no sort buttons)
+      const columnHeaders = screen.getAllByRole('columnheader');
+      expect(columnHeaders.length).toBeGreaterThanOrEqual(3);
+
+      // Verify header text content
+      expect(screen.getByText('Category')).toBeInTheDocument();
+      expect(screen.getByText('Amount')).toBeInTheDocument();
+      expect(screen.getByText('Percentage')).toBeInTheDocument();
     });
   });
 

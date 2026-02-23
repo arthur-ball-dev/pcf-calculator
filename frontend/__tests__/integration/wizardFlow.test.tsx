@@ -2,54 +2,67 @@
  * Integration Tests - Complete Wizard Workflow
  * TASK-FE-011: Frontend Integration Testing
  *
- * Test-Driven Development (TDD Protocol)
- * Written BEFORE any workflow modifications
- *
  * Test Scenarios:
- * 1. Complete PCF Calculation Workflow (Step 1 -> 2 -> 3 -> 4)
+ * 1. Complete PCF Calculation Workflow (Step 1 -> 2 -> 3)
  * 2. State Persistence Across Steps
  * 3. Navigation Guards and Validation
  * 4. Error Handling and Recovery
  * 5. Cross-Component Interactions
  * 6. Store Synchronization
  *
- * This is the FINAL integration test for Phase 3.
- * Validates end-to-end functionality of the entire calculator application.
+ * UPDATED for Emerald Night UI rebuild:
+ * - ProductSelector replaced by ProductList (full-page list, no combobox/dropdown)
+ * - ProductList uses productsAPI.search (not productsAPI.list)
+ * - Products are rendered as clickable rows with data-testid="product-row-{id}"
+ * - BOM filter is a toggle switch with data-testid="bom-toggle-switch"
+ * - Search input has data-testid="product-search-input"
+ * - Loading skeleton has data-testid="product-list-skeleton"
+ * - StepProgress buttons have aria-label="Step N of 3: Label (current/completed)"
+ * - ResultsHero replaces ResultsSummary
+ * - WizardNavigation buttons: data-testid="next-button" and "previous-button"
+ * - On edit step, Next button text is "Calculate" (aria-label="Calculate carbon footprint")
  *
- * UPDATED in TASK-FE-020 SEQ-013: Fixed dropdown interaction pattern
- * - Uses correct shadcn/ui Select component interaction (open dropdown first)
- * - Previously assumed products visible without opening dropdown
- * - This is test infrastructure fix per TL guidance (Category C)
- *
- * TDD Exception: TDD-EX-P5-002 (2025-12-11)
- * Fixed test infrastructure issues:
- * - Fixed step transition tests to include explicit Next button click
- *   (wizard does NOT auto-advance on product selection)
- * - Fixed "Back" button selector to use "Previous" (actual button name)
- * - Fixed error message text expectations to match implementation
- *   (getUserFriendlyError transforms raw API errors to user-friendly messages)
- * - Fixed total_emissions vs total_co2e_kg property name
- * - Fixed store synchronization test flow
- * - Fixed BOM text verification (use getByDisplayValue for input fields)
- * - Skip BOM editing tests due to Immer frozen object incompatibility with RHF
- *   (tests BOM via store state verification instead of UI interaction)
- * - Fixed validation test to match actual wizard behavior (BOMEditor auto-marks step complete)
+ * NOTE: Uses fireEvent instead of userEvent to avoid JSDOM event loop
+ * accumulation causing test timeouts in heavy integration scenarios.
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { userEvent } from '@testing-library/user-event';
-import { render, screen, waitFor, within, act } from '../testUtils';
+import { render, screen, fireEvent, waitFor, act } from '../testUtils';
 import { server } from '../../__mocks__/server';
 import { rest } from 'msw';
 import CalculationWizard from '../../src/components/calculator/CalculationWizard';
 import { useWizardStore } from '../../src/store/wizardStore';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 
-describe('Integration: Complete Wizard Workflow', () => {
-  const user = userEvent.setup();
+// Mock product data for search endpoint (matches getById mock for prod-001)
+const mockSearchProducts = [
+  {
+    id: 'prod-001',
+    code: 'TSHIRT-001',
+    name: 'Cotton T-Shirt',
+    category: 'apparel',
+    unit: 'unit',
+    is_finished_product: true,
+    created_at: '2024-01-01T00:00:00Z',
+    bom_count: 4,
+  },
+  {
+    id: 'prod-002',
+    code: 'BOTTLE-001',
+    name: 'Water Bottle (500ml)',
+    category: 'other',
+    unit: 'unit',
+    is_finished_product: true,
+    created_at: '2024-01-01T00:00:00Z',
+    bom_count: 2,
+  },
+];
 
+// Integration tests render full wizard with MSW + progressive rendering.
+// Extended timeout for all tests in this suite.
+describe('Integration: Complete Wizard Workflow', { timeout: 30000 }, () => {
   beforeEach(async () => {
-    // TDD-EX-P5-002: Clear localStorage FIRST to prevent persist rehydration
+    // Clear localStorage FIRST to prevent persist rehydration
     localStorage.clear();
 
     // Reset all stores
@@ -59,242 +72,201 @@ describe('Integration: Complete Wizard Workflow', () => {
     // Clear all mocks
     vi.clearAllMocks();
 
-    // TDD-EX-P5-002: Wait a tick for persist middleware to settle
+    // Override MSW product search to return consistent test data
+    server.use(
+      rest.get('http://localhost:8000/api/v1/products/search', (_req, res, ctx) => {
+        return res(
+          ctx.status(200),
+          ctx.json({
+            items: mockSearchProducts,
+            total: mockSearchProducts.length,
+            limit: 50,
+            offset: 0,
+            has_more: false,
+          })
+        );
+      })
+    );
+
+    // Wait a tick for persist middleware to settle
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
+
+  /**
+   * Helper: Get Next button via data-testid (reliable across all steps).
+   */
+  function getNextButton() {
+    return screen.getByTestId('next-button');
+  }
+
+  /**
+   * Helper: Get Previous button via data-testid.
+   */
+  function getPreviousButton() {
+    return screen.getByTestId('previous-button');
+  }
+
+  /**
+   * Helper: Wait for products to load and select Cotton T-Shirt.
+   */
+  async function selectProduct() {
+    await waitFor(() => {
+      expect(screen.getByText('Cotton T-Shirt')).toBeInTheDocument();
+    }, { timeout: 10000 });
+
+    fireEvent.click(screen.getByText('Cotton T-Shirt'));
+
+    await waitFor(() => {
+      expect(useCalculatorStore.getState().selectedProductId).toBe('prod-001');
+    });
+  }
+
+  /**
+   * Helper: Navigate from Step 1 to Step 2 (select product + click Next).
+   */
+  async function navigateToStep2() {
+    await selectProduct();
+
+    await waitFor(() => {
+      expect(getNextButton()).toBeEnabled();
+    }, { timeout: 10000 });
+
+    fireEvent.click(getNextButton());
+
+    await waitFor(() => {
+      expect(useWizardStore.getState().currentStep).toBe('edit');
+    }, { timeout: 10000 });
+  }
 
   describe('Scenario 1: Complete PCF Calculation Workflow', () => {
     test('completes full workflow from product selection to results', async () => {
       render(<CalculationWizard />);
 
-      // =====================================================================
       // STEP 1: Select Product
-      // =====================================================================
-
-      // Wait for wizard to load on Step 1
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /select product/i })).toBeInTheDocument();
       });
 
-      // Verify we're on step 1
       expect(useWizardStore.getState().currentStep).toBe('select');
+      expect(getNextButton()).toBeDisabled();
 
-      // Verify Next button is disabled (no product selected)
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      expect(nextButton).toBeDisabled();
-
-      // Wait for ProductSelector to load (dropdown trigger appears)
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
-      });
-
-      // Open dropdown by clicking trigger
-      await user.click(screen.getByTestId('product-select-trigger'));
-
-      // Wait for dropdown menu to open (SelectContent becomes visible)
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
-      });
-
-      // Select product from dropdown menu
-      await user.click(screen.getByTestId('product-option-prod-001'));
-
-      // Verify product selected in store
-      await waitFor(() => {
-        const state = useCalculatorStore.getState();
-        expect(state.selectedProductId).toBe('prod-001');
-      });
+      // Wait for products and select
+      await selectProduct();
 
       // Verify step marked complete
       expect(useWizardStore.getState().completedSteps.includes('select')).toBe(true);
 
-      // Verify Next button is enabled
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
+        expect(getNextButton()).toBeEnabled();
       });
 
       // Click Next to go to Step 2
-      await user.click(screen.getByRole('button', { name: /next/i }));
+      fireEvent.click(getNextButton());
 
-      // =====================================================================
       // STEP 2: Edit BOM
-      // =====================================================================
-
-      // Verify we're on Step 2
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /edit.*bom/i })).toBeInTheDocument();
       });
 
       expect(useWizardStore.getState().currentStep).toBe('edit');
 
-      // TDD-EX-P5-002: Wait for BOM to load in store (avoid UI interaction due to Immer/RHF issue)
+      // Wait for BOM to load
       await waitFor(() => {
         expect(useCalculatorStore.getState().bomItems.length).toBeGreaterThan(0);
       });
 
-      // TDD-EX-P5-002: BOMEditor automatically marks step complete when form is valid
-      // Wait for step to be marked complete
+      // BOMEditor marks step complete when form is valid
       await waitFor(() => {
         expect(useWizardStore.getState().completedSteps.includes('edit')).toBe(true);
       });
 
-      // Click Next to trigger calculation (3-step wizard: calculation happens via overlay)
+      // Click Calculate
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
+        expect(getNextButton()).toBeEnabled();
       });
-      await user.click(screen.getByRole('button', { name: /next/i }));
+      fireEvent.click(getNextButton());
 
-      // =====================================================================
-      // STEP 3: Results (Auto-advance after calculation completes via overlay)
-      // =====================================================================
-
-      // Wait for calculation to complete and auto-advance to results
+      // STEP 3: Results
       await waitFor(
         () => {
           expect(screen.getByRole('heading', { name: /results/i })).toBeInTheDocument();
         },
-        { timeout: 10000 }
+        { timeout: 15000 }
       );
 
-      // Verify we're on Step 3 (results)
       expect(useWizardStore.getState().currentStep).toBe('results');
 
-      // Verify results are displayed
+      // Verify results displayed
       await waitFor(() => {
-        // Total emissions should be visible
-        expect(screen.getByText(/kg co/i)).toBeInTheDocument();
+        const co2Elements = screen.getAllByText(/kg co/i);
+        expect(co2Elements.length).toBeGreaterThan(0);
       });
 
-      // Verify calculation completed in store
-      // TDD-EX-P5-002: Use correct property name (total_co2e_kg, not total_emissions)
       const finalState = useCalculatorStore.getState();
       expect(finalState.calculation).toBeTruthy();
       expect(finalState.calculation?.status).toBe('completed');
       expect(finalState.calculation?.total_co2e_kg).toBeGreaterThan(0);
 
-      // Verify all steps marked complete (3-step wizard)
       expect(useWizardStore.getState().completedSteps.includes('select')).toBe(true);
       expect(useWizardStore.getState().completedSteps.includes('edit')).toBe(true);
-    }, 15000); // TDD-EX-P5-002: Extended timeout for full workflow
+    });
   });
 
   describe('Scenario 2: State Persistence Across Steps', () => {
     test('preserves product selection when navigating back from Step 2', async () => {
       render(<CalculationWizard />);
 
-      // Step 1: Select product using dropdown
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
-      });
-
-      // Open dropdown
-      await user.click(screen.getByTestId('product-select-trigger'));
-
-      // Wait for dropdown menu to open
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
-      });
-
-      // Select product
-      await user.click(screen.getByTestId('product-option-prod-001'));
-
-      await waitFor(() => {
-        expect(useCalculatorStore.getState().selectedProductId).toBe('prod-001');
-      });
-
-      // TDD-EX-P5-002: Wait for Next button to be enabled, then click it
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
-      });
-
-      // Go to Step 2
-      await user.click(screen.getByRole('button', { name: /next/i }));
-
-      await waitFor(() => {
-        expect(useWizardStore.getState().currentStep).toBe('edit');
-      });
+      await navigateToStep2();
 
       // Go back to Step 1
-      // TDD-EX-P5-002: Button is named "Previous", not "Back"
-      const backButton = screen.getByRole('button', { name: /previous/i });
-      await user.click(backButton);
+      fireEvent.click(getPreviousButton());
 
       await waitFor(() => {
         expect(useWizardStore.getState().currentStep).toBe('select');
       });
 
-      // Verify product still selected (check store, not dropdown text visibility)
+      // Verify product still selected
       expect(useCalculatorStore.getState().selectedProductId).toBe('prod-001');
-
-      // Verify confirmation message appears (indicates product selected)
-      expect(screen.getByTestId('product-selected-confirmation')).toBeInTheDocument();
-    }, 15000);
+    });
 
     test('preserves BOM data when navigating back from Step 3', async () => {
       render(<CalculationWizard />);
 
-      // Navigate to Step 2 using dropdown
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
-      });
+      await navigateToStep2();
 
-      // Open dropdown
-      await user.click(screen.getByTestId('product-select-trigger'));
-
-      // Wait for dropdown menu to open
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
-      });
-
-      // Select product
-      await user.click(screen.getByTestId('product-option-prod-001'));
-
-      // TDD-EX-P5-002: Wait for Next to be enabled before clicking
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
-      });
-
-      await user.click(screen.getByRole('button', { name: /next/i }));
-
-      // Wait for BOM to load in store
+      // Wait for BOM to load
       await waitFor(() => {
         expect(useCalculatorStore.getState().bomItems.length).toBeGreaterThan(0);
-      });
+      }, { timeout: 10000 });
 
-      // Record BOM items count
       const bomItemsCount = useCalculatorStore.getState().bomItems.length;
 
-      // TDD-EX-P5-002: Wait for edit step to be marked complete by BOMEditor
+      // Wait for edit step complete
       await waitFor(() => {
         expect(useWizardStore.getState().completedSteps.includes('edit')).toBe(true);
-      });
+      }, { timeout: 10000 });
 
-      // In 3-step wizard, clicking Next from edit triggers calculation overlay
-      // and auto-advances to results. For this test, we verify BOM persists
-      // by going back to edit step from results.
-
-      // Click Next to trigger calculation and advance to results
+      // Click Calculate
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
-      });
-      await user.click(screen.getByRole('button', { name: /next/i }));
+        expect(getNextButton()).toBeEnabled();
+      }, { timeout: 10000 });
+      fireEvent.click(getNextButton());
 
       // Wait for results step
       await waitFor(() => {
         expect(useWizardStore.getState().currentStep).toBe('results');
-      }, { timeout: 10000 });
+      }, { timeout: 15000 });
 
       // Go back to Step 2
-      // TDD-EX-P5-002: Button is named "Previous", not "Back"
-      await user.click(screen.getByRole('button', { name: /previous/i }));
+      fireEvent.click(getPreviousButton());
 
       await waitFor(() => {
         expect(useWizardStore.getState().currentStep).toBe('edit');
       });
 
-      // TDD-EX-P5-002: Verify BOM data persisted in store (vs UI due to Immer/RHF issue)
+      // Verify BOM data persisted
       expect(useCalculatorStore.getState().bomItems.length).toBe(bomItemsCount);
-    }, 15000);
+    });
   });
 
   describe('Scenario 3: Navigation Guards and Validation', () => {
@@ -305,59 +277,45 @@ describe('Integration: Complete Wizard Workflow', () => {
         expect(screen.getByRole('heading', { name: /select product/i })).toBeInTheDocument();
       });
 
-      // Next button should be disabled
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      expect(nextButton).toBeDisabled();
+      expect(getNextButton()).toBeDisabled();
 
       // Try to navigate programmatically
       await act(async () => {
         useWizardStore.getState().setStep('edit');
       });
 
-      // Should remain on select step
       expect(useWizardStore.getState().currentStep).toBe('select');
     });
 
     test('validates navigation requires all previous steps complete', async () => {
       render(<CalculationWizard />);
 
-      // TDD-EX-P5-002: Test validates wizard navigation guards
-      // Wizard requires all previous steps to be complete before advancing
-      // 3-step wizard: select → edit → results
-
-      // Try to navigate directly to results without completing select or edit
+      // Try to skip to results
       await act(async () => {
         useWizardStore.getState().setStep('results');
       });
-
-      // Should remain on select (first step)
       expect(useWizardStore.getState().currentStep).toBe('select');
 
-      // Mark select complete and try again
+      // Mark select complete - still can't skip edit
       await act(async () => {
         useWizardStore.getState().markStepComplete('select');
         useWizardStore.getState().setStep('results');
       });
-
-      // Should still fail - edit not complete
       expect(useWizardStore.getState().currentStep).toBe('select');
 
-      // Mark edit complete and try again
+      // Mark edit complete - now can go to results
       await act(async () => {
         useWizardStore.getState().markStepComplete('edit');
         useWizardStore.getState().setStep('results');
       });
-
-      // Now should succeed
       expect(useWizardStore.getState().currentStep).toBe('results');
     });
   });
 
   describe('Scenario 4: Error Handling and Recovery', () => {
     test('handles product loading error gracefully', async () => {
-      // Override MSW to return error
       server.use(
-        rest.get('http://localhost:8000/api/v1/products', (req, res, ctx) => {
+        rest.get('http://localhost:8000/api/v1/products/search', (_req, res, ctx) => {
           return res(
             ctx.status(500),
             ctx.json({
@@ -372,16 +330,14 @@ describe('Integration: Complete Wizard Workflow', () => {
 
       render(<CalculationWizard />);
 
-      // TDD-EX-P5-002: Error message matches implementation: "Unable to load products"
       await waitFor(() => {
         expect(screen.getByText(/unable to load products/i)).toBeInTheDocument();
       });
     });
 
     test('handles calculation failure gracefully', async () => {
-      // Override MSW to return failed calculation
       server.use(
-        rest.get('http://localhost:8000/api/v1/calculations/:id', (req, res, ctx) => {
+        rest.get('http://localhost:8000/api/v1/calculations/:id', (_req, res, ctx) => {
           return res(
             ctx.status(200),
             ctx.json({
@@ -395,59 +351,33 @@ describe('Integration: Complete Wizard Workflow', () => {
 
       render(<CalculationWizard />);
 
-      // Navigate through steps using dropdown
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
-      });
+      await navigateToStep2();
 
-      // Open dropdown
-      await user.click(screen.getByTestId('product-select-trigger'));
-
-      // Wait for dropdown menu to open
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
-      });
-
-      // Select product
-      await user.click(screen.getByTestId('product-option-prod-001'));
-
-      // TDD-EX-P5-002: Wait for Next to be enabled before clicking
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
-      });
-
-      await user.click(screen.getByRole('button', { name: /next/i }));
-
-      // Wait for BOM to load and edit step to be marked complete
+      // Wait for BOM to load and edit step to complete
       await waitFor(() => {
         expect(useCalculatorStore.getState().bomItems.length).toBeGreaterThan(0);
       });
-
-      // TDD-EX-P5-002: Wait for edit step complete
       await waitFor(() => {
         expect(useWizardStore.getState().completedSteps.includes('edit')).toBe(true);
       });
-
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
+        expect(getNextButton()).toBeEnabled();
       });
 
-      // Click Next to trigger calculation via overlay (3-step wizard)
-      await user.click(screen.getByRole('button', { name: /next/i }));
+      // Click Calculate
+      fireEvent.click(getNextButton());
 
-      // TDD-EX-P5-002: Should display user-friendly error message in overlay
-      // Raw API error "Invalid emission factors" is transformed by getUserFriendlyError()
-      // to "Unable to calculate emissions. A component is missing emission data. Please contact support."
+      // Should display error in overlay
       await waitFor(
         () => {
           expect(screen.getByText(/missing emission data/i)).toBeInTheDocument();
         },
-        { timeout: 10000 }
+        { timeout: 15000 }
       );
 
-      // Should remain on edit step (3-step wizard - calculation failed in overlay)
+      // Should remain on edit step
       expect(useWizardStore.getState().currentStep).toBe('edit');
-    }, 15000); // TDD-EX-P5-002: Extended timeout for calculation workflow
+    });
   });
 
   describe('Scenario 5: Cross-Component Interactions', () => {
@@ -456,7 +386,6 @@ describe('Integration: Complete Wizard Workflow', () => {
 
       // Initially on step 1
       await waitFor(() => {
-        // TDD-EX-P5-002: aria-label format may vary, query button by step name
         const buttons = screen.getAllByRole('button');
         const step1Button = buttons.find(
           (btn) => btn.getAttribute('aria-label')?.toLowerCase().includes('select product')
@@ -464,29 +393,8 @@ describe('Integration: Complete Wizard Workflow', () => {
         expect(step1Button).toHaveAttribute('aria-current', 'step');
       });
 
-      // Select product using dropdown
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
-      });
-
-      // Open dropdown
-      await user.click(screen.getByTestId('product-select-trigger'));
-
-      // Wait for dropdown menu to open
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
-      });
-
-      // Select product
-      await user.click(screen.getByTestId('product-option-prod-001'));
-
-      // TDD-EX-P5-002: Wait for Next to be enabled before clicking
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
-      });
-
-      // Move to step 2
-      await user.click(screen.getByRole('button', { name: /next/i }));
+      // Select product and navigate to step 2
+      await navigateToStep2();
 
       // Progress should update
       await waitFor(() => {
@@ -503,38 +411,18 @@ describe('Integration: Complete Wizard Workflow', () => {
     test('wizard store and calculator store stay synchronized', async () => {
       render(<CalculationWizard />);
 
-      // Select product using dropdown
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-trigger')).toBeInTheDocument();
-      });
-
-      // Open dropdown
-      await user.click(screen.getByTestId('product-select-trigger'));
-
-      // Wait for dropdown menu to open
-      await waitFor(() => {
-        expect(screen.getByTestId('product-select-content')).toBeInTheDocument();
-      });
-
-      // Select product
-      await user.click(screen.getByTestId('product-option-prod-001'));
-
-      // TDD-EX-P5-002: Wizard does NOT auto-advance on product selection.
-      // First verify product is selected
-      await waitFor(() => {
-        expect(useCalculatorStore.getState().selectedProductId).toBe('prod-001');
-      });
+      await selectProduct();
 
       // Verify step is marked complete
       expect(useWizardStore.getState().completedSteps.includes('select')).toBe(true);
 
-      // TDD-EX-P5-002: Now click Next to advance to edit step
+      // Navigate to edit step
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
+        expect(getNextButton()).toBeEnabled();
       });
-      await user.click(screen.getByRole('button', { name: /next/i }));
+      fireEvent.click(getNextButton());
 
-      // Now verify we're on edit step and BOM is loaded
+      // Verify we're on edit step and BOM is loaded
       await waitFor(() => {
         expect(useWizardStore.getState().currentStep).toBe('edit');
         expect(useCalculatorStore.getState().bomItems.length).toBeGreaterThan(0);

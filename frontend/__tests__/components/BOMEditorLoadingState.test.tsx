@@ -8,6 +8,10 @@
  * 1. Shows loading skeleton when isLoadingBOM is true
  * 2. Hides loading skeleton and shows editor when isLoadingBOM is false
  * 3. Editor loads with BOM data after loading completes
+ *
+ * NOTE: BOMEditor uses progressive rendering (double-rAF) so the skeleton
+ * shows first even when isLoadingBOM is false. Tests must use waitFor
+ * to wait for the skeleton to disappear.
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
@@ -28,6 +32,15 @@ vi.mock('@/hooks/useEmissionFactors', () => ({
     error: null,
   }),
 }));
+
+/**
+ * Helper: Wait for progressive rendering skeleton to disappear
+ */
+async function waitForEditorReady() {
+  await waitFor(() => {
+    expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+  }, { timeout: 3000 });
+}
 
 describe('BOMEditor - Loading State (TASK-FE-019)', () => {
   beforeEach(() => {
@@ -71,34 +84,36 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
   });
 
   describe('Scenario 2: Editor Display After Loading', () => {
-    test('hides loading skeleton when isLoadingBOM is false', () => {
+    test('hides loading skeleton when isLoadingBOM is false', async () => {
       // Set loading to false
       useCalculatorStore.getState().setLoadingBOM(false);
 
       render(<BOMEditor />);
 
-      // Should not show loading skeleton
-      expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+      // Must wait for progressive rendering (double-rAF) to complete
+      await waitForEditorReady();
     });
 
-    test('shows BOM editor form when not loading', () => {
+    test('shows BOM editor form when not loading', async () => {
       useCalculatorStore.getState().setLoadingBOM(false);
 
       render(<BOMEditor />);
 
-      // Should show Add Component button (part of editor)
-      expect(screen.getByText(/Add Component/i)).toBeInTheDocument();
+      // Wait for progressive rendering to complete
+      await waitFor(() => {
+        expect(screen.getByText(/Add Component/i)).toBeInTheDocument();
+      });
     });
 
-    test('shows table headers when not loading', () => {
+    test('shows table headers when not loading', async () => {
       useCalculatorStore.getState().setLoadingBOM(false);
 
       render(<BOMEditor />);
 
-      // Should show table headers - Component Name is unique to header
-      expect(screen.getByText(/Component Name/i)).toBeInTheDocument();
-      // Quantity, Unit, Category, and Emission Factor appear in dropdowns too
-      // Just verifying Component Name is sufficient to confirm table is rendered
+      // Wait for progressive rendering; Emerald Night header is "Component" (not "Component Name")
+      await waitFor(() => {
+        expect(screen.getByText('Component')).toBeInTheDocument();
+      });
     });
   });
 
@@ -166,8 +181,10 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
 
       const { rerender } = render(<BOMEditor />);
 
-      // Should show editor
-      expect(screen.getByText(/Add Component/i)).toBeInTheDocument();
+      // Wait for progressive rendering to complete
+      await waitFor(() => {
+        expect(screen.getByText(/Add Component/i)).toBeInTheDocument();
+      });
 
       // Simulate refetch (loading again)
       useCalculatorStore.getState().setLoadingBOM(true);

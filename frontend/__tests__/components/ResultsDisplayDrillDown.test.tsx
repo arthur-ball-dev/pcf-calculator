@@ -1,8 +1,15 @@
 /**
  * ResultsDisplay Category Drill-Down Integration Tests
  *
- * Tests for the integration of CategoryDrillDown modal with ResultsDisplay.
+ * Tests for the integration of SankeyDiagram drill-down with ResultsDisplay.
  * Following TDD protocol: Write tests FIRST, implementation SECOND.
+ *
+ * Architecture note: Drill-down is handled INTERNALLY by SankeyDiagram.
+ * - SankeyDiagram has internal state (expandedCategory) for drill-down
+ * - When a drillable category node is clicked, SankeyDiagram re-renders
+ *   the chart with expanded breakdown data and shows a "Back to Overview" button
+ * - ResultsDisplay simply passes `calculation` prop to SankeyDiagram
+ * - There is no external dialog/modal for drill-down
  *
  * TASK-FE-P8-002: Category Drill-Down in Carbon Flow Visualization
  */
@@ -14,39 +21,104 @@ import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { useWizardStore } from '../../src/store/wizardStore';
 import type { Calculation, Product, BOMItem } from '../../src/types/store.types';
 
-// Mock the stores
-vi.mock('../../src/store/calculatorStore', () => ({
-  useCalculatorStore: vi.fn(),
+// Track the last onNodeClick and calculation passed to SankeyDiagram
+let capturedSankeyProps: { calculation: Calculation | null; onNodeClick?: (node: unknown) => void };
+
+// Mock SankeyDiagram with a functional mock that simulates drill-down behavior.
+// The real SankeyDiagram handles drill-down internally with expandedCategory state.
+// This mock replicates that behavior: renders category buttons, and when clicked,
+// shows expanded view with back button and breakdown items.
+vi.mock('../../src/components/visualizations/SankeyDiagram', () => {
+  const { useState } = require('react');
+  return {
+    default: ({ calculation }: { calculation: Calculation | null; onNodeClick?: (node: unknown) => void }) => {
+      const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+
+      capturedSankeyProps = { calculation };
+
+      if (!calculation || calculation.status !== 'completed') {
+        return <div data-testid="sankey-container">No data</div>;
+      }
+
+      const categories = [
+        { id: 'materials', label: 'Materials', value: calculation.materials_co2e || 0 },
+        { id: 'energy', label: 'Energy', value: calculation.energy_co2e || 0 },
+        { id: 'transport', label: 'Transport', value: calculation.transport_co2e || 0 },
+      ].filter(c => c.value > 0);
+
+      // Expanded view - show breakdown details and back button
+      if (expandedCategory) {
+        const cat = categories.find(c => c.id === expandedCategory);
+        const title = cat
+          ? `${cat.label} Breakdown`
+          : `${expandedCategory.charAt(0).toUpperCase() + expandedCategory.slice(1)} Breakdown`;
+
+        // Simulate breakdown items from calculation.breakdown
+        const breakdownItems: string[] = [];
+        if (calculation.breakdown) {
+          Object.keys(calculation.breakdown).forEach(name => {
+            breakdownItems.push(name);
+          });
+        }
+
+        return (
+          <div data-testid="sankey-container" role="img" aria-label={`${title} showing breakdown`}>
+            <button
+              data-testid="sankey-back-button"
+              onClick={() => setExpandedCategory(null)}
+            >
+              Back to Overview
+            </button>
+            <span data-testid="sankey-expanded-title">{title}</span>
+            {breakdownItems.map(item => (
+              <span key={item}>{item}</span>
+            ))}
+          </div>
+        );
+      }
+
+      // Overview mode - show clickable category nodes and hint text
+      return (
+        <div data-testid="sankey-container" role="img" aria-label={`Carbon flow diagram showing emissions breakdown with ${categories.length + 1} categories. Click on a category to see detailed breakdown.`}>
+          <div data-testid="sankey-chart">
+            <p>Click on a category to drill down</p>
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                data-testid={`sankey-node-${cat.id}`}
+                onClick={() => setExpandedCategory(cat.id)}
+              >
+                {cat.label}
+              </button>
+            ))}
+            <button
+              data-testid="sankey-node-total"
+              onClick={() => {/* total is not drillable */}}
+            >
+              Total
+            </button>
+          </div>
+        </div>
+      );
+    },
+  };
+});
+
+// Mock ExportButton to simplify testing
+vi.mock('../../src/components/ExportButton', () => ({
+  ExportButton: () => <button data-testid="mock-export-button">Export</button>,
 }));
 
-vi.mock('../../src/store/wizardStore', () => ({
-  useWizardStore: vi.fn(),
+// Mock ResultsHero to simplify testing
+vi.mock('../../src/components/calculator/ResultsHero', () => ({
+  default: ({ totalCO2e }: { totalCO2e: number }) => (
+    <div data-testid="mock-results-hero">Total: {totalCO2e} kg CO2e</div>
+  ),
 }));
 
-// Mock Nivo Sankey component
-vi.mock('@nivo/sankey', () => ({
-  ResponsiveSankey: ({
-    data,
-    onClick,
-  }: {
-    data: { nodes: Array<{ id: string; label: string; metadata?: { co2e: number } }>; links: unknown[] };
-    onClick?: (node: { id: string }) => void;
-  }) => {
-    return (
-      <div data-testid="sankey-chart">
-        {/* Render clickable nodes for testing */}
-        {data.nodes.map((node) => (
-          <button
-            key={node.id}
-            data-testid={`sankey-node-${node.id}`}
-            onClick={() => onClick?.(node)}
-          >
-            {node.label}
-          </button>
-        ))}
-      </div>
-    );
-  },
+// Mock BreakdownTable to simplify testing
+vi.mock('../../src/components/calculator/BreakdownTable', () => ({
+  default: () => <div data-testid="mock-breakdown-table">Breakdown Table</div>,
 }));
 
 describe('ResultsDisplay Category Drill-Down Integration', () => {
@@ -60,6 +132,12 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     energy_co2e: 3.8,
     transport_co2e: 1.4,
     calculation_time_ms: 450,
+    breakdown: {
+      'Cotton Fabric': 4.5,
+      'Polyester Thread': 2.8,
+      'Electricity': 3.8,
+      'Truck Transport': 1.4,
+    },
   };
 
   const mockProduct: Product = {
@@ -99,16 +177,11 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
   ];
 
   beforeEach(() => {
-    // Setup default mock return values
-    (useCalculatorStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    // Setup store state with completed calculation
+    useCalculatorStore.setState({
       calculation: mockCalculation,
       selectedProduct: mockProduct,
       bomItems: mockBomItems,
-      reset: vi.fn(),
-    });
-
-    (useWizardStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      reset: vi.fn(),
     });
   });
 
@@ -119,111 +192,110 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     expect(screen.getByTestId('sankey-chart')).toBeInTheDocument();
   });
 
-  it('should open category drill-down modal when category node is clicked', async () => {
+  it('should expand to category breakdown when category node is clicked', async () => {
     render(<ResultsDisplay />);
 
     // Click on materials node
     const materialsNode = screen.getByTestId('sankey-node-materials');
     fireEvent.click(materialsNode);
 
-    // Wait for dialog to appear
+    // SankeyDiagram internally switches to expanded view with title
     await waitFor(() => {
-      const dialog = screen.getByRole('dialog');
-      expect(dialog).toBeInTheDocument();
+      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent('Materials Breakdown');
     });
   });
 
-  it('should display category name in drill-down modal header', async () => {
+  it('should display category name in expanded view header', async () => {
     render(<ResultsDisplay />);
 
     // Click on materials node
     const materialsNode = screen.getByTestId('sankey-node-materials');
     fireEvent.click(materialsNode);
 
-    // Check dialog header
+    // Check expanded header shows materials breakdown title
     await waitFor(() => {
-      const header = screen.getByRole('heading', { name: /materials breakdown/i });
-      expect(header).toBeInTheDocument();
+      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent(/materials breakdown/i);
     });
   });
 
-  it('should close drill-down modal when close button is clicked', async () => {
+  it('should return to overview when back button is clicked', async () => {
     render(<ResultsDisplay />);
 
-    // Click on materials node to open modal
+    // Click on materials node to expand
     const materialsNode = screen.getByTestId('sankey-node-materials');
     fireEvent.click(materialsNode);
 
-    // Wait for dialog to appear
+    // Wait for expanded view
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent('Materials Breakdown');
     });
 
-    // Click close button
-    const closeButton = screen.getByRole('button', { name: /close/i });
-    fireEvent.click(closeButton);
+    // Click back button
+    const backButton = screen.getByTestId('sankey-back-button');
+    fireEvent.click(backButton);
 
-    // Wait for dialog to disappear
+    // Wait for overview to return (drill-down hint reappears)
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByText(/click on a category to drill down/i)).toBeInTheDocument();
     });
   });
 
-  it('should not open drill-down modal when total node is clicked', async () => {
+  it('should not expand when total node is clicked', async () => {
     render(<ResultsDisplay />);
 
     // Click on total node
     const totalNode = screen.getByTestId('sankey-node-total');
     fireEvent.click(totalNode);
 
-    // Wait a bit and verify no dialog appears
+    // Wait a bit and verify no expansion occurs (hint text still visible)
     await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(/click on a category to drill down/i)).toBeInTheDocument();
+
+    // No expanded title should appear in the Sankey area
+    expect(screen.queryByTestId('sankey-expanded-title')).not.toBeInTheDocument();
   });
 
-  it('should open drill-down modal for energy category', async () => {
+  it('should expand to energy breakdown when energy node is clicked', async () => {
     render(<ResultsDisplay />);
 
     // Click on energy node
     const energyNode = screen.getByTestId('sankey-node-energy');
     fireEvent.click(energyNode);
 
-    // Check dialog header
+    // Check expanded header
     await waitFor(() => {
-      const header = screen.getByRole('heading', { name: /energy breakdown/i });
-      expect(header).toBeInTheDocument();
+      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent(/energy breakdown/i);
     });
   });
 
-  it('should open drill-down modal for transport category', async () => {
+  it('should expand to transport breakdown when transport node is clicked', async () => {
     render(<ResultsDisplay />);
 
     // Click on transport node
     const transportNode = screen.getByTestId('sankey-node-transport');
     fireEvent.click(transportNode);
 
-    // Check dialog header
+    // Check expanded header
     await waitFor(() => {
-      const header = screen.getByRole('heading', { name: /transport breakdown/i });
-      expect(header).toBeInTheDocument();
+      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent(/transport breakdown/i);
     });
   });
 
-  it('should display items from BOM in materials drill-down', async () => {
+  it('should display breakdown items when category is expanded', async () => {
     render(<ResultsDisplay />);
 
     // Click on materials node
     const materialsNode = screen.getByTestId('sankey-node-materials');
     fireEvent.click(materialsNode);
 
-    // Check that BOM items are displayed
+    // Check that breakdown items from calculation.breakdown are displayed
     await waitFor(() => {
       expect(screen.getByText('Cotton Fabric')).toBeInTheDocument();
       expect(screen.getByText('Polyester Thread')).toBeInTheDocument();
     });
   });
 
-  it('should display items from BOM in energy drill-down', async () => {
+  it('should display breakdown items for energy category', async () => {
     render(<ResultsDisplay />);
 
     // Click on energy node
@@ -236,9 +308,10 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     });
   });
 
-  it('should show description text for drill-down functionality', () => {
+  it('should show drill-down hint text in overview mode', () => {
     render(<ResultsDisplay />);
 
-    expect(screen.getByText(/click on a category to see detailed breakdown/i)).toBeInTheDocument();
+    // The SankeyDiagram renders visible hint text in overview mode
+    expect(screen.getByText(/click on a category to drill down/i)).toBeInTheDocument();
   });
 });

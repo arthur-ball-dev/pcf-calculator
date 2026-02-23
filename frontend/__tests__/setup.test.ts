@@ -213,13 +213,13 @@ describe('TASK-FE-001: Project Setup Verification', () => {
         'select',
         'form',
         'checkbox',
-        'textarea',
         'alert',
-        'toast',
+        'alert-dialog',
         'dialog',
-        'progress',
-        'tabs',
         'separator',
+        'skeleton',
+        'badge',
+        'table',
       ];
 
       const componentsUiPath = join(PROJECT_ROOT, 'src/components/ui');

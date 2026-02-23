@@ -43,7 +43,7 @@ describe('sankeyTransform', () => {
       const energyNode = sankeyData.nodes.find((n) => n.id === 'energy');
       expect(energyNode).toBeDefined();
       expect(energyNode?.label).toBe('Energy');
-      expect(energyNode?.nodeColor).toBe('#FFC107'); // Amber
+      expect(energyNode?.nodeColor).toBe('#FF9800'); // Amber (Orange)
 
       // Check transport node
       const transportNode = sankeyData.nodes.find((n) => n.id === 'transport');
@@ -55,7 +55,7 @@ describe('sankeyTransform', () => {
       const totalNode = sankeyData.nodes.find((n) => n.id === 'total');
       expect(totalNode).toBeDefined();
       expect(totalNode?.label).toBe('Total PCF');
-      expect(totalNode?.nodeColor).toBe('#003f7f'); // Navy
+      expect(totalNode?.nodeColor).toBe('#E8EAED'); // Light gray
 
       // Should have links from categories to total
       expect(sankeyData.links).toHaveLength(3);
@@ -147,7 +147,7 @@ describe('sankeyTransform', () => {
     });
 
     it('should return correct color for energy category', () => {
-      expect(getNodeColor('energy')).toBe('#FFC107');
+      expect(getNodeColor('energy')).toBe('#FF9800');
     });
 
     it('should return correct color for transport category', () => {
@@ -159,11 +159,11 @@ describe('sankeyTransform', () => {
     });
 
     it('should return correct color for waste category', () => {
-      expect(getNodeColor('waste')).toBe('#757575');
+      expect(getNodeColor('waste')).toBe('#795548');
     });
 
     it('should return correct color for total category', () => {
-      expect(getNodeColor('total')).toBe('#003f7f');
+      expect(getNodeColor('total')).toBe('#E8EAED');
     });
 
     it('should return default color for unknown category', () => {

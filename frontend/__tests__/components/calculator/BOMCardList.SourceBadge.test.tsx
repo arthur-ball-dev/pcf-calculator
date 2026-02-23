@@ -10,6 +10,9 @@
  * - SourceBadge accessibility (title attribute)
  *
  * Written BEFORE implementation per TDD protocol.
+ *
+ * NOTE: Emerald Night 5B redesign changed:
+ * - Category badges now show config labels (Materials, Energy, Transport) not raw values
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -229,7 +232,8 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       // The second item should still render its content
       const card2 = screen.getByTestId('bom-card-2');
       expect(within(card2).getByText('Unknown Material')).toBeInTheDocument();
-      expect(within(card2).getByText('material')).toBeInTheDocument();
+      // Emerald Night 5B: category badges show config labels not raw values
+      expect(within(card2).getByText('Materials')).toBeInTheDocument();
     });
 
     it('should not crash when items have mixed data_source values', () => {
@@ -331,7 +335,8 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       const card = screen.getByTestId('bom-card-1');
 
       // Both badges should be present
-      const categoryBadge = within(card).getByText('material');
+      // Emerald Night 5B: category badges show config labels not raw values
+      const categoryBadge = within(card).getByText('Materials');
       const sourceBadge = within(card).getByText('[EPA]');
 
       expect(categoryBadge).toBeInTheDocument();

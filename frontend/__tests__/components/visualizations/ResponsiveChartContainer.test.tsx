@@ -17,10 +17,16 @@
  * - Mobile (<=640px): 300px
  * - Tablet (641px-1023px): 400px
  * - Desktop (>=1024px): 500px
+ *
+ * TDD Exception: TDD-EX-P9-001 (2026-02-18)
+ * - Viewport transition tests: useBreakpoints/useMediaQuery hooks cache initial
+ *   matchMedia state in React useState. Changing window.matchMedia and rerendering
+ *   does not re-trigger the useEffect (query dependency unchanged). Must fire
+ *   change events through stored addEventListener handlers to simulate viewport changes.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '../../testUtils';
+import { render, screen, waitFor, act } from '../../testUtils';
 import React from 'react';
 
 // Import will fail until implementation exists - this is expected for TDD
@@ -88,6 +94,8 @@ describe('ResponsiveChartContainer', () => {
   let originalMatchMedia: typeof window.matchMedia;
   let originalResizeObserver: typeof window.ResizeObserver;
   let changeHandlers: Map<string, ((ev: MediaQueryListEvent) => void)[]>;
+  /** Track all created media query lists so we can update matches on them */
+  let mediaQueryLists: Map<string, MockMediaQueryList>;
 
   /**
    * Creates a mock matchMedia function that simulates browser behavior
@@ -126,6 +134,9 @@ describe('ResponsiveChartContainer', () => {
         dispatchEvent: vi.fn(),
       };
 
+      // Track this media query list for later updates
+      mediaQueryLists.set(query, mediaQueryList);
+
       return mediaQueryList;
     };
   };
@@ -139,8 +150,44 @@ describe('ResponsiveChartContainer', () => {
     window.innerWidth = width;
   };
 
+  /**
+   * Simulate a viewport resize by updating all tracked media query lists
+   * and firing their change event handlers. This is needed because useMediaQuery
+   * caches initial matchMedia state in useState and only updates via change events.
+   * @param width - The new viewport width in pixels
+   */
+  const simulateResize = (width: number) => {
+    window.innerWidth = width;
+    // Update matchMedia for new queries
+    window.matchMedia = createMatchMedia(width);
+
+    // Fire change events on all existing media query lists
+    for (const [query, handlers] of changeHandlers.entries()) {
+      let newMatches = false;
+      const maxWidthMatch = query.match(/\(max-width:\s*(\d+)px\)/);
+      const minWidthMatch = query.match(/\(min-width:\s*(\d+)px\)/);
+
+      if (maxWidthMatch) {
+        newMatches = width <= parseInt(maxWidthMatch[1], 10);
+      } else if (minWidthMatch) {
+        newMatches = width >= parseInt(minWidthMatch[1], 10);
+      }
+
+      // Update the tracked MQL matches value
+      const mql = mediaQueryLists.get(query);
+      if (mql) {
+        mql.matches = newMatches;
+      }
+
+      for (const handler of handlers) {
+        handler({ matches: newMatches, media: query } as MediaQueryListEvent);
+      }
+    }
+  };
+
   beforeEach(() => {
     changeHandlers = new Map();
+    mediaQueryLists = new Map();
     originalMatchMedia = window.matchMedia;
     originalResizeObserver = window.ResizeObserver;
     window.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
@@ -152,6 +199,7 @@ describe('ResponsiveChartContainer', () => {
     window.matchMedia = originalMatchMedia;
     window.ResizeObserver = originalResizeObserver;
     changeHandlers.clear();
+    mediaQueryLists.clear();
   });
 
   // ==========================================================================
@@ -748,7 +796,7 @@ describe('ResponsiveChartContainer', () => {
     it('should handle viewport resize from desktop to mobile', async () => {
       setViewport(1280);
 
-      const { rerender } = render(
+      render(
         <ResponsiveChartContainer minHeight={500} mobileHeight={300}>
           <MockChart />
         </ResponsiveChartContainer>
@@ -758,13 +806,12 @@ describe('ResponsiveChartContainer', () => {
       let container = screen.getByTestId('responsive-chart-container');
       expect(container).toHaveStyle({ height: '500px' });
 
-      // Resize to mobile
-      setViewport(375);
-      rerender(
-        <ResponsiveChartContainer minHeight={500} mobileHeight={300}>
-          <MockChart />
-        </ResponsiveChartContainer>
-      );
+      // TDD-EX-P9-001: useMediaQuery caches matchMedia state and only updates
+      // via change event handlers. Simulate a true viewport resize by firing
+      // change events through the stored addEventListener handlers.
+      await act(() => {
+        simulateResize(375);
+      });
 
       await waitFor(() => {
         container = screen.getByTestId('responsive-chart-container');
@@ -775,22 +822,23 @@ describe('ResponsiveChartContainer', () => {
     it('should handle viewport resize from mobile to tablet', async () => {
       setViewport(375);
 
-      const { rerender } = render(
+      render(
         <ResponsiveChartContainer mobileHeight={300} tabletHeight={400}>
           <MockChart />
         </ResponsiveChartContainer>
       );
 
-      // Resize to tablet
-      setViewport(768);
-      rerender(
-        <ResponsiveChartContainer mobileHeight={300} tabletHeight={400}>
-          <MockChart />
-        </ResponsiveChartContainer>
-      );
+      // Verify mobile height
+      let container = screen.getByTestId('responsive-chart-container');
+      expect(container).toHaveStyle({ height: '300px' });
+
+      // TDD-EX-P9-001: Fire change events to simulate real viewport resize
+      await act(() => {
+        simulateResize(768);
+      });
 
       await waitFor(() => {
-        const container = screen.getByTestId('responsive-chart-container');
+        container = screen.getByTestId('responsive-chart-container');
         expect(container).toHaveStyle({ height: '400px' });
       });
     });

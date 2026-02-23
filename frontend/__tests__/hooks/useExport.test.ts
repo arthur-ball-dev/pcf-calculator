@@ -136,7 +136,7 @@ describe('useExport Hook', () => {
       expect(exportToCSV).toHaveBeenCalled();
     });
 
-    it('should pass category breakdown data to CSV export', async () => {
+    it('should pass BOM detail data to CSV export', async () => {
       const { result } = renderHook(() => useExport(sampleResults, productInfo));
 
       await act(async () => {
@@ -145,9 +145,11 @@ describe('useExport Hook', () => {
 
       expect(exportToCSV).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ Scope: 'Scope 1' }),
+          expect.objectContaining({ Component: 'Steel' }),
         ]),
-        expect.any(String)
+        expect.any(String),
+        undefined,
+        expect.anything()
       );
     });
 
@@ -158,10 +160,9 @@ describe('useExport Hook', () => {
         await result.current.exportToCSV();
       });
 
-      expect(exportToCSV).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.stringContaining('Test_Widget')
-      );
+      // The hook calls exportToCSV with 4 args: data, filename, headers, options
+      const callArgs = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[1]).toContain('Test_Widget');
     });
 
     it('should include PCF in filename', async () => {
@@ -171,10 +172,8 @@ describe('useExport Hook', () => {
         await result.current.exportToCSV();
       });
 
-      expect(exportToCSV).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.stringContaining('PCF')
-      );
+      const callArgs = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[1]).toContain('PCF');
     });
 
     it('should include date in filename', async () => {
@@ -187,10 +186,8 @@ describe('useExport Hook', () => {
         await result.current.exportToCSV();
       });
 
-      expect(exportToCSV).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.stringMatching(/2024-06-15/)
-      );
+      const callArgs = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[1]).toMatch(/2024-06-15/);
     });
 
     it('should sanitize special characters in product name for filename', async () => {
@@ -205,8 +202,8 @@ describe('useExport Hook', () => {
       });
 
       // Filename should not contain special characters
-      const filename = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0][1];
-      expect(filename).not.toMatch(/[\/\*]/);
+      const callArgs = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[1]).not.toMatch(/[\/\*]/);
     });
   });
 
@@ -232,14 +229,14 @@ describe('useExport Hook', () => {
         await result.current.exportToExcel();
       });
 
-      expect(exportToExcel).toHaveBeenCalledWith(
-        expect.objectContaining({
-          productName: 'Test Widget',
-          productCode: 'TW-001',
-          totalEmissions: 2.5,
-        }),
-        expect.any(String)
-      );
+      // exportToExcel is now async with dynamic import - check it was called
+      expect(exportToExcel).toHaveBeenCalled();
+      const callArgs = (exportToExcel as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[0]).toMatchObject({
+        productName: 'Test Widget',
+        productCode: 'TW-001',
+        totalEmissions: 2.5,
+      });
     });
 
     it('should transform BOM details correctly', async () => {
@@ -255,6 +252,7 @@ describe('useExport Hook', () => {
           expect.objectContaining({
             component: 'Steel',
             quantity: 100,
+            category: expect.any(String),
           }),
         ])
       );
@@ -268,12 +266,9 @@ describe('useExport Hook', () => {
       });
 
       const exportData = (exportToExcel as ReturnType<typeof vi.fn>).mock.calls[0][0];
-      expect(exportData.parameters).toEqual(
-        expect.objectContaining({
-          transportDistance: 500,
-          energySource: 'Grid Electricity',
-        })
-      );
+      expect(exportData.parameters).toBeDefined();
+      expect(exportData.parameters.transportDistance).toBe(500);
+      expect(exportData.parameters.energySource).toBe('Grid Electricity');
     });
 
     it('should generate filename with same pattern as CSV', async () => {
@@ -285,10 +280,8 @@ describe('useExport Hook', () => {
         await result.current.exportToExcel();
       });
 
-      expect(exportToExcel).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.stringContaining('Test_Widget')
-      );
+      const callArgs = (exportToExcel as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[1]).toContain('Test_Widget');
     });
   });
 
@@ -557,12 +550,8 @@ describe('useExport Hook', () => {
         await result.current.exportToCSV({ delimiter: ';' });
       });
 
-      expect(exportToCSV).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        undefined,
-        expect.objectContaining({ delimiter: ';' })
-      );
+      const callArgs = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[3]).toMatchObject({ delimiter: ';' });
     });
 
     it('should accept custom filename', async () => {
@@ -572,10 +561,8 @@ describe('useExport Hook', () => {
         await result.current.exportToCSV({ filename: 'custom-report' });
       });
 
-      expect(exportToCSV).toHaveBeenCalledWith(
-        expect.anything(),
-        'custom-report'
-      );
+      const callArgs = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[1]).toBe('custom-report');
     });
 
     it('should accept custom headers for CSV', async () => {
@@ -586,12 +573,8 @@ describe('useExport Hook', () => {
         await result.current.exportToCSV({ headers: customHeaders });
       });
 
-      expect(exportToCSV).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        customHeaders,
-        expect.anything()
-      );
+      const callArgs = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(callArgs[2]).toEqual(customHeaders);
     });
   });
 

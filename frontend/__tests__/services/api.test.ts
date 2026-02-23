@@ -1,6 +1,11 @@
 /**
  * API Service Layer Tests
  * TASK-FE-006: Test API client, interceptors, and endpoint integrations
+ *
+ * TDD Exception: TDD-EX-P9-001 (2026-02-18)
+ * - Updated is_finished_product filter test: the productsAPI.list() method
+ *   remaps is_finished_product to is_finished for the backend query param
+ *   (backend expects 'is_finished' not 'is_finished_product').
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -94,8 +99,10 @@ describe('API Service Layer', () => {
 
       await api.products.list({ is_finished_product: true });
 
+      // TDD-EX-P9-001: productsAPI.list() remaps is_finished_product to is_finished
+      // because the backend expects 'is_finished' not 'is_finished_product'
       expect(client.get).toHaveBeenCalledWith('/api/v1/products', {
-        params: { limit: 100, offset: 0, is_finished_product: true },
+        params: { limit: 100, offset: 0, is_finished: true },
       });
     });
   });
