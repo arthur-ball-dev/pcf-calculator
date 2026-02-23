@@ -10,6 +10,7 @@
  * - Accessibility with ARIA labels
  * - React.memo for performance optimization (prevents re-renders when sibling rows change)
  * - Support for virtualized rendering (TASK-FE-P8-007)
+ * - Emerald Night 5B: pill-shaped quantity controls, category dot badges, per-row CO2e
  *
  * Props:
  * - field: Field object from useFieldArray (properly typed)
@@ -25,9 +26,9 @@
  * TASK-FE-P8-007: Added isVirtualized prop for virtualized list rendering
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import type { UseFormReturn, FieldArrayWithId, ControllerRenderProps } from 'react-hook-form';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Minus, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -63,6 +64,7 @@ import {
 import { TableCell, TableRow } from '@/components/ui/table';
 import type { EmissionFactor } from '@/hooks/useEmissionFactors';
 import { classifyComponent } from '@/utils/classifyComponent';
+import { EMISSION_CATEGORY_COLORS } from '@/constants/colors';
 import { SourceBadge } from '@/components/attribution/SourceBadge';
 import { emissionFactorsAPI } from '@/services/api/emissionFactors';
 import type { BOMFormData } from '@/schemas/bomSchema';
@@ -73,14 +75,41 @@ import type { BOMFormData } from '@/schemas/bomSchema';
 const UNITS = ['kg', 'g', 'L', 'mL', 'kWh', 'MJ', 'tkm', 'm', 'cm'] as const;
 
 /**
- * Available categories for BOM items
+ * Category display config with color dots
+ * Maps form category values to display labels and color codes
  */
-const CATEGORIES = [
-  { value: 'material', label: 'Material' },
-  { value: 'energy', label: 'Energy' },
-  { value: 'transport', label: 'Transport' },
-  { value: 'other', label: 'Processing/Other' },
-] as const;
+const CATEGORY_CONFIG: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
+  material: {
+    label: 'Materials',
+    color: EMISSION_CATEGORY_COLORS.materials,
+    bgColor: 'rgba(16, 185, 129, 0.18)',
+    borderColor: 'rgba(16, 185, 129, 0.22)',
+  },
+  energy: {
+    label: 'Energy',
+    color: EMISSION_CATEGORY_COLORS.energy,
+    bgColor: 'rgba(245, 158, 11, 0.18)',
+    borderColor: 'rgba(245, 158, 11, 0.22)',
+  },
+  transport: {
+    label: 'Transport',
+    color: EMISSION_CATEGORY_COLORS.transport,
+    bgColor: 'rgba(59, 130, 246, 0.18)',
+    borderColor: 'rgba(59, 130, 246, 0.22)',
+  },
+  combustion: {
+    label: 'Combustion',
+    color: '#E91E63',
+    bgColor: 'rgba(233, 30, 99, 0.18)',
+    borderColor: 'rgba(233, 30, 99, 0.22)',
+  },
+  other: {
+    label: 'Other',
+    color: EMISSION_CATEGORY_COLORS.other,
+    bgColor: 'rgba(148, 163, 184, 0.15)',
+    borderColor: 'rgba(148, 163, 184, 0.18)',
+  },
+};
 
 /**
  * Type for field from useFieldArray<BOMFormData, 'items'>
@@ -108,24 +137,6 @@ interface BOMTableRowProps {
 }
 
 /**
- * BOMTableRow - Editable table row for a single BOM item
- *
- * Wrapped with React.memo to prevent unnecessary re-renders when sibling rows change.
- * This is a critical performance optimization for large BOMs.
- *
- * Note: The form object from React Hook Form maintains stable reference identity,
- * so passing it as a prop doesn't cause unnecessary re-renders.
- * The index and canRemove props are primitives and also don't cause issues.
- * The onRemove callback should ideally be memoized in the parent component.
- *
- * TASK-FE-P8-006: All inline handlers are now extracted to useCallback hooks
- * with proper dependency arrays [form, index] to prevent stale closures
- * and maintain stable function references for React.memo optimization.
- *
- * When isVirtualized is true, the component renders only the cell contents
- * (without the <tr> wrapper) since the parent handles the row element positioning.
- */
-/**
  * Maximum number of emission factors to render in dropdown
  * This prevents rendering 300+ SelectItems which causes severe performance issues
  */
@@ -142,10 +153,13 @@ const BOMTableRow = React.memo(function BOMTableRow({
 }: BOMTableRowProps) {
   // Get currently selected emission factor ID
   const selectedFactorId = form.watch(`items.${index}.emissionFactorId`);
+  // Watch quantity and category for reactive updates
+  const watchedQuantity = form.watch(`items.${index}.quantity`);
+  const watchedCategory = form.watch(`items.${index}.category`);
 
   // Limit emission factors to MAX_DROPDOWN_ITEMS for performance
   // Always include the currently selected factor if it exists
-  const filteredFactors = React.useMemo(() => {
+  const filteredFactors = useMemo(() => {
     if (emissionFactors.length <= MAX_DROPDOWN_ITEMS) {
       return emissionFactors;
     }
@@ -168,9 +182,25 @@ const BOMTableRow = React.memo(function BOMTableRow({
   }, [emissionFactors, selectedFactorId]);
 
   /**
+   * Calculate per-row CO2e estimate
+   */
+  const rowCO2e = useMemo(() => {
+    if (!selectedFactorId) return null;
+    const factor = emissionFactors.find(f => f.id === selectedFactorId);
+    if (!factor) return null;
+    const qty = watchedQuantity || 0;
+    return qty * factor.co2e_factor;
+  }, [selectedFactorId, watchedQuantity, emissionFactors]);
+
+  /**
+   * Get the category config for the current row
+   */
+  const categoryConfig = useMemo(() => {
+    return CATEGORY_CONFIG[watchedCategory] || CATEGORY_CONFIG.other;
+  }, [watchedCategory]);
+
+  /**
    * Handle name field changes with auto-classification, auto-EF suggestion, and validation
-   * TASK-FE-P8-006: Extracted from inline handler to useCallback
-   * TASK-FE-P8-011: Added auto-suggest emission factor based on component name
    */
   const handleNameChange = useCallback(
     (
@@ -178,21 +208,16 @@ const BOMTableRow = React.memo(function BOMTableRow({
       fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.name`>['onChange']
     ) => {
       fieldOnChange(e);
-      // Auto-classify the category based on component name
       const newName = e.target.value;
       if (newName) {
         const classifiedCategory = classifyComponent(newName);
-        // Map 'materials' to 'material' for form value
         const formCategory = classifiedCategory === 'materials' ? 'material' : classifiedCategory;
         form.setValue(`items.${index}.category`, formCategory);
 
-        // Auto-suggest emission factor based on component name
-        // Debounce by only suggesting after name is at least 3 chars
         if (newName.length >= 3) {
           const currentUnit = form.getValues(`items.${index}.unit`) || 'kg';
           emissionFactorsAPI.suggest(newName, currentUnit).then((suggestedFactor) => {
             if (suggestedFactor) {
-              // Only auto-select if no factor is currently selected
               const currentFactorId = form.getValues(`items.${index}.emissionFactorId`);
               if (!currentFactorId) {
                 form.setValue(`items.${index}.emissionFactorId`, suggestedFactor.id);
@@ -203,12 +228,8 @@ const BOMTableRow = React.memo(function BOMTableRow({
           });
         }
       }
-      // Trigger validation for this field AND array-level validation
-      // Array-level validation includes duplicate name checking
-      // Use queueMicrotask to ensure field value is set before validation
       queueMicrotask(() => {
         form.trigger(`items.${index}.name`).then(() => {
-          // Also trigger items array validation for duplicate check
           form.trigger('items');
         });
       });
@@ -218,23 +239,14 @@ const BOMTableRow = React.memo(function BOMTableRow({
 
   /**
    * Handle quantity field changes with validation
-   * TASK-FE-P8-006: Extracted from inline handler to useCallback
    */
   const handleQuantityChange = useCallback(
     (
       e: React.ChangeEvent<HTMLInputElement>,
       fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.quantity`>['onChange']
     ) => {
-      // Use valueAsNumber for proper HTML5 number input handling
-      // Allow NaN to pass through - this preserves "-" while typing
-      // Zod validation will catch invalid values
-      // Totals calculation handles NaN gracefully with || 0
       const value = e.target.valueAsNumber;
       fieldOnChange(value);
-      // Manually trigger validation for array fields
-      // This is required because mode: 'onChange' doesn't always
-      // trigger validation for nested array fields automatically
-      // Use queueMicrotask to ensure field value is set before validation
       queueMicrotask(() => {
         form.trigger(`items.${index}.quantity`);
       });
@@ -243,31 +255,26 @@ const BOMTableRow = React.memo(function BOMTableRow({
   );
 
   /**
-   * Handle category changes and reset emission factor
-   * TASK-FE-P8-006: Extracted from inline handler to useCallback
+   * Handle quantity increment/decrement via pill buttons
    */
-  const handleCategoryChange = useCallback(
-    (
-      value: string,
-      fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.category`>['onChange']
-    ) => {
-      fieldOnChange(value);
-      // Reset emission factor when category changes
-      form.setValue(`items.${index}.emissionFactorId`, null);
+  const handleQuantityStep = useCallback(
+    (delta: number) => {
+      const currentValue = form.getValues(`items.${index}.quantity`) || 0;
+      const newValue = Math.max(0.01, currentValue + delta);
+      const rounded = Math.round(newValue * 100) / 100;
+      form.setValue(`items.${index}.quantity`, rounded, { shouldValidate: true, shouldDirty: true });
     },
     [form, index]
   );
 
   /**
    * Handle emission factor selection changes
-   * TASK-FE-P8-006: Extracted from inline handler to useCallback
    */
   const handleEmissionFactorChange = useCallback(
     (
       value: string,
       fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.emissionFactorId`>['onChange']
     ) => {
-      // Store as string (UUID) or null for empty selection
       fieldOnChange(value || null);
     },
     []
@@ -275,12 +282,10 @@ const BOMTableRow = React.memo(function BOMTableRow({
 
   /**
    * Handle delete confirmation action
-   * TASK-FE-P8-006: Extracted from inline handler to useCallback
    */
   const handleDeleteConfirm = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
-      // Delay removal to allow dialog to close first
       setTimeout(() => onRemove(), 0);
     },
     [onRemove]
@@ -292,7 +297,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
   const renderCells = () => (
     <>
       {/* Component Name */}
-      <TableCell>
+      <TableCell className="py-2 px-3">
         <FormField
           control={form.control}
           name={`items.${index}.name`}
@@ -303,7 +308,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   {...field}
                   id={`items.${index}.name`}
                   placeholder="e.g., Cotton, Electricity"
-                  className="min-w-[150px]"
+                  className="w-full bg-white/[0.04] border-white/[0.08] text-[var(--text-primary)] placeholder:text-[var(--text-dim)] focus:border-emerald-500/50 focus:ring-emerald-500/20"
                   aria-label="Component name"
                   onChange={(e) => handleNameChange(e, field.onChange)}
                 />
@@ -314,83 +319,86 @@ const BOMTableRow = React.memo(function BOMTableRow({
         />
       </TableCell>
 
-      {/* Quantity */}
-      <TableCell>
+      {/* Category with colored dot badge */}
+      <TableCell className="py-2 px-3">
+        <span
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[13px] font-semibold tracking-[0.02em] whitespace-nowrap"
+          style={{
+            background: categoryConfig.bgColor,
+            color: categoryConfig.color,
+            border: `1px solid ${categoryConfig.borderColor}`,
+          }}
+        >
+          <span
+            className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+            style={{ background: categoryConfig.color }}
+          />
+          {categoryConfig.label}
+        </span>
+      </TableCell>
+
+      {/* Quantity - Pill-shaped controls */}
+      <TableCell className="py-2 px-3">
         <FormField
           control={form.control}
           name={`items.${index}.quantity`}
           render={({ field }) => (
             <FormItem>
-              <FormControl>
-                <Input
-                  {...field}
-                  type="number"
-                  data-testid="bom-item-quantity"
-                  step="0.01"
-                  min="0"
-                  onChange={(e) => handleQuantityChange(e, field.onChange)}
-                  onBlur={field.onBlur}
-                  className="w-24"
-                  aria-label="Quantity"
+              <div className="flex items-center gap-2">
+                {/* Pill quantity control */}
+                <div className="inline-flex items-center bg-white/[0.04] border border-white/[0.08] rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    className="w-[30px] h-[30px] flex items-center justify-center text-[var(--text-muted)] hover:bg-white/[0.06] hover:text-[var(--text-primary)] transition-colors"
+                    onClick={() => handleQuantityStep(-1)}
+                    aria-label="Decrease quantity"
+                    data-testid="qty-decrease"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <FormControl>
+                    <input
+                      {...field}
+                      type="number"
+                      data-testid="bom-item-quantity"
+                      step="0.01"
+                      min="0"
+                      onChange={(e) => handleQuantityChange(e, field.onChange)}
+                      onBlur={field.onBlur}
+                      className="w-14 h-[30px] text-center text-sm font-medium tabular-nums text-[var(--text-primary)] bg-transparent border-x border-white/[0.08] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      aria-label="Quantity"
+                    />
+                  </FormControl>
+                  <button
+                    type="button"
+                    className="w-[30px] h-[30px] flex items-center justify-center text-[var(--text-muted)] hover:bg-white/[0.06] hover:text-[var(--text-primary)] transition-colors"
+                    onClick={() => handleQuantityStep(1)}
+                    aria-label="Increase quantity"
+                    data-testid="qty-increase"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {/* Unit selector */}
+                <FormField
+                  control={form.control}
+                  name={`items.${index}.unit`}
+                  render={({ field: unitField }) => (
+                    <Select onValueChange={unitField.onChange} value={unitField.value}>
+                      <SelectTrigger className="w-[70px] h-[30px] text-[13px] text-[var(--text-dim)] bg-transparent border-white/[0.08]" aria-label="Unit">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {UNITS.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </TableCell>
-
-      {/* Unit */}
-      <TableCell>
-        <FormField
-          control={form.control}
-          name={`items.${index}.unit`}
-          render={({ field }) => (
-            <FormItem>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger className="w-[70px]" aria-label="Unit">
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {UNITS.map((unit) => (
-                    <SelectItem key={unit} value={unit}>
-                      {unit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </TableCell>
-
-      {/* Category */}
-      <TableCell>
-        <FormField
-          control={form.control}
-          name={`items.${index}.category`}
-          render={({ field }) => (
-            <FormItem>
-              <Select
-                onValueChange={(value) => handleCategoryChange(value, field.onChange)}
-                value={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger className="w-[100px]" aria-label="Category">
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {CATEGORIES.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -398,13 +406,11 @@ const BOMTableRow = React.memo(function BOMTableRow({
       </TableCell>
 
       {/* Emission Factor */}
-      <TableCell>
+      <TableCell className="py-2 px-3">
         <FormField
           control={form.control}
           name={`items.${index}.emissionFactorId`}
           render={({ field }) => {
-            // Convert null/undefined to empty string for Select component
-            // Select component requires string value, not null
             const selectValue = field.value ?? '';
 
             return (
@@ -415,14 +421,14 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   disabled={isLoadingFactors || filteredFactors.length === 0}
                 >
                   <FormControl>
-                    <SelectTrigger className="min-w-[180px]" aria-label="Emission factor">
+                    <SelectTrigger className="w-full bg-white/[0.04] border-white/[0.08] text-[var(--text-primary)] truncate" aria-label="Emission factor">
                       <SelectValue placeholder="Select factor" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {filteredFactors.map((factor) => (
                       <SelectItem key={factor.id} value={factor.id}>
-                        {factor.activity_name} ({factor.co2e_factor} kg CO₂e/{factor.unit})
+                        {factor.activity_name} ({factor.co2e_factor} kg CO&#8322;e/{factor.unit})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -434,24 +440,34 @@ const BOMTableRow = React.memo(function BOMTableRow({
         />
       </TableCell>
 
-      {/* Source - Display data source of selected emission factor with link to attribution */}
-      <TableCell>
+      {/* Per-row CO2e estimate */}
+      <TableCell className="py-2 px-3 text-right">
+        {rowCO2e !== null ? (
+          <span className="text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+            {rowCO2e.toFixed(2)} <span className="text-[13px] font-normal text-[var(--text-dim)]">kg CO&#8322;e</span>
+          </span>
+        ) : (
+          <span className="text-sm text-[var(--text-dim)]">&mdash;</span>
+        )}
+      </TableCell>
+
+      {/* Source */}
+      <TableCell className="py-2 px-3 text-center">
         {(() => {
-          // Use selectedFactorId from component scope (already watched above)
           const selectedFactor = emissionFactors.find((f) => f.id === selectedFactorId);
           return selectedFactor && selectedFactor.data_source ? (
             <SourceBadge
               sourceCode={selectedFactor.data_source}
-              className="text-sm"
+              className="text-[14px]"
             />
           ) : (
-            <span className="text-sm text-muted-foreground/50">—</span>
+            <span className="text-sm text-[var(--text-dim)]">&mdash;</span>
           );
         })()}
       </TableCell>
 
       {/* Actions */}
-      <TableCell className="text-right">
+      <TableCell className="text-center py-2 px-3">
         {canRemove ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -511,20 +527,17 @@ const BOMTableRow = React.memo(function BOMTableRow({
     </>
   );
 
-  // When virtualized, return only the cells (parent provides the <tr>)
-  // When not virtualized, wrap in TableRow
   if (isVirtualized) {
     return renderCells();
   }
 
   return (
-    <TableRow>
+    <TableRow className="border-b border-white/[0.04] transition-colors hover:bg-white/[0.025]">
       {renderCells()}
     </TableRow>
   );
 });
 
-// Set display name for debugging in React DevTools
 BOMTableRow.displayName = 'BOMTableRow';
 
 export default BOMTableRow;

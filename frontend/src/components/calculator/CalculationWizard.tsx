@@ -347,19 +347,27 @@ const CalculationWizard: React.FC = () => {
             />
           )}
 
-          {/* Step heading and description */}
-          <div className="mb-6">
-            <h2
-              ref={headingRef}
-              className={`font-heading font-bold tracking-tight text-[var(--text-primary)] text-xl ${headingSize} sm:text-2xl md:text-3xl`}
-              tabIndex={-1}
-            >
+          {/* Step heading and description - hidden on Select step to avoid duplicate with StepProgress */}
+          {currentStep !== 'select' && (
+            <div className="mb-6">
+              <h2
+                ref={headingRef}
+                className={`font-heading font-bold tracking-tight text-[var(--text-primary)] text-xl ${headingSize} sm:text-2xl md:text-3xl`}
+                tabIndex={-1}
+              >
+                {getStepHeading()}
+              </h2>
+              <p className="text-[var(--text-muted)] text-[0.9375rem]">
+                {currentStepConfig.description}
+              </p>
+            </div>
+          )}
+          {/* Hidden heading for accessibility on Select step */}
+          {currentStep === 'select' && (
+            <h2 ref={headingRef} className="sr-only" tabIndex={-1}>
               {getStepHeading()}
             </h2>
-            <p className="text-[var(--text-muted)] text-[0.9375rem]">
-              {currentStepConfig.description}
-            </p>
-          </div>
+          )}
 
           {/* Current step component */}
           <div className="mb-6 sm:mb-8">

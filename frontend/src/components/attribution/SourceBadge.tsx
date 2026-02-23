@@ -37,7 +37,7 @@ const SingleBadge: React.FC<{ source: string; className?: string }> = ({ source,
     <a
       href={`#${config.anchor}`}
       className={cn(
-        'font-semibold no-underline hover:underline transition-colors',
+        'font-bold no-underline hover:underline transition-colors',
         config.color,
         className
       )}

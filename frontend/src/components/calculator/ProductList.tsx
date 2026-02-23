@@ -616,7 +616,7 @@ const ProductList: React.FC = () => {
                     aria-selected={isSelected}
                     tabIndex={0}
                     className={cn(
-                      'flex items-center px-6 py-3.5 border-b border-white/[0.04] cursor-pointer transition-colors',
+                      'flex items-center px-4 sm:px-6 py-3 sm:py-3.5 border-b border-white/[0.04] cursor-pointer transition-colors',
                       isSelected &&
                         'bg-emerald-500/[0.06] border-l-[3px] border-l-emerald-500 pl-[calc(1.5rem-3px)]',
                       !isSelected && 'hover:bg-white/[0.025]'
@@ -631,12 +631,14 @@ const ProductList: React.FC = () => {
                         {product.code}
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 shrink-0">
-                      {/* Industry badge */}
-                      <IndustryBadge industry={getIndustry(product)} />
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                      {/* Industry badge - hidden on mobile (shown in group header) */}
+                      <span className="hidden sm:inline-flex">
+                        <IndustryBadge industry={getIndustry(product)} />
+                      </span>
                       {/* Component count */}
                       {bomCount > 0 && (
-                        <span className="text-[0.8125rem] text-[var(--text-dim)] flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="text-[0.75rem] sm:text-[0.8125rem] text-[var(--text-dim)] flex items-center gap-1.5 whitespace-nowrap">
                           <Grid2X2 className="w-3.5 h-3.5" />
                           {bomCount} component{bomCount !== 1 ? 's' : ''}
                         </span>

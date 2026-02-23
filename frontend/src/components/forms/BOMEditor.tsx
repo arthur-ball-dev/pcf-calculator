@@ -13,6 +13,7 @@
  * - Responsive view switching: card view on mobile, table on desktop (TASK-FE-P7-010)
  * - List virtualization for large BOM lists (20+ items) (TASK-FE-P8-007)
  * - Progressive rendering to prevent UI blocking (Performance optimization)
+ * - Emerald Night 5B glassmorphic design with category dots and quantity controls
  *
  * Uses:
  * - React Hook Form with useFieldArray
@@ -22,7 +23,7 @@
  * - @tanstack/react-virtual for list virtualization
  */
 
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useForm, useFieldArray, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -35,6 +36,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableCell,
 } from '@/components/ui/table';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
@@ -192,13 +194,36 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     }
   }, [fields, remove]);
 
-  const totals = form.watch('items').reduce(
-    (acc, item) => ({
-      totalItems: acc.totalItems + 1,
-      totalQuantity: acc.totalQuantity + (item.quantity || 0),
-    }),
-    { totalItems: 0, totalQuantity: 0 }
-  );
+  const watchedItems = form.watch('items');
+
+  const totals = useMemo(() => {
+    return watchedItems.reduce(
+      (acc, item) => ({
+        totalItems: acc.totalItems + 1,
+        totalQuantity: acc.totalQuantity + (item.quantity || 0),
+      }),
+      { totalItems: 0, totalQuantity: 0 }
+    );
+  }, [watchedItems]);
+
+  /**
+   * Calculate estimated total CO2e from watched items and emission factors
+   */
+  const estimatedTotalCO2e = useMemo(() => {
+    if (emissionFactors.length === 0) return null;
+    let total = 0;
+    let hasAnyFactor = false;
+    for (const item of watchedItems) {
+      if (item.emissionFactorId) {
+        const factor = emissionFactors.find(f => f.id === item.emissionFactorId);
+        if (factor) {
+          hasAnyFactor = true;
+          total += (item.quantity || 0) * factor.co2e_factor;
+        }
+      }
+    }
+    return hasAnyFactor ? total : null;
+  }, [watchedItems, emissionFactors]);
 
   const arrayLevelError = errors.items && !Array.isArray(errors.items)
     ? (errors.items as { message?: string }).message
@@ -217,23 +242,60 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
   });
 
   const renderTableHeader = () => (
-    <TableHeader>
-      <TableRow>
-        <TableHead className="min-w-[150px]">Component Name</TableHead>
-        <TableHead className="min-w-[100px]">Quantity</TableHead>
-        <TableHead className="min-w-[70px]">Unit</TableHead>
-        <TableHead className="min-w-[100px]">Category</TableHead>
-        <TableHead className="min-w-[180px]">Emission Factor</TableHead>
-        <TableHead className="min-w-[60px]">Source</TableHead>
-        <TableHead className="min-w-[50px] text-right">Actions</TableHead>
+    <TableHeader className="bg-white/[0.03]">
+      <TableRow className="border-b border-white/[0.08] hover:bg-transparent">
+        <TableHead className="w-[14%] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-dim)]">Component</TableHead>
+        <TableHead className="w-[10%] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-dim)]">Category</TableHead>
+        <TableHead className="w-[16%] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-dim)]">Quantity</TableHead>
+        <TableHead className="w-[28%] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-dim)]">Emission Factor</TableHead>
+        <TableHead className="w-[12%] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-dim)] text-right">CO&#8322;e</TableHead>
+        <TableHead className="w-[10%] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-dim)] text-center">Source</TableHead>
+        <TableHead className="w-[10%] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-dim)] text-center">Actions</TableHead>
       </TableRow>
     </TableHeader>
   );
 
+  /**
+   * Render the totals row
+   */
+  const renderTotalsRow = () => {
+    if (estimatedTotalCO2e === null) return null;
+    return (
+      <TableRow className="bg-emerald-500/[0.04] border-t border-emerald-500/[0.15] hover:bg-emerald-500/[0.06]">
+        <TableCell className="py-2 px-3">
+          <span className="font-heading font-bold text-[15px] text-[var(--text-primary)]">
+            Total Estimated Carbon Footprint
+          </span>
+        </TableCell>
+        <TableCell />
+        <TableCell />
+        <TableCell />
+        <TableCell className="text-right py-2 px-3">
+          <span className="font-heading text-lg font-bold tabular-nums text-emerald-400">
+            {estimatedTotalCO2e.toFixed(2)} <span className="text-[13px] font-normal text-[var(--text-dim)]">kg CO&#8322;e</span>
+          </span>
+        </TableCell>
+        <TableCell />
+        <TableCell />
+      </TableRow>
+    );
+  };
+
   const renderNonVirtualizedTable = () => (
-    <div className="border rounded-lg overflow-hidden" data-tour="bom-table">
+    <div className="glass-card overflow-hidden animate-fadeInUp" data-tour="bom-table">
+      {/* Card Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+        <h2 className="font-heading text-base font-semibold text-[var(--text-primary)]">
+          Bill of Materials
+        </h2>
+        <span className="text-[13px] text-[var(--text-dim)]">
+          {fields.length} item{fields.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Table */}
       <div className="overflow-x-auto">
-        <Table>
+        <Table className="w-full table-fixed">
           {renderTableHeader()}
           <TableBody>
             {fields.map((field, index) => (
@@ -248,6 +310,7 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
                 isLoadingFactors={isLoadingFactors}
               />
             ))}
+            {renderTotalsRow()}
           </TableBody>
         </Table>
       </div>
@@ -257,9 +320,19 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
   const renderVirtualizedTable = () => {
     const virtualItems = rowVirtualizer.getVirtualItems();
     return (
-      <div className="border rounded-lg overflow-hidden" data-tour="bom-table">
+      <div className="glass-card overflow-hidden animate-fadeInUp" data-tour="bom-table">
+        {/* Card Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+          <h2 className="font-heading text-base font-semibold text-[var(--text-primary)]">
+            Bill of Materials
+          </h2>
+          <span className="text-[13px] text-[var(--text-dim)]">
+            {fields.length} item{fields.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
         <div className="overflow-x-auto">
-          <Table>{renderTableHeader()}</Table>
+          <Table className="w-full table-fixed">{renderTableHeader()}</Table>
           <div
             ref={parentRef}
             data-testid="bom-virtual-scroll-container"
@@ -276,7 +349,7 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
                     className="absolute w-full"
                     style={{ top: 0, left: 0, height: `${virtualRow.size}px`, transform: `translateY(${virtualRow.start}px)` }}
                   >
-                    <Table>
+                    <Table className="w-full table-fixed">
                       <TableBody>
                         <BOMTableRow
                           field={field}
@@ -294,6 +367,14 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
               })}
             </div>
           </div>
+          {/* Totals row at the bottom of virtualized table */}
+          {estimatedTotalCO2e !== null && (
+            <Table className="w-full table-fixed">
+              <TableBody>
+                {renderTotalsRow()}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </div>
     );
@@ -303,7 +384,14 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     <Form {...form}>
       <form className="space-y-6">
         {isMobile ? (
-          <BOMCardList items={cardItems} onUpdate={handleCardUpdate} onRemove={handleCardRemove} isReadOnly={false} className="mt-4" />
+          <BOMCardList
+            items={cardItems}
+            onUpdate={handleCardUpdate}
+            onRemove={handleCardRemove}
+            isReadOnly={false}
+            className="mt-4"
+            emissionFactors={emissionFactors}
+          />
         ) : (
           useVirtualization ? renderVirtualizedTable() : renderNonVirtualizedTable()
         )}
@@ -313,11 +401,16 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
         )}
 
         <div className="flex items-center justify-between gap-4">
-          <Button type="button" variant="outline" onClick={handleAddComponent} className="gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddComponent}
+            className="gap-2 border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.06] hover:border-white/[0.14] text-[var(--text-muted)]"
+          >
             <Plus className="w-4 h-4" />
             Add Component
           </Button>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-[var(--text-dim)]">
             {totals.totalItems} component{totals.totalItems !== 1 ? 's' : ''} · Total quantity: {totals.totalQuantity.toFixed(2)}
           </div>
         </div>
