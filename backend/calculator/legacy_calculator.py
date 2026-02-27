@@ -13,8 +13,10 @@ to keep the main calculator module free of SQLAlchemy dependencies.
 
 import logging
 import re
-from typing import Any, Dict
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Set
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session, selectinload
 
 from backend.models import BillOfMaterials, EmissionFactor, Product
@@ -105,6 +107,102 @@ def calculate_product_from_db(
     return result
 
 
+def _fetch_bom_hierarchy(
+    product_id: str,
+    db_session: Session,
+    max_depth: int = 10,
+) -> List[Dict[str, Any]]:
+    """
+    Fetch entire BOM hierarchy in a single recursive CTE query.
+
+    Returns flat list of rows with: parent_product_id, child_product_id,
+    child_code, child_name, child_unit, quantity, bom_unit, emission_factor_id,
+    child_metadata, depth, and has_children flag.
+
+    Args:
+        product_id: Root product UUID
+        db_session: SQLAlchemy database session
+        max_depth: Maximum recursion depth
+
+    Returns:
+        List of dicts representing all BOM rows in the hierarchy
+    """
+    cte_sql = text("""
+        WITH RECURSIVE bom_hierarchy AS (
+            -- Base case: direct children of root product
+            SELECT
+                bom.parent_product_id,
+                bom.child_product_id,
+                p.code AS child_code,
+                p.name AS child_name,
+                p.unit AS child_unit,
+                p.metadata AS child_metadata,
+                bom.quantity,
+                bom.unit AS bom_unit,
+                bom.emission_factor_id,
+                1 AS depth
+            FROM bill_of_materials bom
+            JOIN products p ON p.id = bom.child_product_id
+            WHERE bom.parent_product_id = :product_id
+
+            UNION ALL
+
+            -- Recursive case: children of children
+            SELECT
+                bom.parent_product_id,
+                bom.child_product_id,
+                p.code AS child_code,
+                p.name AS child_name,
+                p.unit AS child_unit,
+                p.metadata AS child_metadata,
+                bom.quantity,
+                bom.unit AS bom_unit,
+                bom.emission_factor_id,
+                bh.depth + 1 AS depth
+            FROM bill_of_materials bom
+            JOIN products p ON p.id = bom.child_product_id
+            JOIN bom_hierarchy bh ON bh.child_product_id = bom.parent_product_id
+            WHERE bh.depth < :max_depth
+        )
+        SELECT
+            bh.*,
+            EXISTS(
+                SELECT 1 FROM bill_of_materials sub
+                WHERE sub.parent_product_id = bh.child_product_id
+            ) AS has_children
+        FROM bom_hierarchy bh
+        ORDER BY bh.depth, bh.parent_product_id
+    """)
+
+    result = db_session.execute(cte_sql, {"product_id": product_id, "max_depth": max_depth})
+    rows = result.mappings().all()
+    return [dict(row) for row in rows]
+
+
+def _batch_fetch_emission_factors(
+    ef_ids: Set[str],
+    db_session: Session,
+) -> Dict[str, EmissionFactor]:
+    """
+    Batch-fetch emission factors by ID.
+
+    Args:
+        ef_ids: Set of emission factor UUIDs to fetch
+        db_session: SQLAlchemy database session
+
+    Returns:
+        Dict mapping emission factor ID to EmissionFactor object
+    """
+    if not ef_ids:
+        return {}
+    factors = (
+        db_session.query(EmissionFactor)
+        .filter(EmissionFactor.id.in_(ef_ids))
+        .all()
+    )
+    return {ef.id: ef for ef in factors}
+
+
 def build_bom_tree_from_db(
     calculator,
     product_id: str,
@@ -113,75 +211,152 @@ def build_bom_tree_from_db(
     max_depth: int = 10,
 ) -> Dict[str, Any]:
     """
-    Build hierarchical BOM tree from database.
+    Build hierarchical BOM tree from database using a single CTE query.
 
-    Recursively traverses BOM relationships to build tree structure.
+    Fetches entire BOM hierarchy in one query, then builds tree in-memory.
+    Emission factors are batch-fetched to avoid N+1 queries.
 
     Args:
         calculator: PCFCalculator instance (for emission factor mapping)
         product_id: UUID of product
         db_session: SQLAlchemy database session
-        depth: Current recursion depth
+        depth: Current recursion depth (unused, kept for API compat)
         max_depth: Maximum recursion depth
 
     Returns:
         BOM tree dictionary
 
     Raises:
-        ValueError: If circular reference detected or max depth exceeded
+        ValueError: If product not found
     """
-    if depth > max_depth:
-        raise ValueError(f"Maximum BOM depth exceeded: {max_depth}")
-
-    product = (
-        db_session.query(Product)
-        .options(
-            selectinload(Product.bom_items)
-            .selectinload(BillOfMaterials.child_product)
-            .selectinload(Product.bom_items)
-            .selectinload(BillOfMaterials.child_product)
-        )
-        .filter(Product.id == product_id)
-        .first()
-    )
+    product = db_session.query(Product).filter(Product.id == product_id).first()
 
     if product is None:
         raise ValueError(f"Product not found: {product_id}")
 
-    node = {
+    # Fetch entire hierarchy in one CTE query
+    rows = _fetch_bom_hierarchy(product_id, db_session, max_depth)
+
+    if not rows:
+        return {
+            "name": product.code,
+            "quantity": 1.0,
+            "unit": product.unit,
+            "children": [],
+        }
+
+    # Batch-fetch all referenced emission factors
+    ef_ids = set()
+    for row in rows:
+        if row.get("emission_factor_id"):
+            ef_ids.add(row["emission_factor_id"])
+        meta = row.get("child_metadata")
+        if meta and isinstance(meta, dict):
+            meta_ef_id = meta.get("emission_factor_id")
+            if meta_ef_id:
+                ef_ids.add(meta_ef_id)
+    ef_cache = _batch_fetch_emission_factors(ef_ids, db_session)
+
+    # Build children lookup: parent_id -> list of child rows
+    children_by_parent: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        children_by_parent[row["parent_product_id"]].append(row)
+
+    # Recursively build tree in-memory
+    def build_node(parent_id: str) -> List[Dict[str, Any]]:
+        children = []
+        for row in children_by_parent.get(parent_id, []):
+            if row["has_children"]:
+                # Intermediate node - recurse
+                child_node = {
+                    "name": row["child_code"],
+                    "quantity": float(row["quantity"]),
+                    "unit": row["child_unit"],
+                    "children": build_node(row["child_product_id"]),
+                }
+                children.append(child_node)
+            else:
+                # Leaf node - map to emission factor
+                material_name = _map_to_emission_factor_cached(
+                    calculator, row, ef_cache
+                )
+                children.append({
+                    "name": material_name,
+                    "quantity": float(row["quantity"]),
+                    "unit": row["bom_unit"] or row["child_unit"],
+                })
+        return children
+
+    return {
         "name": product.code,
         "quantity": 1.0,
         "unit": product.unit,
-        "children": [],
+        "children": build_node(product_id),
     }
 
-    bom_items = product.bom_items
 
-    for bom_item in bom_items:
-        child_product = bom_item.child_product
+def _map_to_emission_factor_cached(
+    calculator,
+    row: Dict[str, Any],
+    ef_cache: Dict[str, EmissionFactor],
+) -> str:
+    """
+    Map a BOM row to emission factor using pre-fetched cache.
 
-        has_child_bom = len(child_product.bom_items) > 0
+    Same priority logic as map_product_to_emission_factor but uses
+    the batch-fetched ef_cache instead of individual queries.
 
-        if has_child_bom:
-            child_tree = build_bom_tree_from_db(
-                calculator, child_product.id, db_session, depth + 1, max_depth
-            )
-            child_tree["quantity"] = float(bom_item.quantity)
-            node["children"].append(child_tree)
-        else:
-            material_name = map_product_to_emission_factor(
-                calculator, child_product, db_session, bom_item.emission_factor_id
-            )
+    Args:
+        calculator: PCFCalculator instance
+        row: BOM hierarchy row dict
+        ef_cache: Pre-fetched emission factors by ID
 
-            node["children"].append(
-                {
-                    "name": material_name,
-                    "quantity": float(bom_item.quantity),
-                    "unit": bom_item.unit or child_product.unit,
-                }
-            )
+    Returns:
+        Emission factor activity name
+    """
+    child_code = row["child_code"]
+    child_name = row["child_name"]
 
-    return node
+    # Priority 1: BOM item's emission_factor_id
+    bom_ef_id = row.get("emission_factor_id")
+    if bom_ef_id and bom_ef_id in ef_cache:
+        ef = ef_cache[bom_ef_id]
+        activity_name = ef.activity_name
+        if activity_name in calculator._name_to_activity:
+            return activity_name
+
+    # Priority 2: Product metadata emission_factor_id
+    meta = row.get("child_metadata")
+    if meta and isinstance(meta, dict):
+        meta_ef_id = meta.get("emission_factor_id")
+        if meta_ef_id and meta_ef_id in ef_cache:
+            ef = ef_cache[meta_ef_id]
+            activity_name = ef.activity_name.lower()
+            if activity_name in calculator._name_to_activity:
+                return activity_name
+
+    # Priority 3: Exact name match
+    name_exact = child_name.lower()
+    if name_exact in calculator._name_to_activity:
+        return name_exact
+
+    # Priority 4: Code-based match
+    code_normalized = child_code.lower().replace("-", "_")
+    code_normalized = re.sub(r"_?\d+$", "", code_normalized)
+    if code_normalized in calculator._name_to_activity:
+        return code_normalized
+
+    # Priority 5: Underscore-separated name
+    name_underscored = child_name.lower().replace(" ", "_")
+    if name_underscored in calculator._name_to_activity:
+        return name_underscored
+
+    # Priority 6: Fall back
+    logger.warning(
+        f"Could not map product {child_code} ({child_name}) to emission factor. "
+        f"Using name as-is: {name_exact}"
+    )
+    return name_exact
 
 
 def map_product_to_emission_factor(

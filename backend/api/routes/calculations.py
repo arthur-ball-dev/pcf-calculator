@@ -140,13 +140,15 @@ def execute_calculation(
     calculation_id: str,
     product_id: str,
     calculation_type: str,
-    db_session: Session
 ):
     """
     Background task: Execute PCF calculation using Brightway2.
 
     This function runs asynchronously in the background after returning
     202 Accepted to the client. Updates database with results or error.
+
+    Creates its own database session to avoid using the request-scoped
+    session which may be closed by the time this task executes.
 
     Lifecycle:
     1. Update status to 'in_progress'
@@ -159,10 +161,12 @@ def execute_calculation(
         calculation_id: UUID of calculation record
         product_id: UUID of product to calculate
         calculation_type: Type of calculation
-        db_session: SQLAlchemy database session
     """
     import time
+    from backend.database.connection import SessionLocal
+
     start_time = time.time()
+    db_session = SessionLocal()
 
     try:
         # Update status to 'in_progress'
@@ -232,6 +236,9 @@ def execute_calculation(
                 calculation.calculation_metadata = {}
             calculation.calculation_metadata["error_message"] = f"Calculation error: {str(e)}"
             db_session.commit()
+
+    finally:
+        db_session.close()
 
 
 # ============================================================================
@@ -315,14 +322,12 @@ async def start_calculation(
         )
 
     # Queue background task
-    # Important: Pass a NEW database session to background task
-    # FastAPI's dependency injection doesn't work in background tasks
+    # Background task creates its own session (request session may close)
     background_tasks.add_task(
         execute_calculation,
         calc_id,
         request.product_id,
         request.calculation_type.value,  # Use enum value
-        db  # This session will be used by background task
     )
 
     logger.info(f"Calculation {calc_id} queued for background processing")
