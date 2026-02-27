@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 
 from backend.database.connection import get_db
 from backend.models import Product, BillOfMaterials, ProductCategory
+from backend.api.utils.error_responses import create_error_response
 from backend.schemas.products import (
     IndustrySector,
     CategoryInfo,
@@ -140,27 +141,6 @@ def is_valid_id_format(value: str) -> bool:
         return False
 
     return True
-
-
-def create_error_response(
-    status_code: int,
-    code: str,
-    message: str,
-    details: List[dict] = None
-) -> JSONResponse:
-    """Create a standardized error response."""
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "error": {
-                "code": code,
-                "message": message,
-                "details": details or []
-            },
-            "request_id": f"req_{uuid.uuid4().hex[:12]}",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    )
 
 
 def build_category_tree(

@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from backend.database.connection import get_db
 from backend.models import DataSource, EmissionFactor, Product, ProductCategory
+from backend.api.utils.error_responses import create_error_dict
 from backend.schemas.admin import (
     GroupByEnum,
     CoverageResponse,
@@ -85,19 +86,6 @@ def get_geography_name(code: str) -> str:
 # ============================================================================
 
 
-def create_error_response(code: str, message: str, details: Optional[list] = None) -> dict:
-    """Create a standardized error response dict."""
-    return {
-        "error": {
-            "code": code,
-            "message": message,
-            "details": details or [],
-        },
-        "request_id": f"req_{uuid.uuid4().hex[:12]}",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
 # ============================================================================
 # API Endpoints
 # ============================================================================
@@ -147,7 +135,7 @@ def get_coverage(
         if not data_source:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=create_error_response(
+                detail=create_error_dict(
                     code="INVALID_DATA_SOURCE",
                     message="Data source not found",
                     details=[

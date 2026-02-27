@@ -72,32 +72,56 @@ PRODUCT_SEARCH_TTL = 60  # 1 minute
 
 
 # ============================================================================
+# Connection Pool (module-level singletons for connection reuse)
+# ============================================================================
+
+_sync_pool: Optional[redis.ConnectionPool] = None
+_async_pool: Optional[redis.asyncio.ConnectionPool] = None
+
+
+def _get_sync_pool() -> redis.ConnectionPool:
+    """Get or create the module-level sync Redis connection pool."""
+    global _sync_pool
+    if _sync_pool is None:
+        _sync_pool = redis.ConnectionPool.from_url(
+            settings.CELERY_BROKER_URL,
+            encoding="utf-8",
+            decode_responses=True,
+            max_connections=20,
+        )
+    return _sync_pool
+
+
+def _get_async_pool() -> redis.asyncio.ConnectionPool:
+    """Get or create the module-level async Redis connection pool."""
+    global _async_pool
+    if _async_pool is None:
+        _async_pool = redis.asyncio.ConnectionPool.from_url(
+            settings.CELERY_BROKER_URL,
+            encoding="utf-8",
+            decode_responses=True,
+            max_connections=20,
+        )
+    return _async_pool
+
+
+# ============================================================================
 # Sync Redis Client
 # ============================================================================
 
 
 def get_sync_redis_client() -> redis.Redis:
     """
-    Get a synchronous Redis client connection.
+    Get a synchronous Redis client from the connection pool.
 
-    Uses the CELERY_BROKER_URL from settings to connect to Redis.
-    The caller should use it in a with statement or close it manually.
+    Uses a module-level ConnectionPool for connection reuse.
+    Clients returned from the pool do NOT need to be manually closed;
+    connections are returned to the pool automatically.
 
     Returns:
-        redis.Redis: A sync Redis client instance.
-
-    Example:
-        client = get_sync_redis_client()
-        try:
-            client.set("key", "value")
-        finally:
-            client.close()
+        redis.Redis: A sync Redis client backed by connection pool.
     """
-    return redis.from_url(
-        settings.CELERY_BROKER_URL,
-        encoding="utf-8",
-        decode_responses=True
-    )
+    return redis.Redis(connection_pool=_get_sync_pool())
 
 
 # ============================================================================
@@ -107,26 +131,16 @@ def get_sync_redis_client() -> redis.Redis:
 
 async def get_redis_client() -> redis.asyncio.Redis:
     """
-    Get an async Redis client connection.
+    Get an async Redis client from the connection pool.
 
-    Uses the CELERY_BROKER_URL from settings to connect to Redis.
-    The caller is responsible for closing the client when done.
+    Uses a module-level ConnectionPool for connection reuse.
+    Clients returned from the pool do NOT need to be manually closed;
+    connections are returned to the pool automatically.
 
     Returns:
-        redis.Redis: An async Redis client instance.
-
-    Example:
-        client = await get_redis_client()
-        try:
-            await client.set("key", "value")
-        finally:
-            await client.close()
+        redis.asyncio.Redis: An async Redis client backed by connection pool.
     """
-    return redis.asyncio.from_url(
-        settings.CELERY_BROKER_URL,
-        encoding="utf-8",
-        decode_responses=True
-    )
+    return redis.asyncio.Redis(connection_pool=_get_async_pool())
 
 
 # ============================================================================
@@ -155,13 +169,10 @@ def cache_response_sync(key: str, data: Any, ttl: int) -> bool:
     """
     try:
         client = get_sync_redis_client()
-        try:
-            json_data = json.dumps(data)
-            client.setex(key, ttl, json_data)
-            logger.debug(f"Cached response for key: {key}, TTL: {ttl}s")
-            return True
-        finally:
-            client.close()
+        json_data = json.dumps(data)
+        client.setex(key, ttl, json_data)
+        logger.debug(f"Cached response for key: {key}, TTL: {ttl}s")
+        return True
     except (redis.ConnectionError, redis.TimeoutError, ConnectionError) as e:
         logger.warning(f"Failed to cache response: {e}")
         return False
@@ -188,17 +199,14 @@ def get_cached_response_sync(key: str) -> Optional[Any]:
     """
     try:
         client = get_sync_redis_client()
-        try:
-            raw_data = client.get(key)
-            if raw_data is None:
-                logger.debug(f"Cache miss for key: {key}")
-                return None
+        raw_data = client.get(key)
+        if raw_data is None:
+            logger.debug(f"Cache miss for key: {key}")
+            return None
 
-            data = json.loads(raw_data)
-            logger.debug(f"Cache hit for key: {key}")
-            return data
-        finally:
-            client.close()
+        data = json.loads(raw_data)
+        logger.debug(f"Cache hit for key: {key}")
+        return data
     except (redis.ConnectionError, redis.TimeoutError, ConnectionError) as e:
         logger.warning(f"Failed to get cached response: {e}")
         return None
@@ -228,20 +236,15 @@ def invalidate_pattern_sync(pattern: str) -> int:
     """
     try:
         client = get_sync_redis_client()
-        try:
-            # Find all matching keys
-            keys = client.keys(pattern)
+        keys = client.keys(pattern)
 
-            if not keys:
-                logger.debug(f"No keys match pattern: {pattern}")
-                return 0
+        if not keys:
+            logger.debug(f"No keys match pattern: {pattern}")
+            return 0
 
-            # Delete all matching keys
-            deleted = client.delete(*keys)
-            logger.info(f"Invalidated {deleted} cache keys matching: {pattern}")
-            return deleted
-        finally:
-            client.close()
+        deleted = client.delete(*keys)
+        logger.info(f"Invalidated {deleted} cache keys matching: {pattern}")
+        return deleted
     except (redis.ConnectionError, redis.TimeoutError, ConnectionError) as e:
         logger.warning(f"Failed to invalidate cache pattern: {e}")
         return 0
@@ -276,13 +279,10 @@ async def cache_response(key: str, data: Any, ttl: int) -> bool:
     """
     try:
         client = await get_redis_client()
-        try:
-            json_data = json.dumps(data)
-            await client.setex(key, ttl, json_data)
-            logger.debug(f"Cached response for key: {key}, TTL: {ttl}s")
-            return True
-        finally:
-            await client.close()
+        json_data = json.dumps(data)
+        await client.setex(key, ttl, json_data)
+        logger.debug(f"Cached response for key: {key}, TTL: {ttl}s")
+        return True
     except (redis.asyncio.ConnectionError, redis.asyncio.TimeoutError, ConnectionError) as e:
         logger.warning(f"Failed to cache response: {e}")
         return False
@@ -309,17 +309,14 @@ async def get_cached_response(key: str) -> Optional[Any]:
     """
     try:
         client = await get_redis_client()
-        try:
-            raw_data = await client.get(key)
-            if raw_data is None:
-                logger.debug(f"Cache miss for key: {key}")
-                return None
+        raw_data = await client.get(key)
+        if raw_data is None:
+            logger.debug(f"Cache miss for key: {key}")
+            return None
 
-            data = json.loads(raw_data)
-            logger.debug(f"Cache hit for key: {key}")
-            return data
-        finally:
-            await client.close()
+        data = json.loads(raw_data)
+        logger.debug(f"Cache hit for key: {key}")
+        return data
     except (redis.asyncio.ConnectionError, redis.asyncio.TimeoutError, ConnectionError) as e:
         logger.warning(f"Failed to get cached response: {e}")
         return None
@@ -336,10 +333,6 @@ async def invalidate_pattern(pattern: str) -> int:
     Invalidate all cache keys matching a pattern (async version).
 
     Uses Redis KEYS command to find matching keys, then deletes them.
-    The pattern supports Redis glob-style patterns:
-    - * matches any sequence of characters
-    - ? matches any single character
-    - [abc] matches any character in brackets
 
     Args:
         pattern: Redis key pattern (e.g., "products:list:*")
@@ -348,32 +341,19 @@ async def invalidate_pattern(pattern: str) -> int:
         int: Number of keys deleted
 
     Example:
-        # Invalidate all product list cache
         deleted = await invalidate_pattern("products:list:*")
-
-        # Invalidate all product cache (list + search)
-        deleted = await invalidate_pattern("products:*")
-
-    Warning:
-        The KEYS command should be used with caution in production.
-        For very large keyspaces, consider using SCAN instead.
     """
     try:
         client = await get_redis_client()
-        try:
-            # Find all matching keys
-            keys = await client.keys(pattern)
+        keys = await client.keys(pattern)
 
-            if not keys:
-                logger.debug(f"No keys match pattern: {pattern}")
-                return 0
+        if not keys:
+            logger.debug(f"No keys match pattern: {pattern}")
+            return 0
 
-            # Delete all matching keys
-            deleted = await client.delete(*keys)
-            logger.info(f"Invalidated {deleted} cache keys matching: {pattern}")
-            return deleted
-        finally:
-            await client.close()
+        deleted = await client.delete(*keys)
+        logger.info(f"Invalidated {deleted} cache keys matching: {pattern}")
+        return deleted
     except (redis.asyncio.ConnectionError, redis.asyncio.TimeoutError, ConnectionError) as e:
         logger.warning(f"Failed to invalidate cache pattern: {e}")
         return 0
