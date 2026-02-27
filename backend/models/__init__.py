@@ -380,7 +380,7 @@ class BillOfMaterials(Base):
         foreign_keys=[emission_factor_id]
     )
 
-    # Table constraints
+    # Table constraints and indexes
     __table_args__ = (
         UniqueConstraint(
             'parent_product_id', 'child_product_id',
@@ -394,6 +394,9 @@ class BillOfMaterials(Base):
             'quantity > 0',
             name='ck_bom_quantity_positive'
         ),
+        Index('idx_bom_parent', 'parent_product_id'),
+        Index('idx_bom_child', 'child_product_id'),
+        Index('idx_bom_emission_factor', 'emission_factor_id'),
     )
 
     def __repr__(self) -> str:
@@ -473,12 +476,14 @@ class PCFCalculation(Base):
         else:
             object.__setattr__(self, name, value)
 
-    # Table constraints
+    # Table constraints and indexes
     __table_args__ = (
         CheckConstraint(
             "calculation_type IN ('cradle_to_gate', 'cradle_to_grave', 'gate_to_gate')",
             name='ck_calculation_type'
         ),
+        Index('idx_calc_product', 'product_id'),
+        Index('idx_calc_status', 'status'),
     )
 
     def __repr__(self) -> str:

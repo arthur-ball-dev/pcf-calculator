@@ -28,6 +28,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from backend.database.connection import get_db
 from backend.models import Product, PCFCalculation, generate_uuid
+from backend.models.user import User
+from backend.auth.dependencies import get_optional_user
 from backend.calculator.pcf_calculator import PCFCalculator
 
 # Configure logging
@@ -347,7 +349,8 @@ async def start_calculation(
 )
 def get_calculation_status(
     calculation_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ) -> CalculationStatusResponse:
     """
     Get current status and results of a calculation.

@@ -21,7 +21,7 @@ from decimal import Decimal
 from backend.database.connection import get_db, get_async_db
 from backend.models import EmissionFactor, DataSource
 from backend.models.user import User
-from backend.auth.dependencies import require_admin
+from backend.auth.dependencies import require_admin, get_optional_user
 from backend.services.data_ingestion.emission_factor_mapper import EmissionFactorMapper
 
 
@@ -228,7 +228,8 @@ def list_emission_factors(
     geography: Optional[str] = Query(None, description="Filter by geography (GLO, US, EU, etc.)"),
     unit: Optional[str] = Query(None, description="Filter by unit (kg, L, kWh, etc.)"),
     activity_name: Optional[str] = Query(None, description="Filter by activity name (case-insensitive partial match)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ) -> EmissionFactorListResponse:
     """
     List all emission factors with pagination and optional filtering.
@@ -601,7 +602,8 @@ class AttributionResponse(BaseModel):
     description="Get license and attribution information for all active data sources"
 )
 def get_attributions(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ) -> AttributionResponse:
     """
     Get attribution and license information for all active data sources.

@@ -239,6 +239,34 @@ async def get_current_user(
     return user
 
 
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """
+    FastAPI dependency: Optionally identify the current user.
+
+    If a valid Bearer token is provided, returns the User for audit logging.
+    If no token or an invalid token is provided, returns None (does not block).
+
+    SEC-001: Adds audit capability to public GET endpoints without breaking
+    unauthenticated access.
+    """
+    if credentials is None:
+        return None
+
+    try:
+        payload = decode_token(credentials.credentials)
+    except (TokenExpiredError, InvalidTokenError):
+        return None
+
+    user_id = payload.get("user_id")
+    if user_id is None:
+        return None
+
+    return db.query(User).filter(User.id == user_id).first()
+
+
 async def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
@@ -297,6 +325,7 @@ __all__ = [
     'check_admin_permission',
     'get_current_user_from_token',
     'get_current_user',
+    'get_optional_user',
     'get_current_active_user',
     'require_admin',
     'ROLE_PERMISSIONS',
