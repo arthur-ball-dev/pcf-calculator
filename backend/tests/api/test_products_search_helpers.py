@@ -146,7 +146,7 @@ class TestValidateSearchParams:
 
     def test_validate_empty_query_normalized_to_none(self, db_session):
         """Test that empty string query is normalized to None."""
-        from backend.api.routes.products import _validate_search_params
+        from backend.api.routes.product_search import _validate_search_params
 
         result = _validate_search_params(
             query="",
@@ -165,7 +165,7 @@ class TestValidateSearchParams:
 
     def test_validate_query_too_short_returns_error(self, db_session):
         """Test that query <2 chars returns validation error."""
-        from backend.api.routes.products import _validate_search_params
+        from backend.api.routes.product_search import _validate_search_params
 
         result = _validate_search_params(
             query="a",
@@ -186,7 +186,7 @@ class TestValidateSearchParams:
 
     def test_validate_query_too_long_returns_error(self, db_session):
         """Test that query >200 chars returns validation error."""
-        from backend.api.routes.products import _validate_search_params
+        from backend.api.routes.product_search import _validate_search_params
 
         long_query = "a" * 250
         result = _validate_search_params(
@@ -207,7 +207,7 @@ class TestValidateSearchParams:
 
     def test_validate_invalid_country_code_returns_error(self, db_session):
         """Test that invalid country code format returns error."""
-        from backend.api.routes.products import _validate_search_params
+        from backend.api.routes.product_search import _validate_search_params
 
         result = _validate_search_params(
             query=None,
@@ -227,7 +227,7 @@ class TestValidateSearchParams:
 
     def test_validate_invalid_industry_returns_error(self, db_session):
         """Test that invalid industry sector returns error."""
-        from backend.api.routes.products import _validate_search_params
+        from backend.api.routes.product_search import _validate_search_params
 
         result = _validate_search_params(
             query=None,
@@ -247,7 +247,7 @@ class TestValidateSearchParams:
 
     def test_validate_nonexistent_category_returns_error(self, db_session):
         """Test that non-existent category_id returns error."""
-        from backend.api.routes.products import _validate_search_params
+        from backend.api.routes.product_search import _validate_search_params
 
         result = _validate_search_params(
             query=None,
@@ -267,7 +267,7 @@ class TestValidateSearchParams:
 
     def test_validate_valid_params_returns_validated_params(self, db_session, seed_categories):
         """Test that valid params return ValidatedParams without error."""
-        from backend.api.routes.products import _validate_search_params
+        from backend.api.routes.product_search import _validate_search_params
 
         result = _validate_search_params(
             query="laptop",
@@ -300,7 +300,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_text_search(self, db_session, seed_products):
         """Test that query filter applies text search."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query="laptop",
@@ -325,7 +325,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_category_filter(self, db_session, seed_products):
         """Test that category_id filter works."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query=None,
@@ -348,7 +348,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_industry_filter(self, db_session, seed_products):
         """Test that industry filter works via category relationship."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query=None,
@@ -370,7 +370,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_manufacturer_filter(self, db_session, seed_products):
         """Test that manufacturer filter applies partial match."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query=None,
@@ -393,7 +393,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_country_filter(self, db_session, seed_products):
         """Test that country_of_origin filter works."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query=None,
@@ -416,7 +416,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_is_finished_product_filter(self, db_session, seed_products):
         """Test that is_finished_product filter works."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query=None,
@@ -439,7 +439,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_has_bom_true(self, db_session, seed_products, seed_bom):
         """Test that has_bom=true filter returns only products with BOM."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query=None,
@@ -463,7 +463,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_has_bom_false(self, db_session, seed_products, seed_bom):
         """Test that has_bom=false filter returns only products without BOM."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query=None,
@@ -488,7 +488,7 @@ class TestBuildSearchQuery:
 
     def test_build_query_combined_filters(self, db_session, seed_products):
         """Test query with multiple combined filters."""
-        from backend.api.routes.products import _build_search_query, ValidatedParams
+        from backend.api.routes.product_search import _build_search_query, ValidatedParams
 
         params = ValidatedParams(
             query="laptop",
@@ -521,7 +521,7 @@ class TestApplyRelevanceScoring:
 
     def test_relevance_scoring_with_query(self, db_session, seed_products):
         """Test that relevance scores are calculated when query is provided."""
-        from backend.api.routes.products import _apply_relevance_scoring
+        from backend.api.routes.product_search import _apply_relevance_scoring
 
         # Simulate products from query
         products = db_session.query(Product).filter(
@@ -536,7 +536,7 @@ class TestApplyRelevanceScoring:
 
     def test_relevance_scoring_without_query(self, db_session, seed_products):
         """Test that relevance scores are None when no query provided."""
-        from backend.api.routes.products import _apply_relevance_scoring
+        from backend.api.routes.product_search import _apply_relevance_scoring
 
         products = db_session.query(Product).all()
 
@@ -547,7 +547,7 @@ class TestApplyRelevanceScoring:
 
     def test_relevance_scoring_name_match_higher_than_description(self, db_session, seed_products):
         """Test that name matches get higher scores than description matches."""
-        from backend.api.routes.products import _apply_relevance_scoring
+        from backend.api.routes.product_search import _apply_relevance_scoring
 
         # Product with "laptop" in name vs product with only in description
         products = db_session.query(Product).all()
@@ -562,7 +562,7 @@ class TestApplyRelevanceScoring:
 
     def test_relevance_scoring_exact_prefix_match_highest(self, db_session, seed_products):
         """Test that products starting with query get highest scores."""
-        from backend.api.routes.products import _apply_relevance_scoring
+        from backend.api.routes.product_search import _apply_relevance_scoring
 
         products = db_session.query(Product).all()
 
@@ -583,7 +583,7 @@ class TestFormatSearchResults:
 
     def test_format_results_basic_structure(self, db_session, seed_products):
         """Test that response has correct structure."""
-        from backend.api.routes.products import _format_search_results, ValidatedParams
+        from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
         products = db_session.query(Product).limit(2).all()
         scored = [(p, None) for p in products]
@@ -604,16 +604,17 @@ class TestFormatSearchResults:
 
         response = _format_search_results(scored, total, params)
 
-        assert isinstance(response, ProductSearchResponse)
-        assert hasattr(response, "items")
-        assert hasattr(response, "total")
-        assert hasattr(response, "limit")
-        assert hasattr(response, "offset")
-        assert hasattr(response, "has_more")
+        # _format_search_results returns a dict (for caching), not a Pydantic model
+        assert isinstance(response, dict)
+        assert "items" in response
+        assert "total" in response
+        assert "limit" in response
+        assert "offset" in response
+        assert "has_more" in response
 
     def test_format_results_items_are_product_search_items(self, db_session, seed_products):
         """Test that items are correctly typed as ProductSearchItem."""
-        from backend.api.routes.products import _format_search_results, ValidatedParams
+        from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
         products = db_session.query(Product).limit(2).all()
         scored = [(p, 0.5) for p in products]
@@ -633,16 +634,16 @@ class TestFormatSearchResults:
 
         response = _format_search_results(scored, 2, params)
 
-        for item in response.items:
-            assert isinstance(item, ProductSearchItem)
-            assert hasattr(item, "id")
-            assert hasattr(item, "code")
-            assert hasattr(item, "name")
-            assert hasattr(item, "relevance_score")
+        for item in response["items"]:
+            assert isinstance(item, dict)
+            assert "id" in item
+            assert "code" in item
+            assert "name" in item
+            assert "relevance_score" in item
 
     def test_format_results_has_more_true(self, db_session, seed_products):
         """Test that has_more is true when more results exist."""
-        from backend.api.routes.products import _format_search_results, ValidatedParams
+        from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
         products = db_session.query(Product).limit(2).all()
         scored = [(p, None) for p in products]
@@ -663,11 +664,11 @@ class TestFormatSearchResults:
 
         response = _format_search_results(scored, total, params)
 
-        assert response.has_more is True
+        assert response["has_more"] is True
 
     def test_format_results_has_more_false(self, db_session, seed_products):
         """Test that has_more is false on last page."""
-        from backend.api.routes.products import _format_search_results, ValidatedParams
+        from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
         products = db_session.query(Product).limit(2).all()
         scored = [(p, None) for p in products]
@@ -688,11 +689,11 @@ class TestFormatSearchResults:
 
         response = _format_search_results(scored, total, params)
 
-        assert response.has_more is False
+        assert response["has_more"] is False
 
     def test_format_results_with_category_info(self, db_session, seed_products):
         """Test that category info is included when product has category."""
-        from backend.api.routes.products import _format_search_results, ValidatedParams
+        from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
         # Get product with category eagerly loaded
         product = db_session.query(Product).filter(
@@ -715,17 +716,17 @@ class TestFormatSearchResults:
 
         response = _format_search_results(scored, 1, params)
 
-        assert len(response.items) == 1
-        item = response.items[0]
+        assert len(response["items"]) == 1
+        item = response["items"][0]
         # Category may be populated from product_category relationship or category field
-        if item.category is not None:
-            assert hasattr(item.category, "id")
-            assert hasattr(item.category, "code")
-            assert hasattr(item.category, "name")
+        if item["category"] is not None:
+            assert "id" in item["category"]
+            assert "code" in item["category"]
+            assert "name" in item["category"]
 
     def test_format_results_relevance_scores_included(self, db_session, seed_products):
         """Test that relevance scores are included in items."""
-        from backend.api.routes.products import _format_search_results, ValidatedParams
+        from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
         products = db_session.query(Product).limit(2).all()
         scored = [(products[0], 0.8), (products[1], 0.5)]
@@ -745,8 +746,8 @@ class TestFormatSearchResults:
 
         response = _format_search_results(scored, 2, params)
 
-        assert response.items[0].relevance_score == 0.8
-        assert response.items[1].relevance_score == 0.5
+        assert response["items"][0]["relevance_score"] == 0.8
+        assert response["items"][1]["relevance_score"] == 0.5
 
 
 # ============================================================================
