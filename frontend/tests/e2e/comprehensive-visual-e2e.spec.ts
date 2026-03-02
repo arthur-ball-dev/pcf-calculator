@@ -57,10 +57,10 @@ async function dismissJoyride(page: Page) {
       const skipButton = page.getByRole('button', { name: /skip|close|done|finish/i });
       if (await skipButton.isVisible({ timeout: 500 }).catch(() => false)) {
         await skipButton.click();
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(100);
       } else {
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(100);
       }
     }
     await page.evaluate(() => {
@@ -71,7 +71,7 @@ async function dismissJoyride(page: Page) {
       const overlays = document.querySelectorAll('.react-joyride__overlay');
       overlays.forEach(el => el.remove());
     });
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(100);
   } catch {
     // Joyride might not be present
   }
@@ -133,7 +133,7 @@ async function selectProductBySearch(page: Page, searchTerm: string): Promise<bo
   // Type search term
   const searchInput = page.getByTestId('product-search-input');
   await searchInput.fill(searchTerm);
-  await page.waitForTimeout(700);
+  await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
   // Check if products appeared
   const productOption = page.locator('[role="option"]').first();
@@ -148,7 +148,7 @@ async function selectProductBySearch(page: Page, searchTerm: string): Promise<bo
 
     await productOption.click();
     await productDetailPromise;
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle').catch(() => {});
     return true;
   }
   return false;
@@ -175,7 +175,7 @@ async function selectFirstProduct(page: Page): Promise<boolean> {
   const firstProductRow = page.locator('[role="option"]').first();
   await firstProductRow.click();
   await productDetailPromise;
-  await page.waitForTimeout(1000);
+  await page.waitForLoadState('networkidle').catch(() => {});
   return true;
 }
 
@@ -188,7 +188,7 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
     test.setTimeout(120000);
 
     // 01 - Main page with wizard
-    await page.waitForTimeout(1000);
+    // Page already loaded via setupPage
     await takeScreenshot(page, '01_main_page.png', '01 - Main page load', 'PASS', 'Wizard visible, Step 1: Select Product with ProductList');
 
     // 02 - Show ProductList with search and BOM toggle
@@ -202,7 +202,7 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
       // Fallback: select first available product
       const searchInput = page.getByTestId('product-search-input');
       await searchInput.clear();
-      await page.waitForTimeout(500);
+      // clear is synchronous, selectFirstProduct handles waiting
       productFound = await selectFirstProduct(page);
     }
     await takeScreenshot(page, '03_with_bom_selected.png', '03 - Product with BOM selected', 'PASS', 'Product selected with emerald check indicator');
@@ -211,7 +211,7 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
     const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
-    await page.waitForTimeout(1500);
+    // Next line waits for BOM heading visibility
 
     // Verify we're on BOM Editor step
     const bomHeading = page.locator('h2').filter({ hasText: /BOM|Edit/ });
@@ -226,13 +226,13 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
       // Click an EF dropdown to show options
       const efDropdownIndex = Math.min(4, efCount - 1);
       await efDropdowns.nth(efDropdownIndex).click();
-      await page.waitForTimeout(500);
+      await page.locator('[role="listbox"], [data-radix-popper-content-wrapper]').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
     }
     await takeScreenshot(page, '05_with_bom_emission_factors.png', '05 - Emission factors populated', 'PASS', `Found ${efCount} comboboxes - EF values visible`);
 
     // Close dropdown if open
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
+    await page.locator('[role="listbox"], [data-radix-popper-content-wrapper]').first().waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
 
     // 06 - Show the Calculate button (on Step 2 - BOM Editor, it's the Next button)
     const calculateBtn = page.getByTestId('next-button');
@@ -242,31 +242,31 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
     // 07 - Click "Calculate" button
     await expect(calculateBtn).toBeEnabled({ timeout: 5000 });
     await calculateBtn.click();
-    await page.waitForTimeout(500);
+    // Calculate clicked - next line expects results heading
     await takeScreenshot(page, '07_with_bom_calculating.png', '07 - Calculating', 'PASS', 'Calculation overlay or loading state');
 
     // 08 - Wait for results (Step 3)
     const resultsHeading = page.locator('h2').filter({ hasText: /Result/ });
     await expect(resultsHeading).toBeVisible({ timeout: 30000 });
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {});
     await takeScreenshot(page, '08_with_bom_results.png', '08 - Results with Sankey', 'PASS', 'Results and Sankey diagram visible');
 
     // 09 - Try to expand a category in breakdown
     const expandableItems = page.locator('[data-state="closed"]').first();
     if (await expandableItems.isVisible({ timeout: 2000 }).catch(() => false)) {
       await expandableItems.click();
-      await page.waitForTimeout(500);
+      await page.locator('[data-state="open"]').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
     }
     const accordionTrigger = page.locator('[role="button"][aria-expanded="false"]').first();
     if (await accordionTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
       await accordionTrigger.click();
-      await page.waitForTimeout(500);
+      await page.locator('[data-state="open"]').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
     }
     await takeScreenshot(page, '09_with_bom_drilldown.png', '09 - Category expanded', 'PASS', 'Drilldown view showing component details');
 
     // 10 - Scroll to export options
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle').catch(() => {});
     await takeScreenshot(page, '10_with_bom_export.png', '10 - Export options', 'PASS', 'CSV/Excel export buttons visible');
   });
 });
@@ -280,14 +280,14 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     test.setTimeout(120000);
 
     // 11 - Start at main page (Step 1)
-    await page.waitForTimeout(1000);
+    // Page already loaded via setupPage
     await takeScreenshot(page, '11_new_calculation.png', '11 - New calculation start', 'PASS', 'Step 1 visible with ProductList');
 
     // 12 - Turn off "With BOMs" toggle to show all products
     const bomToggle = page.getByTestId('bom-toggle-switch');
     await expect(bomToggle).toBeVisible({ timeout: 5000 });
     await bomToggle.click();
-    await page.waitForTimeout(500);
+    await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
     await takeScreenshot(page, '12_all_products_toggle.png', '12 - All Products toggle', 'PASS', 'Toggle changed to show all finished products');
 
     // 13 - Show more products in the list
@@ -301,7 +301,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     if (!productFound) {
       const searchInput = page.getByTestId('product-search-input');
       await searchInput.clear();
-      await page.waitForTimeout(500);
+      // clear is synchronous, selectFirstProduct handles waiting
       productFound = await selectFirstProduct(page);
     }
 
@@ -317,7 +317,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
-    await page.waitForTimeout(1500);
+    // Next line waits for BOM heading visibility
 
     // Verify we're on BOM Editor step
     const bomHeading = page.locator('h2').filter({ hasText: /BOM|Edit/ });
@@ -328,7 +328,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     const addComponentButton = page.locator('button:has-text("Add Component")');
     if (await addComponentButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await addComponentButton.click();
-      await page.waitForTimeout(500);
+      await page.waitForFunction(() => document.querySelectorAll('input[placeholder*="e.g"]').length > 0, {}, { timeout: 5000 }).catch(() => {});
     }
     await takeScreenshot(page, '16_add_component_click.png', '16 - Add component clicked', 'PASS', 'New row added to BOM');
 
@@ -336,40 +336,40 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     const newNameInput = page.locator('input[placeholder*="e.g"]').last();
     if (await newNameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
       await newNameInput.fill('Aluminum Sheet');
-      await page.waitForTimeout(300);
+      // fill is synchronous
     }
 
     const quantityInputs = page.locator('input[type="number"][data-testid="bom-item-quantity"]');
     const quantityCount = await quantityInputs.count();
     if (quantityCount > 0) {
       await quantityInputs.last().fill('2');
-      await page.waitForTimeout(300);
+      // fill is synchronous
     }
     await takeScreenshot(page, '17_component_filled.png', '17 - Component filled', 'PASS', 'New component: Aluminum Sheet, qty: 2');
 
     // 18 - Add another component
     if (await addComponentButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await addComponentButton.click();
-      await page.waitForTimeout(500);
+      await page.waitForFunction(() => document.querySelectorAll('input[placeholder*="e.g"]').length > 0, {}, { timeout: 5000 }).catch(() => {});
     }
 
     const newNameInput2 = page.locator('input[placeholder*="e.g"]').last();
     if (await newNameInput2.isVisible({ timeout: 2000 }).catch(() => false)) {
       await newNameInput2.fill('Plastic ABS');
-      await page.waitForTimeout(300);
+      // fill is synchronous
     }
 
     const quantityInputs2 = page.locator('input[type="number"][data-testid="bom-item-quantity"]');
     const quantityCount2 = await quantityInputs2.count();
     if (quantityCount2 > 0) {
       await quantityInputs2.last().fill('1.5');
-      await page.waitForTimeout(300);
+      // fill is synchronous
     }
     await takeScreenshot(page, '18_second_component.png', '18 - Second component added', 'PASS', 'Multiple manually added BOM rows');
 
     // 19 - Select emission factor for one of the new rows
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight - 200));
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     const efDropdownsForNew = page.locator('button[aria-label="Emission factor"]');
     const efDropdownCount = await efDropdownsForNew.count();
@@ -377,19 +377,19 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     if (efDropdownCount > 0) {
       const lastEfDropdown = efDropdownsForNew.last();
       await lastEfDropdown.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(300);
+      // scrollIntoViewIfNeeded is synchronous
       await lastEfDropdown.click();
-      await page.waitForTimeout(500);
+      await page.locator('[role="listbox"], [data-radix-popper-content-wrapper]').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
     }
     await takeScreenshot(page, '19_ef_selection.png', '19 - EF dropdown opened', 'PASS', 'Emission factor selection for new component');
 
     // Close dropdown
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
+    await page.locator('[role="listbox"], [data-radix-popper-content-wrapper]').first().waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
 
     // 20 - Show complete constructed BOM
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle').catch(() => {});
     await takeScreenshot(page, '20_constructed_bom.png', '20 - Complete BOM', 'PASS', 'Full BOM with manually added components');
 
     // 21 - Click Calculate button (next-button on edit step shows "Calculate")
@@ -397,13 +397,13 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
 
     // Scroll to make the calculate button visible
     await calculateBtn.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(300);
+    // scrollIntoViewIfNeeded is synchronous
 
     // Check if button is enabled (form must be valid)
     const isEnabled = await calculateBtn.isEnabled();
     if (isEnabled) {
       await calculateBtn.click();
-      await page.waitForTimeout(500);
+      // Calculate clicked - screenshot follows immediately
       await takeScreenshot(page, '21_without_bom_calculate.png', '21 - Calculation running', 'PASS', 'Calculate initiated');
     } else {
       await takeScreenshot(page, '21_without_bom_calculate.png', '21 - Calculate button', 'PASS', 'Calculate button visible (may have validation errors)');
@@ -413,7 +413,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     const resultsHeading = page.locator('h2').filter({ hasText: /Result/ });
     try {
       await expect(resultsHeading).toBeVisible({ timeout: 30000 });
-      await page.waitForTimeout(2000);
+      await page.waitForLoadState('networkidle').catch(() => {});
       await takeScreenshot(page, '22_without_bom_results.png', '22 - Results', 'PASS', 'Calculation complete with results');
     } catch {
       await takeScreenshot(page, '22_without_bom_results.png', '22 - Current state', 'PASS', 'Current BOM state (may have validation errors)');

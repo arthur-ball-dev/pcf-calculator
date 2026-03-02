@@ -77,7 +77,6 @@ async function selectFirstProductFromList(page: Page) {
 
   // Wait for product detail API to complete
   await productDetailPromise;
-  await page.waitForTimeout(500);
 }
 
 test.describe('Bug Fix #2: BOM Table Columns Visibility', () => {
@@ -101,7 +100,7 @@ test.describe('Bug Fix #2: BOM Table Columns Visibility', () => {
 
     // Wait for BOM editor to load (Step 2 heading: "Edit BOM")
     await expect(page.locator('h2').filter({ hasText: /Edit BOM/i })).toBeVisible({ timeout: 15000 });
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     await takeScreenshot(page, 'bugfix2-bom-table-1024px');
 
@@ -128,12 +127,12 @@ test.describe('Bug Fix #2: BOM Table Columns Visibility', () => {
 
     // Test 1280px viewport
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
     await takeScreenshot(page, 'bugfix2-bom-table-1280px');
 
     // Test 1920px viewport
     await page.setViewportSize({ width: 1920, height: 1080 });
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
     await takeScreenshot(page, 'bugfix2-bom-table-1920px');
   });
 });
@@ -194,7 +193,7 @@ test.describe('Bug Fix #1 & #4: Calculation Flow', () => {
     await takeScreenshot(page, 'bugfix1-calculation-started');
 
     // Wait and take progress screenshot
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {});
     await takeScreenshot(page, 'bugfix1-calculation-progress');
 
     // Wait for results or error
@@ -236,13 +235,13 @@ test.describe('Products WITHOUT BOMs', () => {
     await expect(bomToggle).toBeVisible({ timeout: 5000 });
     // Toggle is on by default (showOnlyWithBom=true), click to turn off
     await bomToggle.click();
-    await page.waitForTimeout(500);
+    await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
     await takeScreenshot(page, 'without-bom-all-products');
 
     // Search for a component product
     const searchInput = page.getByTestId('product-search-input');
     await searchInput.fill('cotton');
-    await page.waitForTimeout(1000);
+    await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
     await takeScreenshot(page, 'without-bom-search-results');
 
     // Select if available
@@ -259,7 +258,6 @@ test.describe('Products WITHOUT BOMs', () => {
 
       await productRows.first().click();
       await productDetailPromise;
-      await page.waitForTimeout(500);
       await takeScreenshot(page, 'without-bom-product-selected');
 
       // Check Next button - should be enabled to allow adding manual BOM
