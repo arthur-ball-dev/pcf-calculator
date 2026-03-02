@@ -210,23 +210,6 @@ def test_database_query(db_session):
 | `DATABASE_URL` | postgresql+psycopg://... | PostgreSQL connection URL |
 | `TEST_DATABASE_URL` | postgresql+psycopg://... | Test database connection URL |
 
-### Using docker-compose.test.yml
-
-For CI/CD environments or isolated testing:
-
-```bash
-# Start test infrastructure
-docker-compose -f docker-compose.test.yml up -d
-
-# Run tests
-cd backend && pytest tests/integration/ -v
-
-# Cleanup
-docker-compose -f docker-compose.test.yml down -v
-```
-
-> **Note:** The `docker-compose.test.yml` file is primarily for CI/CD pipelines. For local development, use the main `docker-compose.yml` with PostgreSQL. All integration tests expect a PostgreSQL database (configured via `TEST_DATABASE_URL` or the `db_session` fixture).
-
 ## Docker Compose Services
 
 ### redis
@@ -299,10 +282,10 @@ NotRegisteredError: 'backend.tasks.data_sync.sync_data_source'
 
 ### Unit Tests (No Redis Required)
 
-Located in `tests/test_*` directories:
-- `test_api/` - API endpoint tests
-- `test_services/` - Service layer tests
-- `test_database/` - Database model tests
+Located in `tests/` subdirectories:
+- `api/` - API endpoint tests
+- `services/` - Service layer tests
+- `database/` - Database model tests
 - `test_data/` - Data validation tests
 
 ### Integration Tests (Redis/PostgreSQL Required)
