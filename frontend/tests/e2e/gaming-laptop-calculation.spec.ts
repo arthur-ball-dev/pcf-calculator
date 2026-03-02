@@ -38,10 +38,10 @@ async function dismissJoyride(page: Page) {
       const skipButton = page.getByRole('button', { name: /skip|close|done|finish/i });
       if (await skipButton.isVisible({ timeout: 500 }).catch(() => false)) {
         await skipButton.click();
-        await page.waitForTimeout(500);
+        await page.waitForFunction(() => !document.getElementById('react-joyride-portal'), {}, { timeout: 3000 }).catch(() => {});
       } else {
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(500);
+        await page.waitForFunction(() => !document.getElementById('react-joyride-portal'), {}, { timeout: 3000 }).catch(() => {});
       }
     }
     await page.evaluate(() => {
@@ -52,7 +52,6 @@ async function dismissJoyride(page: Page) {
       const overlays = document.querySelectorAll('.react-joyride__overlay');
       overlays.forEach(el => el.remove());
     });
-    await page.waitForTimeout(200);
   } catch {
     // Joyride might not be present
   }
@@ -92,7 +91,6 @@ test.describe('Gaming Laptop PCF Calculation', () => {
 
     // Setup page with auth
     await setupPage(page, request);
-    await page.waitForTimeout(1000);
 
     // Take initial screenshot (viewport only, not full page)
     await page.screenshot({
@@ -106,7 +104,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     const searchInput = page.getByTestId('product-search-input');
     await expect(searchInput).toBeVisible({ timeout: 10000 });
     await searchInput.fill('Gaming');
-    await page.waitForTimeout(1000);
+    await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'gaming_laptop_02_search.png'),
@@ -128,12 +126,12 @@ test.describe('Gaming Laptop PCF Calculation', () => {
       const codeMatch = rowText?.match(/ELE-LAPT-GAM-\d+/);
       selectedProductCode = codeMatch ? codeMatch[0] : '';
       await gamingLaptopRow.click();
-      await page.waitForTimeout(1500);
+      await page.waitForLoadState('networkidle').catch(() => {});
     } else {
       // If no Gaming option found, try Laptop
       console.log('Gaming Laptop not found, searching for Laptop');
       await searchInput.fill('Laptop');
-      await page.waitForTimeout(1000);
+      await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
       const laptopRow = page.locator('[role="option"]').first();
       if (await laptopRow.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -141,7 +139,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
         console.log(`Selected fallback: ${rowText}`);
         selectedProductName = rowText || 'Laptop';
         await laptopRow.click();
-        await page.waitForTimeout(1500);
+        await page.waitForLoadState('networkidle').catch(() => {});
       }
     }
 
@@ -156,7 +154,6 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
-    await page.waitForTimeout(2000);
 
     // Wait for BOM skeleton to disappear (BOM loading)
     const bomSkeleton = page.getByTestId('bom-editor-skeleton');
@@ -199,7 +196,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     console.log('Calculation initiated...');
 
     // Wait a moment for loading state
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'gaming_laptop_06_calculating.png'),
@@ -212,7 +209,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     // Wait for results heading (use first() to avoid strict mode if multiple matches)
     const resultsHeading = page.locator('h2').filter({ hasText: /Result/ }).first();
     await expect(resultsHeading).toBeVisible({ timeout: 90000 }); // 90 second timeout for calculation
-    await page.waitForTimeout(3000); // Wait for charts to render
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     console.log('Results page loaded!');
 
@@ -261,7 +258,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
 
     // Scroll down to see full results and Sankey diagram
     await page.evaluate(() => window.scrollTo(0, 500));
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'gaming_laptop_08_results_sankey.png'),
@@ -270,7 +267,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
 
     // Scroll to bottom for export options
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'gaming_laptop_09_results_full.png'),

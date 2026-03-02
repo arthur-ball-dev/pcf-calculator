@@ -51,7 +51,6 @@ test.describe('Manual BOM Construction Flow', () => {
 
     await page.goto('http://localhost:5173');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000); // Wait for any loading animations
 
     // Step 2: Dismiss tour dialog if present (belt-and-suspenders)
     console.log('Step 2: Dismiss tour dialog if present...');
@@ -60,7 +59,7 @@ test.describe('Manual BOM Construction Flow', () => {
       if (portal) portal.remove();
       document.querySelectorAll('.react-joyride__overlay').forEach(el => el.remove());
     });
-    await page.waitForTimeout(500);
+    await page.waitForFunction(() => !document.getElementById('react-joyride-portal'), {}, { timeout: 3000 }).catch(() => {});
 
     // Take debug screenshot
     await page.screenshot({
@@ -75,7 +74,7 @@ test.describe('Manual BOM Construction Flow', () => {
     await expect(searchInput).toBeVisible({ timeout: 10000 });
 
     // Wait for initial products to load (the list auto-loads on mount)
-    await page.waitForTimeout(1500);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Select the first available product from the list
     const productRow = page.locator('[role="option"]').first();
@@ -83,16 +82,16 @@ test.describe('Manual BOM Construction Flow', () => {
       const productText = await productRow.textContent();
       console.log(`Selecting product: ${productText?.substring(0, 80)}`);
       await productRow.click();
-      await page.waitForTimeout(1500);
+      await page.waitForLoadState('networkidle').catch(() => {});
     } else {
       console.log('No products visible, trying search...');
       await searchInput.fill('Bottle');
-      await page.waitForTimeout(1000);
+      await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
       const searchResult = page.locator('[role="option"]').first();
       if (await searchResult.isVisible({ timeout: 5000 }).catch(() => false)) {
         await searchResult.click();
-        await page.waitForTimeout(1500);
+        await page.waitForLoadState('networkidle').catch(() => {});
       }
     }
 
@@ -109,7 +108,6 @@ test.describe('Manual BOM Construction Flow', () => {
     await expect(nextBtn).toBeEnabled({ timeout: 10000 });
     console.log('Clicking Next button...');
     await nextBtn.click();
-    await page.waitForTimeout(1000);
 
     // Wait for BOM skeleton to disappear
     const bomSkeleton = page.getByTestId('bom-editor-skeleton');
@@ -153,21 +151,20 @@ test.describe('Manual BOM Construction Flow', () => {
             if (!isDisabled) {
               console.log('Clicking delete button for empty row...');
               await deleteBtn.click();
-              await page.waitForTimeout(500);
+              await page.locator('button:has-text("Delete")').last().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
 
               // Confirm deletion in the dialog
               const confirmBtn = page.locator('button:has-text("Delete")').last();
               if (await confirmBtn.isVisible()) {
                 console.log('Confirming delete...');
                 await confirmBtn.click();
-                await page.waitForTimeout(500);
+                await page.waitForLoadState('networkidle').catch(() => {});
               }
               break; // Only delete one row at a time
             } else {
               // If can't delete (e.g., last row), fill it in instead
               console.log('Cannot delete - filling in the component name...');
               await input.fill('Recycled Material');
-              await page.waitForTimeout(500);
               break;
             }
           }
@@ -176,7 +173,6 @@ test.describe('Manual BOM Construction Flow', () => {
     }
 
     // Check again for any remaining empty inputs and fill them
-    await page.waitForTimeout(500);
     const remainingEmptyInputs = await page.locator('input[placeholder="e.g., Cotton, Electricity"]').all();
     for (let idx = 0; idx < remainingEmptyInputs.length; idx++) {
       const val = await remainingEmptyInputs[idx].inputValue();
@@ -184,12 +180,11 @@ test.describe('Manual BOM Construction Flow', () => {
         console.log(`Filling remaining empty input #${idx}`);
         await remainingEmptyInputs[idx].fill(`Material ${idx + 1}`);
         await remainingEmptyInputs[idx].blur();
-        await page.waitForTimeout(300);
       }
     }
 
     // Wait for validation to update
-    await page.waitForTimeout(1000);
+    await page.waitForFunction(() => { const errors = document.querySelectorAll('.text-destructive, .text-red-500'); return errors.length >= 0; }, {}, { timeout: 3000 }).catch(() => {});
 
     // Step 6: Take screenshot of valid BOM state
     console.log('Step 6: Taking screenshot 23: Valid BOM ready...');
@@ -227,10 +222,9 @@ test.describe('Manual BOM Construction Flow', () => {
         if (!currentVal) {
           await allNameInputs[i].fill(`Component ${i + 1}`);
           await allNameInputs[i].blur();
-          await page.waitForTimeout(300);
         }
       }
-      await page.waitForTimeout(1000);
+      await page.waitForFunction(() => { const errors = document.querySelectorAll('.text-destructive, .text-red-500'); return errors.length >= 0; }, {}, { timeout: 3000 }).catch(() => {});
 
       // Check again
       const stillDisabled = await calcButton.getAttribute('disabled');
@@ -277,7 +271,7 @@ test.describe('Manual BOM Construction Flow', () => {
     }
 
     // Wait for any animations
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Step 9: Take screenshot of results
     console.log('Step 9: Taking screenshot 24: Manual BOM results...');

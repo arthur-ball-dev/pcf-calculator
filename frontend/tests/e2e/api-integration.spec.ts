@@ -55,8 +55,6 @@ async function selectFirstProduct(page: any) {
 
   // Wait for product detail API to complete (includes BOM data)
   await productDetailPromise;
-  // Give BOM transform time to process and update UI
-  await page.waitForTimeout(1000);
 }
 
 /**
@@ -102,8 +100,8 @@ test('fetches products from API when page loads', async ({ authenticatedPage }) 
     }
   });
 
-  // Small wait to catch any async errors
-  await authenticatedPage.waitForTimeout(1000);
+  // Wait for any pending network requests to settle
+  await authenticatedPage.waitForLoadState('networkidle').catch(() => {});
 
   // Should have no CORS or network errors
   expect(
@@ -211,7 +209,7 @@ test('submits calculation and receives calculation_id', async ({ authenticatedPa
   ]);
   await expect(authenticatedPage.locator('h2').filter({ hasText: /Edit BOM/i })).toBeVisible();
   // Wait for BOM data to load and form validation to complete
-  await authenticatedPage.waitForTimeout(2000);
+  await authenticatedPage.waitForLoadState('networkidle').catch(() => {});
 
   // Screenshot before calculation
   await authenticatedPage.screenshot({
@@ -291,7 +289,7 @@ test('polls for calculation results until complete', async ({ authenticatedPage 
   await expect(authenticatedPage.locator('h2').filter({ hasText: /Edit BOM/i })).toBeVisible();
 
   // Wait for BOM data to load and form validation to complete
-  await authenticatedPage.waitForTimeout(3000);
+  await authenticatedPage.waitForLoadState('networkidle').catch(() => {});
   await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled({ timeout: 15000 });
 
   // Click Calculate (next-button on edit step)
@@ -349,7 +347,7 @@ test('completes full calculation flow end-to-end', async ({ authenticatedPage })
   await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
 
   // Wait for BOM data to load and form validation to complete
-  await authenticatedPage.waitForTimeout(2000);
+  await authenticatedPage.waitForLoadState('networkidle').catch(() => {});
 
   // Click Calculate (next-button on edit step shows "Calculate")
   await authenticatedPage.getByTestId('next-button').click();

@@ -15,7 +15,7 @@ All models include:
 - Clear error messages on validation failure
 """
 
-from typing import List, Optional, Literal
+from typing import Dict, List, Optional, Literal
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from decimal import Decimal
 
@@ -137,6 +137,12 @@ class CalculationStatusResponse(BaseModel):
     transport_co2e: Optional[float] = Field(None, ge=0, description="Transport emissions in kg CO2e")
     calculation_time_ms: Optional[int] = Field(None, ge=0, description="Calculation duration in milliseconds")
 
+    # TASK-FE-P8-003: Detailed breakdown by component for expandable items
+    breakdown: Optional[Dict[str, float]] = Field(
+        None,
+        description="Detailed breakdown by component (component_name -> co2e_kg)"
+    )
+
     # Fields present when failed
     error_message: Optional[str] = Field(None, description="Error details if status=failed")
 
@@ -151,7 +157,13 @@ class CalculationStatusResponse(BaseModel):
                 "materials_co2e": 1.80,
                 "energy_co2e": 0.15,
                 "transport_co2e": 0.10,
-                "calculation_time_ms": 150
+                "calculation_time_ms": 150,
+                "breakdown": {
+                    "cotton": 1.50,
+                    "polyester": 0.30,
+                    "electricity_us": 0.15,
+                    "truck_transport": 0.10
+                }
             }
         }
     )

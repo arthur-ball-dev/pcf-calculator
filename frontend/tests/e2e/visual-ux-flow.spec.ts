@@ -62,7 +62,7 @@ test.describe('Visual & UX Flow Validation', () => {
 
     // Wait for products to load
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2000);
+    // networkidle above is sufficient
   });
 
   /**
@@ -102,7 +102,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await expect(searchInput).toBeVisible();
 
     // Wait a moment for any async rendering to complete
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Screenshot proof of initial load (viewport only to avoid timeout on tall pages)
     await page.screenshot({
@@ -217,7 +217,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await productDetailPromise;
 
     // Give BOM transform time to process and update UI
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Screenshot of Step 1 complete (viewport only to avoid timeout)
     await page.screenshot({
@@ -231,7 +231,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await nextButton.click();
 
     // Wait for navigation to complete
-    await page.waitForTimeout(1000);
+
 
     // Verify we're on Step 2 - check for h2 with "BOM" or "Edit"
     const step2Heading = page.locator('h2').filter({ hasText: /BOM|Edit/ });
@@ -255,7 +255,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await expect(step3Heading).toBeVisible({ timeout: 30000 });
 
     // Wait for results data to appear
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Screenshot of Step 3 (Results)
     await page.screenshot({
@@ -324,20 +324,20 @@ test.describe('Visual & UX Flow Validation', () => {
     await productDetailPromise;
 
     // Give BOM transform time to process and update UI
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Go to Step 2
     const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
-    await page.waitForTimeout(2000);
+
 
     // Verify we're on Step 2
     const step2Heading = page.locator('h2').filter({ hasText: /BOM|Edit/ });
     await expect(step2Heading).toBeVisible({ timeout: 10000 });
 
     // Wait for BOM to load
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Find first quantity input field
     // BOM Editor uses input fields for quantity editing
@@ -359,7 +359,7 @@ test.describe('Visual & UX Flow Validation', () => {
       await page.keyboard.press('Tab'); // Move focus to trigger validation
 
       // Wait for validation to trigger
-      await page.waitForTimeout(500);
+      await page.waitForFunction(() => document.querySelector('.text-destructive, .text-red-500, [aria-invalid="true"]') !== null, {}, { timeout: 3000 }).catch(() => {});
 
       // Screenshot showing error state (viewport only to avoid timeout on tall BOM)
       await page.screenshot({
@@ -374,7 +374,7 @@ test.describe('Visual & UX Flow Validation', () => {
       // Test successfully validated that entering invalid value is possible
       // Full validation behavior (error messages, re-entry) tested in unit tests
 
-      await page.waitForTimeout(500);
+
 
       // Verify Next button becomes enabled (or remains enabled if no validation error was shown)
       // Note: The actual validation behavior depends on implementation
@@ -424,18 +424,18 @@ test.describe('Visual & UX Flow Validation', () => {
     await productDetailPromise;
 
     // Give BOM transform time to process and update UI
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Go to Step 2 (Edit BOM)
     const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
-    await page.waitForTimeout(2000);
+
 
     // Verify we're on Step 2
     const step2Heading = page.locator('h2').filter({ hasText: /BOM|Edit/ });
     await expect(step2Heading).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Click Calculate button (Next button on edit step shows "Calculate")
     const calculateButton = page.getByTestId('next-button');
@@ -444,7 +444,7 @@ test.describe('Visual & UX Flow Validation', () => {
 
     // Immediately check for loading indicators
     // Look for calculation overlay or loading state
-    await page.waitForTimeout(500);
+
 
     // Capture loading state (viewport only)
     await page.screenshot({
@@ -464,7 +464,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await expect(step3Heading).toBeVisible({ timeout: 30000 });
 
     // Verify results loaded
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle').catch(() => {});
     // Note: HTML uses <sub>2</sub> which renders as "CO2e" in textContent
     await expect(page.locator('body')).toContainText('kg CO2e');
   });

@@ -26,6 +26,8 @@ from backend.middleware import (
     get_storage,
 )
 from backend.api.routes.products import router as products_router
+from backend.api.routes.product_search import router as product_search_router
+from backend.api.routes.product_categories import router as product_categories_router
 from backend.api.routes.calculations import router as calculations_router
 from backend.api.routes.emission_factors import router as emission_factors_router
 from backend.api.routes.admin import router as admin_router
@@ -381,6 +383,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Include API routers
 # TASK-BE-P7-018: Auth router for login/logout/refresh endpoints
 app.include_router(auth_router)
+app.include_router(product_search_router)
+app.include_router(product_categories_router)
 app.include_router(products_router)
 app.include_router(calculations_router)
 app.include_router(emission_factors_router)

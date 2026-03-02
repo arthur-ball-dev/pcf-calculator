@@ -50,6 +50,7 @@ from backend.services.data_ingestion.registry import (
     is_connector_available,
 )
 from backend.services.data_ingestion.base import BaseDataIngestion
+from backend.api.utils.error_responses import create_error_dict
 
 
 # Configure logging
@@ -420,23 +421,6 @@ def check_active_sync(db: Session, data_source_id: str) -> Optional[DataSyncLog]
     )
 
 
-def create_error_response(
-    code: str,
-    message: str,
-    details: Optional[list] = None,
-) -> dict:
-    """Create a standardized error response dict."""
-    return {
-        "error": {
-            "code": code,
-            "message": message,
-            "details": details or [],
-        },
-        "request_id": f"req_{uuid.uuid4().hex[:12]}",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
 # ============================================================================
 # API Endpoints
 # ============================================================================
@@ -586,7 +570,7 @@ def get_data_source(
     if not data_source:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=create_error_response(
+            detail=create_error_dict(
                 code="NOT_FOUND",
                 message="Data source not found",
                 details=[
@@ -672,7 +656,7 @@ def trigger_sync(
     if not data_source:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=create_error_response(
+            detail=create_error_dict(
                 code="NOT_FOUND",
                 message="Data source not found",
                 details=[
@@ -685,7 +669,7 @@ def trigger_sync(
     if not data_source.is_active:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=create_error_response(
+            detail=create_error_dict(
                 code="SOURCE_INACTIVE",
                 message="Cannot sync inactive data source",
                 details=[
@@ -698,7 +682,7 @@ def trigger_sync(
     if not is_connector_available(data_source.name):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=create_error_response(
+            detail=create_error_dict(
                 code="NO_CONNECTOR",
                 message=f"No connector registered for data source: '{data_source.name}'",
                 details=[
@@ -716,7 +700,7 @@ def trigger_sync(
     if active_sync:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=create_error_response(
+            detail=create_error_dict(
                 code="SYNC_IN_PROGRESS",
                 message="A sync is already in progress for this data source",
                 details=[

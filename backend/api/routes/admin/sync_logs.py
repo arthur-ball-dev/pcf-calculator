@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from backend.database.connection import get_db
 from backend.models import DataSource, DataSyncLog
+from backend.api.utils.error_responses import create_error_dict
 from backend.schemas.admin import (
     SyncStatusEnum,
     SyncTypeEnum,
@@ -44,19 +45,6 @@ router = APIRouter(tags=["admin-sync-logs"])
 # ============================================================================
 # Helper Functions
 # ============================================================================
-
-
-def create_error_response(code: str, message: str, details: Optional[list] = None) -> dict:
-    """Create a standardized error response dict."""
-    return {
-        "error": {
-            "code": code,
-            "message": message,
-            "details": details or [],
-        },
-        "request_id": f"req_{uuid.uuid4().hex[:12]}",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
 
 
 def sync_log_to_item(log: DataSyncLog) -> SyncLogItem:
@@ -179,7 +167,7 @@ def list_sync_logs(
         if not data_source:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=create_error_response(
+                detail=create_error_dict(
                     code="INVALID_DATA_SOURCE",
                     message="Data source not found",
                     details=[
@@ -351,7 +339,7 @@ def get_sync_log(
     if not log:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=create_error_response(
+            detail=create_error_dict(
                 code="NOT_FOUND",
                 message="Sync log not found",
                 details=[

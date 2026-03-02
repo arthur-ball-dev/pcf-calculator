@@ -346,10 +346,6 @@ def is_admin_request(headers: Headers) -> bool:
     Returns:
         True if admin, False otherwise
     """
-    # Check X-Admin header (for testing/internal)
-    if headers.get("x-admin", "").lower() == "true":
-        return True
-
     # Check JWT token for admin role
     auth_header = headers.get("authorization", "")
     if auth_header.startswith("Bearer "):

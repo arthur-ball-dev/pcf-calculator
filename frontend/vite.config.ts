@@ -70,43 +70,48 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Manual chunk splitting for optimal bundle sizes
-        // All React-dependent libraries go in vendor-react to avoid hook errors
-        manualChunks: (id: string) => {
-          // Vendor chunk: React, React DOM, and ALL React-dependent libraries
-          // This prevents "Cannot read properties of undefined" errors in production
-          if (id.includes('node_modules/react-dom') ||
-              id.includes('node_modules/react/') ||
-              id.includes('node_modules/scheduler') ||
-              id.includes('node_modules/react-router') ||
-              id.includes('node_modules/@remix-run/router') ||
-              id.includes('node_modules/@nivo') ||
-              id.includes('node_modules/d3-') ||
-              id.includes('node_modules/zustand') ||
-              id.includes('node_modules/immer') ||
-              id.includes('node_modules/@tanstack/react-query') ||
-              id.includes('node_modules/@radix-ui') ||
-              id.includes('node_modules/react-hook-form') ||
-              id.includes('node_modules/@hookform') ||
-              id.includes('node_modules/lucide-react')) {
-            return 'vendor';
-          }
-
-          // Export chunk: xlsx library (loaded on demand) - no React dependency
-          if (id.includes('node_modules/xlsx') ||
-              id.includes('node_modules/cfb') ||
-              id.includes('node_modules/codepage') ||
-              id.includes('node_modules/frac') ||
-              id.includes('node_modules/ssf') ||
-              id.includes('node_modules/wmf') ||
-              id.includes('node_modules/adler-32') ||
-              id.includes('node_modules/crc-32')) {
-            return 'export';
-          }
-
-          // Zod validation library - no React dependency
-          if (id.includes('node_modules/zod')) {
-            return 'validation';
-          }
+        // Uses object syntax to avoid circular dependency issues with Rollup helpers
+        manualChunks: {
+          'vendor-react': [
+            'react',
+            'react-dom',
+            'scheduler',
+          ],
+          'charts': [
+            '@nivo/core',
+            '@nivo/sankey',
+            '@nivo/colors',
+            '@nivo/legends',
+            '@nivo/text',
+            '@nivo/theming',
+            '@nivo/tooltip',
+          ],
+          'state': [
+            'zustand',
+            'immer',
+            '@tanstack/react-query',
+          ],
+          'vendor-ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-select',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-tooltip',
+            '@radix-ui/react-checkbox',
+            '@radix-ui/react-radio-group',
+            '@radix-ui/react-label',
+            '@radix-ui/react-separator',
+            '@radix-ui/react-alert-dialog',
+            '@radix-ui/react-slot',
+          ],
+          'forms': [
+            'react-hook-form',
+            '@hookform/resolvers',
+            'zod',
+          ],
+          'icons': [
+            'lucide-react',
+          ],
         },
       },
     },

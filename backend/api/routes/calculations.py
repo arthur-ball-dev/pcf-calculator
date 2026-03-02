@@ -28,7 +28,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from backend.database.connection import get_db
 from backend.models import Product, PCFCalculation, generate_uuid
-from backend.calculator.pcf_calculator import PCFCalculator
+from backend.models.user import User
+from backend.auth.dependencies import get_optional_user
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -140,29 +141,35 @@ def execute_calculation(
     calculation_id: str,
     product_id: str,
     calculation_type: str,
-    db_session: Session
 ):
     """
-    Background task: Execute PCF calculation using Brightway2.
+    Background task: Execute PCF calculation using SQL-backed emission factors.
 
     This function runs asynchronously in the background after returning
     202 Accepted to the client. Updates database with results or error.
 
+    Creates its own database session to avoid using the request-scoped
+    session which may be closed by the time this task executes.
+
     Lifecycle:
     1. Update status to 'in_progress'
     2. Verify product exists
-    3. Perform calculation using PCFCalculator
-    4. Update status to 'completed' with results
-    5. Handle errors and update status to 'failed'
+    3. Query BOM items with emission factors from PostgreSQL
+    4. Calculate CO2e per component (quantity * emission_factor)
+    5. Update status to 'completed' with results
+    6. Handle errors and update status to 'failed'
 
     Args:
         calculation_id: UUID of calculation record
         product_id: UUID of product to calculate
         calculation_type: Type of calculation
-        db_session: SQLAlchemy database session
     """
     import time
+    from backend.database.connection import SessionLocal
+    from backend.models import BillOfMaterials, EmissionFactor
+
     start_time = time.time()
+    db_session = SessionLocal()
 
     try:
         # Update status to 'in_progress'
@@ -183,30 +190,64 @@ def execute_calculation(
         if not product:
             raise ValueError(f"Product {product_id} not found")
 
-        # Initialize calculator and perform calculation
-        calculator = PCFCalculator()
-        result = calculator.calculate_product(product_id, db_session)
+        # Query BOM items joined with emission factors from PostgreSQL
+        bom_rows = (
+            db_session.query(
+                BillOfMaterials,
+                EmissionFactor,
+                Product,
+            )
+            .join(Product, Product.id == BillOfMaterials.child_product_id)
+            .outerjoin(EmissionFactor, EmissionFactor.id == BillOfMaterials.emission_factor_id)
+            .filter(BillOfMaterials.parent_product_id == product_id)
+            .all()
+        )
+
+        # Calculate CO2e per component
+        total_co2e = 0.0
+        materials_co2e = 0.0
+        energy_co2e = 0.0
+        transport_co2e = 0.0
+        breakdown = {}
+
+        for bom_item, ef, child_product in bom_rows:
+            quantity = float(bom_item.quantity or 0)
+            factor_value = float(ef.co2e_factor if ef and ef.co2e_factor else 0)
+            component_co2e = quantity * factor_value
+
+            component_name = child_product.name if child_product else "Unknown"
+            breakdown[component_name] = round(component_co2e, 6)
+            total_co2e += component_co2e
+
+            # Categorize by component name heuristics
+            name_lower = component_name.lower()
+            if "electricity" in name_lower or "energy" in name_lower or "grid" in name_lower:
+                energy_co2e += component_co2e
+            elif "transport" in name_lower or "truck" in name_lower or "ship" in name_lower:
+                transport_co2e += component_co2e
+            else:
+                materials_co2e += component_co2e
 
         # Calculate execution time
         elapsed_ms = int((time.time() - start_time) * 1000)
 
         # Update calculation record with results
         calculation.status = "completed"
-        calculation.total_co2e_kg = result["total_co2e_kg"]
-        calculation.materials_co2e = result.get("breakdown_by_category", {}).get("materials", 0.0)
-        calculation.energy_co2e = result.get("breakdown_by_category", {}).get("energy", 0.0)
-        calculation.transport_co2e = result.get("breakdown_by_category", {}).get("transport", 0.0)
+        calculation.total_co2e_kg = round(total_co2e, 6)
+        calculation.materials_co2e = round(materials_co2e, 6)
+        calculation.energy_co2e = round(energy_co2e, 6)
+        calculation.transport_co2e = round(transport_co2e, 6)
         calculation.calculation_time_ms = elapsed_ms
-        calculation.calculation_method = "Brightway2_PCFCalculator"
+        calculation.calculation_method = "SQL_DirectCalculation"
 
         # Store detailed breakdown in JSON field
-        calculation.breakdown = result.get("breakdown", {})
+        calculation.breakdown = breakdown
 
         db_session.commit()
 
         logger.info(
             f"Calculation {calculation_id} completed: "
-            f"{result['total_co2e_kg']:.3f} kg CO2e in {elapsed_ms}ms"
+            f"{total_co2e:.3f} kg CO2e in {elapsed_ms}ms"
         )
 
     except ValueError as e:
@@ -232,6 +273,9 @@ def execute_calculation(
                 calculation.calculation_metadata = {}
             calculation.calculation_metadata["error_message"] = f"Calculation error: {str(e)}"
             db_session.commit()
+
+    finally:
+        db_session.close()
 
 
 # ============================================================================
@@ -315,14 +359,12 @@ async def start_calculation(
         )
 
     # Queue background task
-    # Important: Pass a NEW database session to background task
-    # FastAPI's dependency injection doesn't work in background tasks
+    # Background task creates its own session (request session may close)
     background_tasks.add_task(
         execute_calculation,
         calc_id,
         request.product_id,
         request.calculation_type.value,  # Use enum value
-        db  # This session will be used by background task
     )
 
     logger.info(f"Calculation {calc_id} queued for background processing")
@@ -342,7 +384,8 @@ async def start_calculation(
 )
 def get_calculation_status(
     calculation_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ) -> CalculationStatusResponse:
     """
     Get current status and results of a calculation.

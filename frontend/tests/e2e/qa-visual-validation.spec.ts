@@ -67,7 +67,7 @@ async function setupPage(page: Page, request: any) {
     const overlays = document.querySelectorAll('.react-joyride__overlay');
     overlays.forEach(el => el.remove());
   });
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => !document.getElementById('react-joyride-portal'), {}, { timeout: 3000 }).catch(() => {});
 }
 
 // Helper to take a screenshot and record result
@@ -92,8 +92,7 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
   });
 
   test('Complete wizard flow with product that has BOM', async ({ page }) => {
-    // Step 1: Navigate and verify initial state
-    await page.waitForTimeout(1000);
+    // Step 1: Navigate and verify initial state (setupPage already does networkidle)
 
     // Verify BOM toggle switch is present and ON by default
     const bomToggle = page.getByTestId('bom-toggle-switch');
@@ -126,12 +125,12 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
 
     // Search for and select "Beverage"
     await searchInput.fill('Beverage');
-    await page.waitForTimeout(700);
+    await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
     const firstOption = page.locator('[role="option"]').first();
     if (await firstOption.isVisible({ timeout: 3000 }).catch(() => false)) {
       await firstOption.click();
-      await page.waitForTimeout(2000); // Wait for BOM to load
+      await page.waitForLoadState('networkidle').catch(() => {});
     }
 
     await recordResult(
@@ -148,7 +147,6 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
     const nextButton = page.getByTestId('next-button');
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
-    await page.waitForTimeout(2000);
 
     // Wait for BOM skeleton to disappear
     const bomSkeleton = page.getByTestId('bom-editor-skeleton');
@@ -204,7 +202,6 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
     );
 
     await calculateBtn.click();
-    await page.waitForTimeout(1000);
 
     // Check for loading state
     await recordResult(
@@ -237,7 +234,7 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
       }
     }
 
-    await page.waitForTimeout(2000); // Let charts render
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     await recordResult(
       page,
@@ -287,7 +284,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
   });
 
   test('Browse products without BOM and navigate to empty BOM editor', async ({ page }) => {
-    await page.waitForTimeout(1000);
+    // setupPage already does networkidle, no extra wait needed
 
     await recordResult(
       page,
@@ -305,7 +302,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
     const isChecked = await bomToggle.getAttribute('aria-checked');
     if (isChecked === 'true') {
       await bomToggle.click();
-      await page.waitForTimeout(1000); // Wait for product list to refresh
+      await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
     }
 
     // Verify toggle is now OFF
@@ -326,7 +323,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
     await expect(searchInput).toBeVisible({ timeout: 10000 });
 
     // Wait for products to load after toggle change
-    await page.waitForTimeout(1500);
+    await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
     await recordResult(
       page,
@@ -346,7 +343,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
       const productText = await firstOption.textContent();
       console.log(`Selecting product: ${productText?.substring(0, 80)}`);
       await firstOption.click();
-      await page.waitForTimeout(2000);
+      await page.waitForLoadState('networkidle').catch(() => {});
       productSelected = true;
     }
 
@@ -371,12 +368,11 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
 
     if (!nextEnabled) {
       // If Next is disabled, the selected product might need more time
-      await page.waitForTimeout(3000);
+      await page.waitForLoadState('networkidle').catch(() => {});
     }
 
     await expect(nextButton).toBeEnabled({ timeout: 10000 });
     await nextButton.click();
-    await page.waitForTimeout(2000);
 
     // Wait for BOM skeleton to disappear
     const bomSkeleton = page.getByTestId('bom-editor-skeleton');
@@ -413,7 +409,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
 
     if (addButtonVisible) {
       await addComponentButton.click();
-      await page.waitForTimeout(500);
+      await page.locator('input[placeholder*="e.g"]').last().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
 
       await recordResult(
         page,
@@ -429,7 +425,6 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
       const newNameInput = page.locator('input[placeholder*="e.g"]').last();
       if (await newNameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
         await newNameInput.fill('Steel Sheet');
-        await page.waitForTimeout(300);
       }
 
       // Fill quantity
@@ -437,7 +432,6 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
       const quantityCount = await quantityInputs.count();
       if (quantityCount > 0) {
         await quantityInputs.last().fill('1.5');
-        await page.waitForTimeout(300);
       }
 
       await recordResult(
@@ -467,7 +461,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
 
     if (efDropdownCount > 0) {
       await efDropdowns.last().click();
-      await page.waitForTimeout(500);
+      await page.locator('[role="listbox"], [data-radix-popper-content-wrapper]').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
 
       await recordResult(
         page,
@@ -480,7 +474,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
       );
 
       await page.keyboard.press('Escape');
-      await page.waitForTimeout(300);
+      await page.locator('[role="listbox"]').first().waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
     }
 
     // Click Calculate (use first() to avoid strict mode)
@@ -499,7 +493,6 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
 
     if (calcEnabled) {
       await calculateBtn.click();
-      await page.waitForTimeout(1000);
 
       // Wait for results using multiple strategies
       let resultsVisible = false;
@@ -517,7 +510,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
         }
       }
 
-      await page.waitForTimeout(2000);
+      await page.waitForLoadState('networkidle').catch(() => {});
 
       await recordResult(
         page,
