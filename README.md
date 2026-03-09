@@ -1,3 +1,4 @@
+
 # Product Carbon Footprint Calculator
 
 Calculate cradle-to-gate carbon emissions for products using Bill of Materials (BOM) data and emission factors from EPA and DEFRA. Implements ISO 14067 and GHG Protocol standards.
@@ -77,12 +78,12 @@ npm run test:e2e
 ### Visualizations
 - **Sankey Diagram:** Material flow visualization showing emission sources
 - **Category Breakdown:** Detailed emissions by material, energy, and transport
-- **Export Options:** PDF reports and Excel data export
+- **Export Options:** CSV and Excel data export
 
 ### Data Management
 - **Emission Factors:** EPA and DEFRA databases
 - **Product Catalog:** Pre-loaded products with complete BOMs
-- **Calculation History:** Track and compare previous calculations
+- **Scenario Comparison:** Create, clone, and compare calculations with delta visualization
 
 ## API Endpoints
 
@@ -131,8 +132,8 @@ cd frontend && npm test -- --coverage
 ```
 
 **Test Coverage:**
-- Backend: 1,587 tests
-- Frontend: 54 unit test files + 5 E2E test suites
+- Backend: 96 test files
+- Frontend: 77 unit test files + 5 E2E test suites
 - Coverage target: >80%
 
 ## Development
@@ -154,7 +155,7 @@ See `CLAUDE.md` for comprehensive development documentation including:
 
 ## Environment Variables
 
-Copy `.env.sample` to `.env` and configure:
+Copy `.env.example` to `.env` and configure:
 
 ```bash
 DATABASE_URL=postgresql+psycopg://pcf_user:DB_PASSWORD@localhost:5432/pcf_calculator
