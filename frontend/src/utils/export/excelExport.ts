@@ -3,21 +3,22 @@
  * TASK-FE-P5-005: Excel/XLSX generation and export functionality
  * TASK-FE-P7-024: Dynamic import for bundle optimization
  * TASK-FE-P8-008: Attribution sheet for legal compliance
+ * P1-FIX-16: Replaced xlsx with exceljs for better license compliance
  *
  * Features:
  * - Multi-sheet workbook creation (Summary, Breakdown, BOM, Attribution)
  * - Column width configuration
  * - Cell formatting for numbers and percentages
  * - Download triggering with proper MIME type
- * - Dynamic import of xlsx library for code splitting
+ * - Dynamic import of exceljs library for code splitting
  * - Attribution sheet for data source compliance
  *
- * Note: The main exportToExcel function uses dynamic import to keep xlsx
+ * Note: The main exportToExcel function uses dynamic import to keep exceljs
  * out of the initial bundle. The helper functions (createWorkbook, addSummarySheet, etc.)
  * are kept synchronous for backward compatibility with existing tests.
  */
 
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { formatCategoryLabel } from '../classifyComponent';
 import type { DataSourceInfo } from '../exportAttribution';
@@ -55,14 +56,14 @@ export interface SheetConfig {
   sheetName?: string;
 }
 
-type WorkBook = XLSX.WorkBook;
+type WorkBook = ExcelJS.Workbook;
 
 /**
  * Create a new workbook
  * Uses synchronous API for backward compatibility
  */
 export function createWorkbook(): WorkBook {
-  return XLSX.utils.book_new();
+  return new ExcelJS.Workbook();
 }
 
 /**
@@ -81,7 +82,17 @@ export function addSummarySheet(
     ? data.calculationDate.toLocaleDateString()
     : 'N/A';
 
-  const summaryData = [
+  const sheet = workbook.addWorksheet(sheetName);
+
+  // Set column widths
+  sheet.columns = [
+    { width: 25 },
+    { width: 30 },
+    { width: 15 },
+  ];
+
+  // Add data rows
+  const rows = [
     ['Product Carbon Footprint Calculation Report'],
     [''],
     ['Product Information'],
@@ -98,15 +109,14 @@ export function addSummarySheet(
     ['Production Volume', data.parameters?.productionVolume || 1, 'units'],
   ];
 
-  const sheet = XLSX.utils.aoa_to_sheet(summaryData);
-
-  // Set column widths
-  sheet['!cols'] = [{ wch: 25 }, { wch: 30 }, { wch: 15 }];
+  rows.forEach(row => sheet.addRow(row));
 
   // Merge cells for title
-  sheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+  sheet.mergeCells('A1:C1');
 
-  XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+  // Bold title
+  const titleCell = sheet.getCell('A1');
+  titleCell.font = { bold: true, size: 14 };
 }
 
 /**
@@ -120,37 +130,32 @@ export function addBreakdownSheet(
 ): void {
   const sheetName = config.sheetName || 'Breakdown';
 
-  // Remove Scope column - just show Category, Emissions, Percentage
-  const headers = ['Category', 'Emissions (kg CO2e)', 'Percentage'];
-  const dataRows = categoryBreakdown.map((item) => [
-    item.category,
-    item.emissions,
-    item.percentage / 100, // Excel percentage format expects decimal
-  ]);
-
-  const sheetData = [headers, ...dataRows];
-  const sheet = XLSX.utils.aoa_to_sheet(sheetData);
+  const sheet = workbook.addWorksheet(sheetName);
 
   // Set column widths
-  sheet['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 12 }];
+  sheet.columns = [
+    { width: 30 },
+    { width: 20 },
+    { width: 12 },
+  ];
 
-  // Apply number formats
-  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-  for (let row = 1; row <= range.e.r; row++) {
-    // Emissions column (B)
-    const emissionsCell = XLSX.utils.encode_cell({ r: row, c: 1 });
-    if (sheet[emissionsCell]) {
-      sheet[emissionsCell].z = '#,##0.00';
-    }
+  // Add header row
+  const headerRow = sheet.addRow(['Category', 'Emissions (kg CO2e)', 'Percentage']);
+  headerRow.font = { bold: true };
 
-    // Percentage column (C)
-    const percentCell = XLSX.utils.encode_cell({ r: row, c: 2 });
-    if (sheet[percentCell]) {
-      sheet[percentCell].z = '0.0%';
-    }
-  }
+  // Add data rows
+  categoryBreakdown.forEach((item) => {
+    const row = sheet.addRow([
+      item.category,
+      item.emissions,
+      item.percentage / 100,
+    ]);
 
-  XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+    // Format emissions column
+    row.getCell(2).numFmt = '#,##0.00';
+    // Format percentage column
+    row.getCell(3).numFmt = '0.0%';
+  });
 }
 
 /**
@@ -165,7 +170,21 @@ export function addBOMSheet(
 ): void {
   const sheetName = config.sheetName || 'Bill of Materials';
 
-  const headers = [
+  const sheet = workbook.addWorksheet(sheetName);
+
+  // Set column widths
+  sheet.columns = [
+    { width: 30 },  // Component
+    { width: 12 },  // Category
+    { width: 12 },  // Quantity
+    { width: 10 },  // Unit
+    { width: 18 },  // Emission Factor
+    { width: 20 },  // Emissions
+    { width: 12 },  // Percentage
+  ];
+
+  // Add header row
+  const headerRow = sheet.addRow([
     'Component',
     'Category',
     'Quantity',
@@ -173,25 +192,30 @@ export function addBOMSheet(
     'Emission Factor',
     'Emissions (kg CO2e)',
     'Percentage',
-  ];
+  ]);
+  headerRow.font = { bold: true };
 
   // Calculate sum of BOM item emissions
   const bomEmissionsSum = bomEntries.reduce((sum, e) => sum + e.emissions, 0);
 
-  const dataRows: (string | number)[][] = bomEntries.map((entry) => [
-    entry.component,
-    formatCategoryLabel(entry.category),
-    entry.quantity,
-    entry.unit,
-    entry.emissionFactor,
-    entry.emissions,
-    totalProductEmissions > 0 ? (entry.emissions / totalProductEmissions) : 0,
-  ]);
+  // Add data rows
+  bomEntries.forEach((entry) => {
+    const row = sheet.addRow([
+      entry.component,
+      formatCategoryLabel(entry.category),
+      entry.quantity,
+      entry.unit,
+      entry.emissionFactor,
+      entry.emissions,
+      totalProductEmissions > 0 ? (entry.emissions / totalProductEmissions) : 0,
+    ]);
+    row.getCell(7).numFmt = '0.0%';
+  });
 
   // Add "Other (not itemized)" row if there's unallocated emissions
   const unallocatedEmissions = totalProductEmissions - bomEmissionsSum;
   if (unallocatedEmissions > 0.001) {
-    dataRows.push([
+    const otherRow = sheet.addRow([
       'Other (not itemized)',
       '',
       '',
@@ -200,35 +224,13 @@ export function addBOMSheet(
       unallocatedEmissions,
       totalProductEmissions > 0 ? (unallocatedEmissions / totalProductEmissions) : 0,
     ]);
+    otherRow.getCell(7).numFmt = '0.0%';
   }
 
   // Add totals row
-  dataRows.push(['TOTAL', '', '', '', '', totalProductEmissions, 1]);
-
-  const sheetData = [headers, ...dataRows];
-  const sheet = XLSX.utils.aoa_to_sheet(sheetData);
-
-  // Set column widths
-  sheet['!cols'] = [
-    { wch: 30 },  // Component
-    { wch: 12 },  // Category
-    { wch: 12 },  // Quantity
-    { wch: 10 },  // Unit
-    { wch: 18 },  // Emission Factor
-    { wch: 20 },  // Emissions
-    { wch: 12 },  // Percentage
-  ];
-
-  // Apply percentage format to last column (index 6)
-  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-  for (let row = 1; row <= range.e.r; row++) {
-    const percentCell = XLSX.utils.encode_cell({ r: row, c: 6 });
-    if (sheet[percentCell]) {
-      sheet[percentCell].z = '0.0%';
-    }
-  }
-
-  XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+  const totalRow = sheet.addRow(['TOTAL', '', '', '', '', totalProductEmissions, 1]);
+  totalRow.font = { bold: true };
+  totalRow.getCell(7).numFmt = '0.0%';
 }
 
 /**
@@ -243,67 +245,72 @@ export function addAttributionSheet(
 ): void {
   const sheetName = config.sheetName || 'Data Sources';
 
-  // Build attribution data for the sheet
-  const sheetData: (string | number)[][] = [
-    ['DATA SOURCE ATTRIBUTIONS'],
-    [''],
-    ['This calculation uses data from the following sources:'],
-    [''],
-    ['Source', 'Attribution Required', 'Attribution Text'],
+  const sheet = workbook.addWorksheet(sheetName);
+
+  // Set column widths
+  sheet.columns = [
+    { width: 40 },
+    { width: 20 },
+    { width: 80 },
   ];
+
+  // Title
+  sheet.addRow(['DATA SOURCE ATTRIBUTIONS']);
+  sheet.mergeCells('A1:C1');
+  sheet.getCell('A1').font = { bold: true, size: 14 };
+
+  sheet.addRow(['']);
+  sheet.addRow(['This calculation uses data from the following sources:']);
+  sheet.addRow(['']);
+
+  // Header row
+  const headerRow = sheet.addRow(['Source', 'Attribution Required', 'Attribution Text']);
+  headerRow.font = { bold: true };
 
   // Add each data source that requires attribution
   const requiredSources = dataSources.filter(s => s.attribution_required && s.attribution_text);
 
   if (requiredSources.length > 0) {
     for (const source of requiredSources) {
-      sheetData.push([source.name, 'Yes', source.attribution_text]);
+      sheet.addRow([source.name, 'Yes', source.attribution_text]);
     }
   } else {
-    sheetData.push(['No specific attributions required', '', '']);
+    sheet.addRow(['No specific attributions required', '', '']);
   }
 
   // Add disclaimer section
-  sheetData.push(['']);
-  sheetData.push(['']);
-  sheetData.push(['DISCLAIMER']);
-  sheetData.push(['']);
-  sheetData.push(['Calculations are for informational purposes only.']);
-  sheetData.push(['No warranty is provided regarding accuracy.']);
-  sheetData.push(['Consult qualified professionals for regulatory compliance.']);
-
-  const sheet = XLSX.utils.aoa_to_sheet(sheetData);
-
-  // Set column widths
-  sheet['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 80 }];
-
-  // Merge header row
-  sheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
-
-  XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+  sheet.addRow(['']);
+  sheet.addRow(['']);
+  const disclaimerRow = sheet.addRow(['DISCLAIMER']);
+  disclaimerRow.font = { bold: true };
+  sheet.addRow(['']);
+  sheet.addRow(['Calculations are for informational purposes only.']);
+  sheet.addRow(['No warranty is provided regarding accuracy.']);
+  sheet.addRow(['Consult qualified professionals for regulatory compliance.']);
 }
 
 /**
  * Export data to Excel file
- * Uses dynamic import to load xlsx library on demand for bundle optimization.
+ * Uses dynamic import to load exceljs library on demand for bundle optimization.
  * This is the main entry point for Excel export functionality.
  */
 export async function exportToExcel(
   data: CalculationExportData,
   filename: string
 ): Promise<void> {
-  // Dynamically load xlsx - this is where the code splitting happens
-  // The import('xlsx') statement tells Vite/Rollup to create a separate chunk
-  const xlsxModule = await import('xlsx');
-
-  const workbook = xlsxModule.utils.book_new();
+  // Dynamically load exceljs - this is where the code splitting happens
+  const ExcelJSModule = await import('exceljs');
+  const workbook = new ExcelJSModule.default.Workbook();
 
   // Add Summary sheet
   const dateStr = data.calculationDate
     ? data.calculationDate.toLocaleDateString()
     : 'N/A';
 
-  const summaryData = [
+  const summarySheet = workbook.addWorksheet('Summary');
+  summarySheet.columns = [{ width: 25 }, { width: 30 }, { width: 15 }];
+
+  const summaryRows = [
     ['Product Carbon Footprint Calculation Report'],
     [''],
     ['Product Information'],
@@ -319,129 +326,106 @@ export async function exportToExcel(
     ['Energy Source', data.parameters?.energySource || 'N/A'],
     ['Production Volume', data.parameters?.productionVolume || 1, 'units'],
   ];
-
-  const summarySheet = xlsxModule.utils.aoa_to_sheet(summaryData);
-  summarySheet['!cols'] = [{ wch: 25 }, { wch: 30 }, { wch: 15 }];
-  summarySheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
-  xlsxModule.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+  summaryRows.forEach(row => summarySheet.addRow(row));
+  summarySheet.mergeCells('A1:C1');
+  summarySheet.getCell('A1').font = { bold: true, size: 14 };
 
   // Add Breakdown sheet
-  const breakdownHeaders = ['Category', 'Emissions (kg CO2e)', 'Percentage'];
-  const breakdownDataRows = data.categoryBreakdown.map((item) => [
-    item.category,
-    item.emissions,
-    item.percentage / 100,
-  ]);
-  const breakdownSheetData = [breakdownHeaders, ...breakdownDataRows];
-  const breakdownSheet = xlsxModule.utils.aoa_to_sheet(breakdownSheetData);
-  breakdownSheet['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 12 }];
+  const breakdownSheet = workbook.addWorksheet('Breakdown');
+  breakdownSheet.columns = [{ width: 30 }, { width: 20 }, { width: 12 }];
 
-  const breakdownRange = xlsxModule.utils.decode_range(breakdownSheet['!ref'] || 'A1');
-  for (let row = 1; row <= breakdownRange.e.r; row++) {
-    const emissionsCell = xlsxModule.utils.encode_cell({ r: row, c: 1 });
-    if (breakdownSheet[emissionsCell]) {
-      breakdownSheet[emissionsCell].z = '#,##0.00';
-    }
-    const percentCell = xlsxModule.utils.encode_cell({ r: row, c: 2 });
-    if (breakdownSheet[percentCell]) {
-      breakdownSheet[percentCell].z = '0.0%';
-    }
-  }
-  xlsxModule.utils.book_append_sheet(workbook, breakdownSheet, 'Breakdown');
+  const breakdownHeader = breakdownSheet.addRow(['Category', 'Emissions (kg CO2e)', 'Percentage']);
+  breakdownHeader.font = { bold: true };
+
+  data.categoryBreakdown.forEach((item) => {
+    const row = breakdownSheet.addRow([
+      item.category,
+      item.emissions,
+      item.percentage / 100,
+    ]);
+    row.getCell(2).numFmt = '#,##0.00';
+    row.getCell(3).numFmt = '0.0%';
+  });
 
   // Add BOM sheet
-  const bomHeaders = [
-    'Component',
-    'Category',
-    'Quantity',
-    'Unit',
-    'Emission Factor',
-    'Emissions (kg CO2e)',
-    'Percentage',
+  const bomSheet = workbook.addWorksheet('Bill of Materials');
+  bomSheet.columns = [
+    { width: 30 }, { width: 12 }, { width: 12 }, { width: 10 },
+    { width: 18 }, { width: 20 }, { width: 12 },
   ];
-  const bomEmissionsSum = data.bomEntries.reduce((sum, e) => sum + e.emissions, 0);
-  const bomDataRows: (string | number)[][] = data.bomEntries.map((entry) => [
-    entry.component,
-    formatCategoryLabel(entry.category),
-    entry.quantity,
-    entry.unit,
-    entry.emissionFactor,
-    entry.emissions,
-    data.totalEmissions > 0 ? (entry.emissions / data.totalEmissions) : 0,
+
+  const bomHeader = bomSheet.addRow([
+    'Component', 'Category', 'Quantity', 'Unit',
+    'Emission Factor', 'Emissions (kg CO2e)', 'Percentage',
   ]);
+  bomHeader.font = { bold: true };
+
+  const bomEmissionsSum = data.bomEntries.reduce((sum, e) => sum + e.emissions, 0);
+  data.bomEntries.forEach((entry) => {
+    const row = bomSheet.addRow([
+      entry.component,
+      formatCategoryLabel(entry.category),
+      entry.quantity,
+      entry.unit,
+      entry.emissionFactor,
+      entry.emissions,
+      data.totalEmissions > 0 ? (entry.emissions / data.totalEmissions) : 0,
+    ]);
+    row.getCell(7).numFmt = '0.0%';
+  });
 
   const unallocatedEmissions = data.totalEmissions - bomEmissionsSum;
   if (unallocatedEmissions > 0.001) {
-    bomDataRows.push([
-      'Other (not itemized)',
-      '',
-      '',
-      '',
-      '',
+    const otherRow = bomSheet.addRow([
+      'Other (not itemized)', '', '', '', '',
       unallocatedEmissions,
       data.totalEmissions > 0 ? (unallocatedEmissions / data.totalEmissions) : 0,
     ]);
+    otherRow.getCell(7).numFmt = '0.0%';
   }
-  bomDataRows.push(['TOTAL', '', '', '', '', data.totalEmissions, 1]);
 
-  const bomSheetData = [bomHeaders, ...bomDataRows];
-  const bomSheet = xlsxModule.utils.aoa_to_sheet(bomSheetData);
-  bomSheet['!cols'] = [
-    { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
-    { wch: 18 }, { wch: 20 }, { wch: 12 },
-  ];
-
-  const bomRange = xlsxModule.utils.decode_range(bomSheet['!ref'] || 'A1');
-  for (let row = 1; row <= bomRange.e.r; row++) {
-    const percentCell = xlsxModule.utils.encode_cell({ r: row, c: 6 });
-    if (bomSheet[percentCell]) {
-      bomSheet[percentCell].z = '0.0%';
-    }
-  }
-  xlsxModule.utils.book_append_sheet(workbook, bomSheet, 'Bill of Materials');
+  const totalRow = bomSheet.addRow(['TOTAL', '', '', '', '', data.totalEmissions, 1]);
+  totalRow.font = { bold: true };
+  totalRow.getCell(7).numFmt = '0.0%';
 
   // Add Attribution sheet (TASK-FE-P8-008)
   const dataSources = data.dataSources || [];
-  const attributionSheetData: (string | number)[][] = [
-    ['DATA SOURCE ATTRIBUTIONS'],
-    [''],
-    ['This calculation uses data from the following sources:'],
-    [''],
-    ['Source', 'Attribution Required', 'Attribution Text'],
-  ];
+  const attributionSheet = workbook.addWorksheet('Data Sources');
+  attributionSheet.columns = [{ width: 40 }, { width: 20 }, { width: 80 }];
+
+  attributionSheet.addRow(['DATA SOURCE ATTRIBUTIONS']);
+  attributionSheet.mergeCells('A1:C1');
+  attributionSheet.getCell('A1').font = { bold: true, size: 14 };
+
+  attributionSheet.addRow(['']);
+  attributionSheet.addRow(['This calculation uses data from the following sources:']);
+  attributionSheet.addRow(['']);
+
+  const attrHeader = attributionSheet.addRow(['Source', 'Attribution Required', 'Attribution Text']);
+  attrHeader.font = { bold: true };
 
   const requiredSources = dataSources.filter(s => s.attribution_required && s.attribution_text);
 
   if (requiredSources.length > 0) {
     for (const source of requiredSources) {
-      attributionSheetData.push([source.name, 'Yes', source.attribution_text]);
+      attributionSheet.addRow([source.name, 'Yes', source.attribution_text]);
     }
   } else {
-    attributionSheetData.push(['No specific attributions required', '', '']);
+    attributionSheet.addRow(['No specific attributions required', '', '']);
   }
 
-  // Add disclaimer section
-  attributionSheetData.push(['']);
-  attributionSheetData.push(['']);
-  attributionSheetData.push(['DISCLAIMER']);
-  attributionSheetData.push(['']);
-  attributionSheetData.push(['Calculations are for informational purposes only.']);
-  attributionSheetData.push(['No warranty is provided regarding accuracy.']);
-  attributionSheetData.push(['Consult qualified professionals for regulatory compliance.']);
+  attributionSheet.addRow(['']);
+  attributionSheet.addRow(['']);
+  const disclaimerRow = attributionSheet.addRow(['DISCLAIMER']);
+  disclaimerRow.font = { bold: true };
+  attributionSheet.addRow(['']);
+  attributionSheet.addRow(['Calculations are for informational purposes only.']);
+  attributionSheet.addRow(['No warranty is provided regarding accuracy.']);
+  attributionSheet.addRow(['Consult qualified professionals for regulatory compliance.']);
 
-  const attributionSheet = xlsxModule.utils.aoa_to_sheet(attributionSheetData);
-  attributionSheet['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 80 }];
-  attributionSheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
-  xlsxModule.utils.book_append_sheet(workbook, attributionSheet, 'Data Sources');
-
-  // Write workbook to array buffer
-  const excelBuffer = xlsxModule.write(workbook, {
-    bookType: 'xlsx',
-    type: 'array',
-  });
-
-  // Create blob and trigger download
-  const blob = new Blob([excelBuffer], {
+  // Write workbook to buffer and trigger download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 

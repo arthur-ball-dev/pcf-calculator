@@ -16,6 +16,10 @@
  *
  * UPDATED: TASK-FE-P8-003 - Added breakdown field to Calculation
  * - breakdown: Record<string, number> - component-level emissions breakdown
+ *
+ * UPDATED: P1-FIX-12 - Removed phantom fields (total_co2e, waste_co2e, updated_at)
+ * - These fields do not exist in the backend CalculationStatusResponse
+ * - total_co2e_kg is the correct field name from the backend
  */
 
 // ============================================================================
@@ -83,16 +87,13 @@ export interface Calculation {
   status: CalculationStatus;
   product_id?: string;
   created_at?: string;
-  updated_at?: string;
   calculation_type?: CalculationType;
 
-  // Present when completed
-  total_co2e?: number;
+  // Present when completed - aligned with backend CalculationStatusResponse
   total_co2e_kg?: number;
   materials_co2e?: number;
   energy_co2e?: number;
   transport_co2e?: number;
-  waste_co2e?: number;
   calculation_time_ms?: number;
 
   // TASK-FE-P8-003: Detailed breakdown by component for expandable items

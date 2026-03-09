@@ -31,7 +31,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { UnitType } from '@/types/store.types';
-import type { EmissionFactorListItem, ProductDetail } from '@/types/api.types';
+import type { EmissionFactorListItem, ProductDetail, ProductSearchItem, CategoryInfo } from '@/types/api.types';
 
 // ============================================================================
 // Constants
@@ -88,21 +88,16 @@ const DEFAULT_BADGE_COLORS = 'bg-slate-500/[0.18] text-slate-400 border-slate-50
  * Category type for product search results.
  * Can be a CategoryInfo object or null.
  */
-interface CategoryInfo {
-  id: string;
-  code: string;
-  name: string;
-  industry_sector: string | null;
-}
+// CategoryInfo is now imported from @/types/api.types
 
 /**
  * Extract industry string from product category field.
  * Handles both CategoryInfo objects and legacy string categories.
  */
-function getIndustry(product: ProductDetail): string {
+function getIndustry(product: ProductDetail | ProductSearchItem): string {
   if (!product.category) return 'other';
   if (typeof product.category === 'string') return product.category.toLowerCase().trim();
-  const category = product.category as unknown as CategoryInfo;
+  const category = product.category as CategoryInfo;
   if (category.industry_sector) return category.industry_sector.toLowerCase().trim();
   if (category.code) return category.code.toLowerCase().trim();
   return 'other';
@@ -111,8 +106,8 @@ function getIndustry(product: ProductDetail): string {
 /**
  * Group products by industry, sorted by INDUSTRY_ORDER.
  */
-function groupProductsByIndustry(products: ProductDetail[]): Map<string, ProductDetail[]> {
-  const groups = new Map<string, ProductDetail[]>();
+function groupProductsByIndustry(products: (ProductDetail | ProductSearchItem)[]): Map<string, (ProductDetail | ProductSearchItem)[]> {
+  const groups = new Map<string, (ProductDetail | ProductSearchItem)[]>();
 
   for (const product of products) {
     const industry = getIndustry(product);
@@ -247,7 +242,7 @@ const ProductList: React.FC = () => {
   // ---------------------------------------------------------------------------
   // Products state
   // ---------------------------------------------------------------------------
-  const [products, setProducts] = useState<ProductDetail[]>([]);
+  const [products, setProducts] = useState<(ProductDetail | ProductSearchItem)[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [bomError, setBomError] = useState<Error | null>(null);
@@ -474,7 +469,7 @@ const ProductList: React.FC = () => {
   // Main render
   // ---------------------------------------------------------------------------
   return (
-    <div data-testid="product-list" data-tour="product-select" className="space-y-6">
+    <div data-testid="product-list" className="space-y-6">
       {/* Page Title */}
       <div>
         <h1 className="font-heading text-[1.625rem] font-bold tracking-tight text-[var(--text-primary)]">
@@ -486,7 +481,7 @@ const ProductList: React.FC = () => {
       </div>
 
       {/* Search Card */}
-      <div className="glass-card p-5 animate-fadeInUp" style={{ animationDelay: '0.1s' }}>
+      <div data-tour="product-select" className="glass-card p-5 animate-fadeInUp" style={{ animationDelay: '0.1s' }}>
         {/* Search input */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[var(--text-dim)] pointer-events-none" />

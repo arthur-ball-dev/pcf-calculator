@@ -3,13 +3,19 @@
  *
  * Handles API requests for product data from the backend.
  * Integrates with GET /api/v1/products endpoints.
+ *
+ * UPDATED: P1-FIX-13 - Use ProductSearchItem/ProductSearchResponse for search
+ * UPDATED: P1-FIX-15 - Remove unsafe `as unknown as` cast in list()
  */
 
 import client from './client';
 import { APIError } from './errors';
 import type {
+  ProductListItem,
   ProductListResponse,
   ProductDetail,
+  ProductSearchItem,
+  ProductSearchResponse,
   PaginationParams,
 } from '@/types/api.types';
 
@@ -25,17 +31,6 @@ export interface ProductSearchParams extends PaginationParams {
 }
 
 /**
- * Search response from backend
- */
-interface ProductSearchResponse {
-  items: ProductDetail[];
-  total: number;
-  limit: number;
-  offset: number;
-  has_more: boolean;
-}
-
-/**
  * Products API service
  */
 export const productsAPI = {
@@ -43,11 +38,11 @@ export const productsAPI = {
    * Fetch paginated list of products
    *
    * @param params - Pagination and filter parameters
-   * @returns Promise resolving to array of products
+   * @returns Promise resolving to array of product list items
    */
   list: async (
     params?: PaginationParams & { is_finished_product?: boolean }
-  ): Promise<ProductDetail[]> => {
+  ): Promise<ProductListItem[]> => {
     const response = await client.get<ProductListResponse>('/api/v1/products', {
       params: {
         limit: params?.limit || 100,
@@ -59,7 +54,7 @@ export const productsAPI = {
       },
     });
 
-    return response.data.items as unknown as ProductDetail[];
+    return response.data.items;
   },
 
   /**
@@ -70,7 +65,7 @@ export const productsAPI = {
    */
   search: async (
     params?: ProductSearchParams
-  ): Promise<{ items: ProductDetail[]; total: number; has_more: boolean }> => {
+  ): Promise<{ items: ProductSearchItem[]; total: number; has_more: boolean }> => {
     const response = await client.get<ProductSearchResponse>('/api/v1/products/search', {
       params: {
         limit: params?.limit || 50,

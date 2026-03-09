@@ -10,12 +10,11 @@
  * Steps:
  * 1. Product Selection - Choose a product to calculate
  * 2. Bill of Materials - Review and edit BOM items
- * 3. Undo & Redo - Edit history controls
- * 4. Calculate - Run PCF calculation
- * 5. View Results - See carbon footprint results
- * 6. Visualizations - Explore charts and graphs
- * 7. Export - Download results
- * 8. Scenario Comparison - Compare different scenarios
+ * 3. Calculate - Run PCF calculation
+ * 4. View Results - See carbon footprint results
+ * 5. Visualizations - Explore charts and graphs
+ * 6. Export - Download results
+ * 7. Scenario Comparison - Compare different scenarios
  */
 
 import type { Step } from 'react-joyride';
@@ -26,7 +25,6 @@ import type { Step } from 'react-joyride';
 export const TOUR_STEP_IDS = [
   'product-select',
   'bom-table',
-  'undo-redo',
   'calculate-button',
   'results-summary',
   'visualization-tabs',
@@ -82,16 +80,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'top',
-  },
-  {
-    target: '[data-tour="undo-redo"]',
-    content: (
-      <StepContent
-        title="Undo & Redo"
-        description="Made a mistake? Use these buttons or keyboard shortcuts (Ctrl+Z to undo, Ctrl+Shift+Z to redo) to revert or restore your changes."
-      />
-    ),
-    placement: 'bottom',
+    disableBeacon: true,
   },
   {
     target: '[data-tour="calculate-button"]',
@@ -102,16 +91,18 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'top',
+    disableBeacon: true,
   },
   {
     target: '[data-tour="results-summary"]',
     content: (
       <StepContent
-        title="Step 3: View Results"
+        title="Step 4: View Results"
         description="View your product's total carbon footprint in kg CO2 equivalent. The breakdown shows contributions from each material and process."
       />
     ),
     placement: 'left',
+    disableBeacon: true,
   },
   {
     target: '[data-tour="visualization-tabs"]',
@@ -122,6 +113,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'bottom',
+    disableBeacon: true,
   },
   {
     target: '[data-tour="export-buttons"]',
@@ -132,6 +124,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'left',
+    disableBeacon: true,
   },
   {
     target: '[data-tour="scenario-compare"]',
@@ -142,5 +135,6 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'bottom',
+    disableBeacon: true,
   },
 ];

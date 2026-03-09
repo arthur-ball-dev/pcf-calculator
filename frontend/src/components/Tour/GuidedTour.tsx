@@ -7,7 +7,7 @@
  * Uses the TourContext to manage tour state and handle callbacks.
  *
  * Features:
- * - 8 tour steps covering main features
+ * - 7 tour steps covering main features
  * - Custom tooltip styling matching app theme
  * - Keyboard navigation support (Escape to close)
  * - Skip and restart functionality

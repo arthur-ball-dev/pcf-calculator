@@ -5,6 +5,9 @@
  * These types ensure type safety for API requests/responses.
  *
  * Reference: backend/schemas/__init__.py
+ *
+ * UPDATED: P1-FIX-13 - Added CategoryInfo type for product search responses
+ * UPDATED: P1-FIX-14 - Added category and data_source_id to EmissionFactorCreateRequest
  */
 
 // ============================================================================
@@ -19,6 +22,17 @@ export interface BOMItemResponse {
   unit: string | null;
   notes: string | null;
   emission_factor_id: string | null;  // From child product metadata
+}
+
+/**
+ * Category information returned by the product search endpoint.
+ * Backend schema: backend/schemas/products.py -> CategoryInfo
+ */
+export interface CategoryInfo {
+  id: string;
+  code: string;
+  name: string;
+  industry_sector: string | null;
 }
 
 export interface ProductListItem {
@@ -43,11 +57,42 @@ export interface ProductDetail {
   created_at: string;
 }
 
+/**
+ * Product search result item.
+ * Note: category is CategoryInfo object (not a plain string) in search responses.
+ * Backend schema: backend/schemas/products.py -> ProductSearchItem
+ */
+export interface ProductSearchItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  category: CategoryInfo | null;
+  manufacturer: string | null;
+  country_of_origin: string | null;
+  is_finished_product: boolean;
+  relevance_score: number | null;
+  created_at: string;
+}
+
 export interface ProductListResponse {
   items: ProductListItem[];
   total: number;
   limit: number;
   offset: number;
+}
+
+/**
+ * Response from the product search endpoint.
+ * Uses ProductSearchItem (with CategoryInfo) instead of ProductDetail.
+ */
+export interface ProductSearchResponse {
+  items: ProductSearchItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
 }
 
 // ============================================================================
@@ -130,6 +175,7 @@ export interface EmissionFactorListResponse {
 
 export interface EmissionFactorCreateRequest {
   activity_name: string;
+  category?: string;
   co2e_factor: number;
   unit: string;
   data_source: string;
@@ -138,11 +184,13 @@ export interface EmissionFactorCreateRequest {
   data_quality_rating?: number;
   uncertainty_min?: number;
   uncertainty_max?: number;
+  data_source_id?: string;
 }
 
 export interface EmissionFactorCreateResponse {
   id: string;
   activity_name: string;
+  category: string | null;
   co2e_factor: number;
   unit: string;
   data_source: string;

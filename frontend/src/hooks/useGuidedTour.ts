@@ -32,7 +32,7 @@ import { TOUR_STEP_IDS } from '@/config/tourSteps';
 
 // Constants
 export const TOUR_STORAGE_KEY = 'pcf-calculator-tour-completed';
-const DEFAULT_TOTAL_STEPS = 8;
+const DEFAULT_TOTAL_STEPS = 7;
 
 /**
  * Find the first tour step that has a valid target in the DOM

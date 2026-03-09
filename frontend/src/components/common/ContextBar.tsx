@@ -123,6 +123,7 @@ const ContextBar: React.FC<ContextBarProps> = ({
               type="button"
               onClick={onAction}
               disabled={disabled}
+              data-tour="calculate-button"
               className={cn(
                 'inline-flex items-center gap-2',
                 'px-5 py-2 rounded-[10px]',
