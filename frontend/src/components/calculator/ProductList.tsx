@@ -118,7 +118,7 @@ function groupProductsByIndustry(products: (ProductDetail | ProductSearchItem)[]
   }
 
   // Sort by predefined order
-  const sorted = new Map<string, ProductDetail[]>();
+  const sorted = new Map<string, (ProductDetail | ProductSearchItem)[]>();
   for (const key of INDUSTRY_ORDER) {
     if (groups.has(key)) {
       sorted.set(key, groups.get(key)!);
@@ -594,7 +594,7 @@ const ProductList: React.FC = () => {
               {industryProducts.map((product) => {
                 const isSelected = selectedProductId === product.id;
                 const bomCount =
-                  product.bill_of_materials?.length ||
+                  ('bill_of_materials' in product ? product.bill_of_materials?.length : 0) ||
                   (product as ProductDetail & { bom_count?: number }).bom_count ||
                   0;
                 return (
