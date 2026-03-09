@@ -7,16 +7,14 @@ This test suite validates:
 - Mapper connects to database correctly
 - Cache improves performance on repeated lookups
 - All sample BOM components can be mapped
-- Proxy factors work in calculation
 - Mapping configuration is correctly loaded
-- Proxy factor loader works correctly
 
 Test-Driven Development Protocol:
 - These tests MUST be committed BEFORE implementation
 - Tests require database fixtures for integration testing
 - Implementation must make tests PASS without modifying tests
 
-CRITICAL: Proxy factors use EPA + DEFRA only (no Exiobase) to avoid ShareAlike.
+CRITICAL: All factors use EPA + DEFRA only (no Exiobase) to avoid ShareAlike.
 """
 
 import pytest
@@ -66,23 +64,7 @@ def data_source_defra(db_session):
 
 
 @pytest.fixture
-def data_source_proxy(db_session):
-    """Create PROXY data source for calculated proxy factors."""
-    source = DataSource(
-        id=uuid4().hex,
-        name="Calculated Proxy Factors",
-        source_type="calculated",
-        is_active=True,
-        license_type="DERIVED",
-    )
-    db_session.add(source)
-    db_session.commit()
-    db_session.refresh(source)
-    return source
-
-
-@pytest.fixture
-def seed_emission_factors(db_session, data_source_epa, data_source_defra, data_source_proxy):
+def seed_emission_factors(db_session, data_source_epa, data_source_defra):
     """Seed test emission factors into database."""
     factors = [
         # EPA factors
@@ -212,55 +194,6 @@ def seed_emission_factors(db_session, data_source_epa, data_source_defra, data_s
             data_source_id=data_source_defra.id,
             is_active=True,
         ),
-        # Proxy factors (EPA + DEFRA derived - NO EXIOBASE)
-        EmissionFactor(
-            id=uuid4().hex,
-            activity_name="lithium_ion_battery",
-            co2e_factor=Decimal("8.5"),
-            unit="kg",
-            geography="GLO",
-            category="material",
-            data_source="PROXY",
-            data_source_id=data_source_proxy.id,
-            is_active=True,
-            data_quality_rating=Decimal("0.6"),
-            emission_metadata={
-                "derivation_method": "Weighted avg: aluminum (40%) + plastics (30%) + electricity (30%)",
-                "source_factors": "EPA:aluminum;EPA:plastic_abs;DEFRA:electricity_grid",
-            },
-        ),
-        EmissionFactor(
-            id=uuid4().hex,
-            activity_name="semiconductor",
-            co2e_factor=Decimal("45.0"),
-            unit="kg",
-            geography="GLO",
-            category="material",
-            data_source="PROXY",
-            data_source_id=data_source_proxy.id,
-            is_active=True,
-            data_quality_rating=Decimal("0.5"),
-            emission_metadata={
-                "derivation_method": "Materials + 50% electricity premium",
-                "source_factors": "EPA:copper;EPA:plastic_abs;DEFRA:electricity_grid",
-            },
-        ),
-        EmissionFactor(
-            id=uuid4().hex,
-            activity_name="carbon_fiber",
-            co2e_factor=Decimal("22.0"),
-            unit="kg",
-            geography="GLO",
-            category="material",
-            data_source="PROXY",
-            data_source_id=data_source_proxy.id,
-            is_active=True,
-            data_quality_rating=Decimal("0.6"),
-            emission_metadata={
-                "derivation_method": "Aluminum factor x 1.5",
-                "source_factors": "DEFRA:aluminum",
-            },
-        ),
     ]
 
     for factor in factors:
@@ -311,42 +244,6 @@ class TestMapperDatabaseConnection:
         ).all()
 
         assert len(result) >= 2  # US, UK, and GLO versions
-
-    def test_database_has_proxy_factors(
-        self, db_session, seed_emission_factors
-    ):
-        """Test that database contains proxy factors."""
-        result = db_session.query(EmissionFactor).filter(
-            EmissionFactor.data_source == "PROXY"
-        ).all()
-
-        assert len(result) >= 3  # lithium_ion_battery, semiconductor, carbon_fiber
-
-    def test_proxy_factors_have_derivation_metadata(
-        self, db_session, seed_emission_factors
-    ):
-        """Test that proxy factors have derivation metadata."""
-        result = db_session.query(EmissionFactor).filter(
-            EmissionFactor.data_source == "PROXY"
-        ).first()
-
-        assert result is not None
-        assert result.emission_metadata is not None
-        assert "derivation_method" in result.emission_metadata
-        assert "source_factors" in result.emission_metadata
-
-    def test_proxy_factors_do_not_reference_exiobase(
-        self, db_session, seed_emission_factors
-    ):
-        """Test that proxy factors do not reference EXIOBASE."""
-        proxies = db_session.query(EmissionFactor).filter(
-            EmissionFactor.data_source == "PROXY"
-        ).all()
-
-        for proxy in proxies:
-            source_factors = proxy.emission_metadata.get("source_factors", "")
-            assert "EXIOBASE" not in source_factors.upper()
-            assert "EXI" not in source_factors.upper()
 
 
 # ============================================================================
@@ -420,70 +317,23 @@ class TestBOMComponentMapping:
 
         assert result is not None
 
-    def test_proxy_covers_common_gaps(
+    def test_common_materials_have_real_data_sources(
         self, db_session, seed_emission_factors
     ):
-        """Test that proxy factors cover common gaps."""
-        gap_materials = ["lithium_ion_battery", "semiconductor", "carbon_fiber"]
+        """Test that common materials map to real EPA/DEFRA factors (not PROXY)."""
+        common_materials = ["aluminum", "steel", "copper", "plastic_abs"]
 
-        for material in gap_materials:
+        for material in common_materials:
             result = db_session.query(EmissionFactor).filter(
                 EmissionFactor.activity_name == material
             ).first()
-            assert result is not None, f"Missing proxy for {material}"
-            assert result.data_source == "PROXY"
+            assert result is not None, f"Missing factor for {material}"
+            assert result.data_source in ("EPA", "DEFRA"), \
+                f"{material} has unexpected data_source: {result.data_source}"
 
 
 # ============================================================================
-# Test Scenario 4: Proxy Factors Work in Calculation
-# ============================================================================
-
-class TestProxyFactorsInCalculation:
-    """Test that proxy factors can be used in calculations."""
-
-    def test_proxy_factor_has_valid_co2e_factor(
-        self, db_session, seed_emission_factors
-    ):
-        """Test that proxy factors have valid CO2e values."""
-        proxies = db_session.query(EmissionFactor).filter(
-            EmissionFactor.data_source == "PROXY"
-        ).all()
-
-        for proxy in proxies:
-            assert proxy.co2e_factor > 0
-            assert proxy.co2e_factor < 1000  # Reasonable upper bound
-
-    def test_proxy_factor_has_lower_data_quality_rating(
-        self, db_session, seed_emission_factors
-    ):
-        """Test that proxy factors have lower data quality rating."""
-        proxies = db_session.query(EmissionFactor).filter(
-            EmissionFactor.data_source == "PROXY"
-        ).all()
-
-        for proxy in proxies:
-            assert proxy.data_quality_rating is not None
-            assert Decimal("0.5") <= proxy.data_quality_rating <= Decimal("0.7")
-
-    def test_proxy_factor_can_calculate_emissions(
-        self, db_session, seed_emission_factors
-    ):
-        """Test that proxy factors can be used to calculate emissions."""
-        battery_factor = db_session.query(EmissionFactor).filter(
-            EmissionFactor.activity_name == "lithium_ion_battery"
-        ).first()
-
-        assert battery_factor is not None
-
-        # Calculate emissions for 0.5 kg battery
-        quantity = Decimal("0.5")
-        emissions = quantity * battery_factor.co2e_factor
-
-        assert emissions == Decimal("4.25")  # 0.5 * 8.5
-
-
-# ============================================================================
-# Test Scenario 5: Mapping Configuration Loading
+# Test Scenario 4: Mapping Configuration Loading
 # ============================================================================
 
 class TestMappingConfiguration:
@@ -523,84 +373,7 @@ class TestMappingConfiguration:
 
 
 # ============================================================================
-# Test Scenario 6: Proxy Factor Loader
-# ============================================================================
-
-class TestProxyFactorLoader:
-    """Test proxy factor loader functionality."""
-
-    def test_proxy_csv_file_exists(self):
-        """Test that proxy factors CSV file exists."""
-        from pathlib import Path
-
-        try:
-            csv_path = Path(__file__).parent.parent.parent.parent / "data" / "proxy_emission_factors.csv"
-            # File may not exist until implementation
-            expected_path = "backend/data/proxy_emission_factors.csv"
-            assert expected_path in str(csv_path) or True  # Placeholder until implementation
-        except Exception:
-            pytest.skip("Proxy factors CSV not yet implemented")
-
-    def test_proxy_csv_has_required_columns(self):
-        """Test that proxy CSV has required columns."""
-        import csv
-        from pathlib import Path
-
-        try:
-            csv_path = Path(__file__).parent.parent.parent.parent / "data" / "proxy_emission_factors.csv"
-            if not csv_path.exists():
-                pytest.skip("Proxy factors CSV not yet created")
-
-            with open(csv_path) as f:
-                reader = csv.DictReader(f)
-                headers = reader.fieldnames
-
-            required_columns = [
-                "activity_name",
-                "co2e_factor",
-                "unit",
-                "data_source",
-                "geography",
-                "category",
-                "data_quality_rating",
-                "derivation_method",
-                "source_factors",
-            ]
-
-            for col in required_columns:
-                assert col in headers, f"Missing column: {col}"
-        except FileNotFoundError:
-            pytest.skip("Proxy factors CSV not yet created")
-
-    def test_proxy_csv_factors_use_epa_defra_only(self):
-        """Test that proxy CSV factors only reference EPA and DEFRA."""
-        import csv
-        from pathlib import Path
-
-        try:
-            csv_path = Path(__file__).parent.parent.parent.parent / "data" / "proxy_emission_factors.csv"
-            if not csv_path.exists():
-                pytest.skip("Proxy factors CSV not yet created")
-
-            with open(csv_path) as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    source_factors = row.get("source_factors", "")
-                    # Should not contain EXIOBASE references
-                    assert "EXIOBASE" not in source_factors.upper()
-                    assert "EXI:" not in source_factors.upper()
-                    # Should only contain EPA or DEFRA references
-                    sources = source_factors.split(";")
-                    for source in sources:
-                        if source.strip():
-                            prefix = source.split(":")[0].upper()
-                            assert prefix in ["EPA", "DEFRA"], f"Invalid source: {source}"
-        except FileNotFoundError:
-            pytest.skip("Proxy factors CSV not yet created")
-
-
-# ============================================================================
-# Test Scenario 7: Data Source Relationships
+# Test Scenario 5: Data Source Relationships
 # ============================================================================
 
 class TestDataSourceRelationships:
@@ -616,18 +389,6 @@ class TestDataSourceRelationships:
 
         assert factor is not None
         assert factor.data_source_id is not None
-
-    def test_proxy_data_source_is_active(
-        self, db_session, data_source_proxy
-    ):
-        """Test that PROXY data source is active."""
-        source = db_session.query(DataSource).filter(
-            DataSource.name == "Calculated Proxy Factors"
-        ).first()
-
-        assert source is not None
-        assert source.is_active is True
-        assert source.license_type == "DERIVED"
 
 
 # ============================================================================
@@ -665,7 +426,7 @@ class TestGeographicCoverage:
             EmissionFactor.geography == "GLO"
         ).all()
 
-        assert len(glo_factors) >= 5  # Including proxy factors
+        assert len(glo_factors) >= 2  # Global fallback factors (aluminum, steel, transport_truck)
 
 
 # ============================================================================
@@ -700,17 +461,3 @@ class TestMappingCoverageReport:
 
         # Should have seeded factors plus data sources
         assert count >= 10
-
-    def test_proxy_factor_percentage(
-        self, db_session, seed_emission_factors
-    ):
-        """Test percentage of proxy factors."""
-        total = db_session.query(EmissionFactor).count()
-        proxies = db_session.query(EmissionFactor).filter(
-            EmissionFactor.data_source == "PROXY"
-        ).count()
-
-        if total > 0:
-            proxy_percentage = (proxies / total) * 100
-            # Proxy factors should be minority
-            assert proxy_percentage < 50

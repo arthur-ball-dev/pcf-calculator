@@ -455,10 +455,10 @@ async def async_session_with_emission_factors():
             ("capacitor", "kg", "material", Decimal("6.0")),
             ("foam_eps", "kg", "material", Decimal("2.5")),
             # Energy
-            ("electricity_manufacturing", "kWh", "energy", Decimal("0.5")),
-            ("natural_gas_manufacturing", "m3", "energy", Decimal("2.0")),
+            ("electricity_manufacturing", "kWh", "energy", Decimal("0.21233")),
+            ("natural_gas_manufacturing", "kg", "energy", Decimal("2.0")),
             # Other
-            ("water_process", "L", "other", Decimal("0.001")),
+            ("water_process", "m3", "other", Decimal("0.149")),
             ("packaging_cardboard", "kg", "other", Decimal("0.8")),
             ("packaging_plastic", "kg", "other", Decimal("2.5")),
             ("waste_general", "kg", "other", Decimal("0.1")),

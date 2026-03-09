@@ -8,7 +8,6 @@ This test suite validates:
 - Partial match returns best match (shortest name)
 - Category fallback works when no direct match
 - Geographic fallback to GLO works
-- Proxy factors load correctly
 - Unmapped components logged as warnings
 - Cache improves performance on repeated lookups
 
@@ -17,7 +16,7 @@ Test-Driven Development Protocol:
 - Tests should FAIL initially (no EmissionFactorMapper class exists yet)
 - Implementation must make tests PASS without modifying tests
 
-CRITICAL: Proxy factors use EPA + DEFRA only (no Exiobase) to avoid ShareAlike.
+CRITICAL: All factors use EPA + DEFRA only (no Exiobase) to avoid ShareAlike.
 """
 
 import pytest
@@ -116,55 +115,6 @@ def sample_emission_factors():
             "category": "energy",
             "data_source": "DEFRA",
             "data_source_id": uuid4().hex,
-        },
-    ]
-
-
-@pytest.fixture
-def sample_proxy_factors():
-    """Create sample proxy emission factors for testing."""
-    return [
-        {
-            "id": uuid4().hex,
-            "activity_name": "lithium_ion_battery",
-            "co2e_factor": Decimal("8.5"),
-            "unit": "kg",
-            "geography": "GLO",
-            "category": "material",
-            "data_source": "PROXY",
-            "data_quality_rating": 0.6,
-            "metadata": {
-                "derivation_method": "Weighted avg: aluminum (40%) + plastics (30%) + electricity (30%)",
-                "source_factors": "EPA:aluminum;EPA:plastic_abs;DEFRA:electricity_grid",
-            },
-        },
-        {
-            "id": uuid4().hex,
-            "activity_name": "semiconductor",
-            "co2e_factor": Decimal("45.0"),
-            "unit": "kg",
-            "geography": "GLO",
-            "category": "material",
-            "data_source": "PROXY",
-            "data_quality_rating": 0.5,
-            "metadata": {
-                "derivation_method": "Materials + 50% electricity premium",
-                "source_factors": "EPA:copper;EPA:plastic_abs;DEFRA:electricity_grid",
-            },
-        },
-        {
-            "id": uuid4().hex,
-            "activity_name": "carbon_fiber",
-            "co2e_factor": Decimal("22.0"),
-            "unit": "kg",
-            "geography": "GLO",
-            "category": "material",
-            "data_source": "PROXY",
-            "data_quality_rating": 0.6,
-            "metadata": {
-                "derivation_method": "Aluminum factor x 1.5",
-                "source_factors": "DEFRA:aluminum",
-            },
         },
     ]
 
@@ -637,133 +587,7 @@ class TestGeographicFallback:
 
 
 # ============================================================================
-# Test Scenario 6: Proxy Factors Load Correctly
-# ============================================================================
-
-class TestProxyFactors:
-    """Test proxy factor functionality."""
-
-    @pytest.mark.asyncio
-    async def test_proxy_factor_returned_when_no_direct_match(
-        self, mock_async_session, sample_proxy_factors
-    ):
-        """Test that proxy factor is returned when no direct match found."""
-        try:
-            from backend.services.data_ingestion.emission_factor_mapper import (
-                EmissionFactorMapper
-            )
-            from backend.models import EmissionFactor
-        except ImportError:
-            pytest.skip("EmissionFactorMapper not yet implemented")
-
-        # All direct matches return None
-        mock_result_none = MagicMock()
-        mock_result_none.scalar_one_or_none.return_value = None
-        mock_scalars_empty = MagicMock()
-        mock_scalars_empty.all.return_value = []
-        mock_result_none.scalars.return_value = mock_scalars_empty
-
-        # Proxy factor lookup returns result
-        mock_proxy_factor = MagicMock(spec=EmissionFactor)
-        mock_proxy_factor.activity_name = "lithium_ion_battery"
-        mock_proxy_factor.co2e_factor = Decimal("8.5")
-        mock_proxy_factor.data_quality_rating = 0.6
-        mock_proxy_factor.data_source = "PROXY"
-
-        mock_result_proxy = MagicMock()
-        mock_result_proxy.scalar_one_or_none.return_value = mock_proxy_factor
-
-        # Configure mock to return different results
-        mock_async_session.execute.side_effect = [
-            mock_result_none,   # Exact match
-            mock_result_none,   # Partial match
-            mock_result_none,   # Category fallback
-            mock_result_proxy,  # Proxy factor
-        ]
-
-        mapper = EmissionFactorMapper(db=mock_async_session)
-        result = await mapper.get_factor_for_component(
-            component_name="lithium_ion_battery",
-            unit="kg"
-        )
-
-        assert result is not None
-        assert result.activity_name == "lithium_ion_battery"
-        assert result.data_source == "PROXY"
-
-    @pytest.mark.asyncio
-    async def test_proxy_factor_has_lower_data_quality_rating(
-        self, mock_async_session
-    ):
-        """Test that proxy factors have data_quality_rating between 0.5-0.7."""
-        try:
-            from backend.services.data_ingestion.emission_factor_mapper import (
-                EmissionFactorMapper
-            )
-            from backend.models import EmissionFactor
-        except ImportError:
-            pytest.skip("EmissionFactorMapper not yet implemented")
-
-        mock_proxy = MagicMock(spec=EmissionFactor)
-        mock_proxy.activity_name = "semiconductor"
-        mock_proxy.data_quality_rating = 0.5
-        mock_proxy.data_source = "PROXY"
-
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_proxy
-
-        mock_async_session.execute.return_value = mock_result
-
-        mapper = EmissionFactorMapper(db=mock_async_session)
-        result = await mapper._get_proxy_factor(
-            component_name="semiconductor",
-            unit="kg"
-        )
-
-        assert result is not None
-        assert 0.5 <= result.data_quality_rating <= 0.7
-
-    @pytest.mark.asyncio
-    async def test_proxy_factor_uses_epa_defra_only_no_exiobase(
-        self, mock_async_session
-    ):
-        """Test that proxy factors are derived from EPA + DEFRA only."""
-        try:
-            from backend.services.data_ingestion.emission_factor_mapper import (
-                EmissionFactorMapper
-            )
-            from backend.models import EmissionFactor
-        except ImportError:
-            pytest.skip("EmissionFactorMapper not yet implemented")
-
-        # Verify that proxy factors don't reference EXIOBASE
-        mock_proxy = MagicMock(spec=EmissionFactor)
-        mock_proxy.activity_name = "carbon_fiber"
-        mock_proxy.emission_metadata = {
-            "derivation_method": "Aluminum factor x 1.5",
-            "source_factors": "DEFRA:aluminum",
-        }
-
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_proxy
-
-        mock_async_session.execute.return_value = mock_result
-
-        mapper = EmissionFactorMapper(db=mock_async_session)
-        result = await mapper._get_proxy_factor(
-            component_name="carbon_fiber",
-            unit="kg"
-        )
-
-        assert result is not None
-        # Source factors should not contain EXIOBASE
-        source_factors = result.emission_metadata.get("source_factors", "")
-        assert "EXIOBASE" not in source_factors.upper()
-        assert "EXI" not in source_factors.upper()
-
-
-# ============================================================================
-# Test Scenario 7: Unmapped Components Logged as Warnings
+# Test Scenario 6: Unmapped Components Logged as Warnings
 # ============================================================================
 
 class TestUnmappedComponents:
@@ -1090,7 +914,6 @@ class TestFullMappingPipeline:
         # 2. Partial match
         # 3. Category fallback
         # 4. Geographic fallback (GLO)
-        # 5. Proxy factor
         assert len(call_order) >= 3
 
     @pytest.mark.asyncio
