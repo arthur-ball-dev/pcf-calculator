@@ -11,196 +11,26 @@ Endpoints:
 """
 
 from typing import List, Optional
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_
-from pydantic import BaseModel, Field, field_validator
-from decimal import Decimal
 
 from backend.database.connection import get_db, get_async_db
 from backend.models import EmissionFactor, DataSource
 from backend.models.user import User
 from backend.auth.dependencies import require_admin, get_optional_user
 from backend.services.data_ingestion.emission_factor_mapper import EmissionFactorMapper
-
-
-# ============================================================================
-# Pydantic Request/Response Models
-# ============================================================================
-
-class EmissionFactorListItemResponse(BaseModel):
-    """Emission factor item in list response"""
-    id: str
-    activity_name: str
-    category: Optional[str] = None
-    co2e_factor: float
-    unit: str
-    data_source: str
-    geography: str
-    reference_year: Optional[int] = None
-    data_quality_rating: Optional[float] = None
-    created_at: str
-
-    class Config:
-        from_attributes = True
-
-
-class EmissionFactorListResponse(BaseModel):
-    """Paginated list of emission factors"""
-    items: List[EmissionFactorListItemResponse]
-    total: int
-    limit: int
-    offset: int
-
-
-class EmissionFactorCreateRequest(BaseModel):
-    """Request body for creating emission factor"""
-    activity_name: str = Field(
-        ...,
-        min_length=1,
-        description="Activity or material name",
-        examples=["custom_steel_alloy"]
-    )
-    category: Optional[str] = Field(
-        None,
-        description="Category (material, energy, transport, other)",
-        examples=["material"]
-    )
-    co2e_factor: float = Field(
-        ...,
-        ge=0,
-        description="CO2e emission factor (kg CO2e per unit)",
-        examples=[2.8]
-    )
-    unit: str = Field(
-        ...,
-        min_length=1,
-        description="Unit of measurement",
-        examples=["kg"]
-    )
-    data_source: str = Field(
-        ...,
-        min_length=1,
-        description="Data source identifier",
-        examples=["custom"]
-    )
-    geography: str = Field(
-        default="GLO",
-        description="Geographic scope (default: GLO)",
-        examples=["GLO"]
-    )
-    reference_year: Optional[int] = Field(
-        default=None,
-        description="Reference year for data",
-        examples=[2024]
-    )
-    data_quality_rating: Optional[float] = Field(
-        default=None,
-        ge=0,
-        le=1,
-        description="Data quality rating (0-1)",
-        examples=[0.8]
-    )
-    uncertainty_min: Optional[float] = Field(
-        default=None,
-        description="Minimum uncertainty bound",
-        examples=[2.5]
-    )
-    uncertainty_max: Optional[float] = Field(
-        default=None,
-        description="Maximum uncertainty bound",
-        examples=[3.1]
-    )
-    data_source_id: Optional[str] = Field(
-        default=None,
-        description="Data source ID reference",
-        examples=["abc123"]
-    )
-
-    @field_validator('co2e_factor')
-    @classmethod
-    def validate_co2e_factor(cls, v):
-        """Validate co2e_factor is non-negative"""
-        if v < 0:
-            raise ValueError('co2e_factor must be non-negative')
-        return v
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "activity_name": "custom_steel_alloy",
-                "category": "material",
-                "co2e_factor": 2.8,
-                "unit": "kg",
-                "data_source": "custom",
-                "geography": "GLO",
-                "reference_year": 2024,
-                "data_quality_rating": 0.8
-            }
-        }
-
-
-class EmissionFactorUpdateRequest(BaseModel):
-    """Request body for updating emission factor"""
-    activity_name: Optional[str] = Field(
-        None,
-        min_length=1,
-        description="Activity or material name"
-    )
-    category: Optional[str] = Field(
-        None,
-        description="Category (material, energy, transport, other)"
-    )
-    co2e_factor: Optional[float] = Field(
-        None,
-        ge=0,
-        description="CO2e emission factor (kg CO2e per unit)"
-    )
-    unit: Optional[str] = Field(
-        None,
-        min_length=1,
-        description="Unit of measurement"
-    )
-    geography: Optional[str] = Field(
-        None,
-        description="Geographic scope"
-    )
-    reference_year: Optional[int] = Field(
-        None,
-        description="Reference year for data"
-    )
-    data_quality_rating: Optional[float] = Field(
-        None,
-        ge=0,
-        le=1,
-        description="Data quality rating (0-1)"
-    )
-
-    @field_validator('co2e_factor')
-    @classmethod
-    def validate_co2e_factor(cls, v):
-        """Validate co2e_factor is non-negative if provided"""
-        if v is not None and v < 0:
-            raise ValueError('co2e_factor must be non-negative')
-        return v
-
-
-class EmissionFactorCreateResponse(BaseModel):
-    """Response after creating emission factor"""
-    id: str
-    activity_name: str
-    category: Optional[str] = None
-    co2e_factor: float
-    unit: str
-    data_source: str
-    geography: str
-    reference_year: Optional[int] = None
-    data_quality_rating: Optional[float] = None
-    created_at: str
-
-    class Config:
-        from_attributes = True
+from backend.schemas import (
+    EmissionFactorListItemResponse,
+    EmissionFactorListResponse,
+    EmissionFactorCreateRequest,
+    EmissionFactorCreateResponse,
+    EmissionFactorUpdateRequest,
+    DataSourceAttribution,
+    AttributionResponse,
+)
 
 
 # ============================================================================
@@ -561,32 +391,6 @@ async def suggest_emission_factor(
         reference_year=factor.reference_year,
         data_quality_rating=float(factor.data_quality_rating) if factor.data_quality_rating else None,
         created_at=factor.created_at.isoformat() if factor.created_at else ""
-    )
-
-
-# ============================================================================
-# Attribution Response Models
-# ============================================================================
-
-class DataSourceAttribution(BaseModel):
-    """Attribution information for a single data source."""
-    id: str
-    name: str
-    license_type: Optional[str] = None
-    license_url: Optional[str] = None
-    attribution_text: Optional[str] = None
-    attribution_url: Optional[str] = None
-    allows_commercial_use: bool = True
-    requires_attribution: bool = False
-    requires_share_alike: bool = False
-
-
-class AttributionResponse(BaseModel):
-    """Response containing all data source attributions."""
-    attributions: List[DataSourceAttribution]
-    notice: str = (
-        "This application uses emission factor data from multiple sources. "
-        "Please review individual source attributions for compliance requirements."
     )
 
 

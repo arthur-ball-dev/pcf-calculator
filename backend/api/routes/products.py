@@ -16,13 +16,18 @@ import logging
 
 from fastapi import APIRouter, Depends, Query, Path, status
 from sqlalchemy.orm import Session, joinedload
-from pydantic import BaseModel, Field
 
 from backend.database.connection import get_db
 from backend.models import Product, BillOfMaterials
 from backend.models.user import User
 from backend.auth.dependencies import get_optional_user
 from backend.api.utils.error_responses import create_error_response
+from backend.schemas import (
+    BOMItemResponse,
+    ProductListItemResponse,
+    ProductDetailResponse,
+    ProductListResponse,
+)
 from backend.utils.cache import (
     get_cached_response_sync,
     cache_response_sync,
@@ -32,62 +37,6 @@ from backend.utils.cache import (
 
 
 logger = logging.getLogger(__name__)
-
-
-# ============================================================================
-# Pydantic Response Models (existing)
-# ============================================================================
-
-class BOMItemResponse(BaseModel):
-    """BOM item in product detail response"""
-    id: str
-    child_product_id: str
-    child_product_name: str
-    quantity: float
-    unit: Optional[str] = None
-    notes: Optional[str] = None
-    emission_factor_id: Optional[str] = None  # Stored in bill_of_materials table
-
-    class Config:
-        from_attributes = True
-
-
-class ProductListItemResponse(BaseModel):
-    """Product item in list response"""
-    id: str
-    code: str
-    name: str
-    unit: str
-    category: Optional[str] = None
-    is_finished_product: bool
-    created_at: str
-
-    class Config:
-        from_attributes = True
-
-
-class ProductDetailResponse(BaseModel):
-    """Product detail response with BOM"""
-    id: str
-    code: str
-    name: str
-    description: Optional[str] = None
-    unit: str
-    category: Optional[str] = None
-    is_finished_product: bool
-    bill_of_materials: List[BOMItemResponse] = []
-    created_at: str
-
-    class Config:
-        from_attributes = True
-
-
-class ProductListResponse(BaseModel):
-    """Paginated list of products"""
-    items: List[ProductListItemResponse]
-    total: int
-    limit: int
-    offset: int
 
 
 # ============================================================================

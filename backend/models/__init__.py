@@ -149,6 +149,9 @@ class Product(Base):
         ),
         Index('idx_products_category', 'category_id'),
         Index('idx_products_manufacturer', 'manufacturer'),
+        Index('idx_products_is_finished', 'is_finished_product'),
+        Index('idx_products_country', 'country_of_origin'),
+        Index('idx_products_name', 'name'),
         # GIN index for search_vector would be added in PostgreSQL migration
     )
 

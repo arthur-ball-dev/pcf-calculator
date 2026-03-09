@@ -42,6 +42,7 @@ class BOMItemResponse(BaseModel):
     quantity: float = Field(..., gt=0, description="Quantity of child product per parent")
     unit: Optional[str] = Field(None, description="Unit of measurement")
     notes: Optional[str] = Field(None, description="Optional notes about this BOM item")
+    emission_factor_id: Optional[str] = Field(None, description="Linked emission factor UUID")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -227,6 +228,10 @@ class EmissionFactorCreateRequest(BaseModel):
         ge=0,
         description="Maximum uncertainty bound (non-negative)"
     )
+    data_source_id: Optional[str] = Field(
+        default=None,
+        description="Data source ID reference"
+    )
 
     @field_validator('co2e_factor')
     @classmethod
@@ -277,6 +282,47 @@ class EmissionFactorCreateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EmissionFactorUpdateRequest(BaseModel):
+    """Request body for updating emission factor (all fields optional)"""
+    activity_name: Optional[str] = Field(None, min_length=1, description="Activity or material name")
+    category: Optional[str] = Field(None, description="Category (material, energy, transport, other)")
+    co2e_factor: Optional[float] = Field(None, ge=0, description="CO2e emission factor (kg CO2e per unit)")
+    unit: Optional[str] = Field(None, min_length=1, description="Unit of measurement")
+    geography: Optional[str] = Field(None, description="Geographic scope")
+    reference_year: Optional[int] = Field(None, description="Reference year for data")
+    data_quality_rating: Optional[float] = Field(None, ge=0, le=1, description="Data quality rating (0-1)")
+
+    @field_validator('co2e_factor')
+    @classmethod
+    def validate_co2e_factor(cls, v):
+        """Validate co2e_factor is non-negative if provided"""
+        if v is not None and v < 0:
+            raise ValueError('co2e_factor must be non-negative')
+        return v
+
+
+class DataSourceAttribution(BaseModel):
+    """Attribution information for a single data source."""
+    id: str
+    name: str
+    license_type: Optional[str] = None
+    license_url: Optional[str] = None
+    attribution_text: Optional[str] = None
+    attribution_url: Optional[str] = None
+    allows_commercial_use: bool = True
+    requires_attribution: bool = False
+    requires_share_alike: bool = False
+
+
+class AttributionResponse(BaseModel):
+    """Response containing all data source attributions."""
+    attributions: List[DataSourceAttribution]
+    notice: str = (
+        "This application uses emission factor data from multiple sources. "
+        "Please review individual source attributions for compliance requirements."
+    )
+
+
 # ============================================================================
 # Export All Models
 # ============================================================================
@@ -299,4 +345,8 @@ __all__ = [
     "EmissionFactorListResponse",
     "EmissionFactorCreateRequest",
     "EmissionFactorCreateResponse",
+    "EmissionFactorUpdateRequest",
+    # Attributions
+    "DataSourceAttribution",
+    "AttributionResponse",
 ]

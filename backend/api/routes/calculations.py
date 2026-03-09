@@ -18,112 +18,25 @@ This module implements the async calculation pattern:
 """
 
 import logging
-from typing import Optional, Literal, Dict
+import re
+from typing import Optional
 from datetime import datetime, UTC
-from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field, field_validator
 
 from backend.database.connection import get_db
 from backend.models import Product, PCFCalculation, generate_uuid
 from backend.models.user import User
-from backend.auth.dependencies import get_optional_user
+from backend.auth.dependencies import get_optional_user, get_current_active_user
+from backend.schemas import (
+    CalculationRequest,
+    CalculationStartResponse,
+    CalculationStatusResponse,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-
-# ============================================================================
-# Enums and Types
-# ============================================================================
-
-class CalculationType(str, Enum):
-    """Valid calculation types for PCF calculations."""
-    cradle_to_gate = "cradle_to_gate"
-    cradle_to_grave = "cradle_to_grave"
-    gate_to_gate = "gate_to_gate"
-
-
-# ============================================================================
-# Pydantic Request/Response Models
-# ============================================================================
-
-class CalculationRequest(BaseModel):
-    """Request model for POST /calculate"""
-    product_id: str = Field(..., description="UUID of product to calculate PCF for")
-    calculation_type: CalculationType = Field(
-        default=CalculationType.cradle_to_gate,
-        description="Type of calculation (cradle_to_gate, cradle_to_grave, gate_to_gate)"
-    )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "product_id": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
-                "calculation_type": "cradle_to_gate"
-            }
-        }
-
-
-class CalculationStartResponse(BaseModel):
-    """Response model for POST /calculate (202 Accepted)"""
-    calculation_id: str = Field(..., description="UUID for tracking calculation status")
-    status: str = Field(..., description="Initial status (always 'in_progress')")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "calculation_id": "calc123abc456def789ghi012jkl345mno",
-                "status": "in_progress"
-            }
-        }
-
-
-class CalculationStatusResponse(BaseModel):
-    """Response model for GET /calculations/{id}"""
-    calculation_id: str = Field(..., description="Calculation UUID")
-    status: str = Field(..., description="Current status: pending, in_progress, completed, failed")
-    product_id: Optional[str] = Field(None, description="Product UUID")
-    created_at: Optional[str] = Field(None, description="Calculation start time (ISO 8601)")
-
-    # Fields present when completed
-    total_co2e_kg: Optional[float] = Field(None, ge=0, description="Total emissions in kg CO2e")
-    materials_co2e: Optional[float] = Field(None, ge=0, description="Materials emissions in kg CO2e")
-    energy_co2e: Optional[float] = Field(None, ge=0, description="Energy emissions in kg CO2e")
-    transport_co2e: Optional[float] = Field(None, ge=0, description="Transport emissions in kg CO2e")
-    calculation_time_ms: Optional[int] = Field(None, ge=0, description="Calculation duration in milliseconds")
-
-    # TASK-FE-P8-003: Detailed breakdown by component for expandable items
-    breakdown: Optional[Dict[str, float]] = Field(
-        None,
-        description="Detailed breakdown by component (component_name -> co2e_kg)"
-    )
-
-    # Fields present when failed
-    error_message: Optional[str] = Field(None, description="Error details if status=failed")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "calculation_id": "calc123abc456def789ghi012jkl345mno",
-                "status": "completed",
-                "product_id": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
-                "created_at": "2025-11-02T12:34:56.789Z",
-                "total_co2e_kg": 2.05,
-                "materials_co2e": 1.80,
-                "energy_co2e": 0.15,
-                "transport_co2e": 0.10,
-                "calculation_time_ms": 150,
-                "breakdown": {
-                    "cotton": 1.50,
-                    "polyester": 0.30,
-                    "electricity_us": 0.15,
-                    "truck_transport": 0.10
-                }
-            }
-        }
 
 
 # ============================================================================
@@ -203,6 +116,10 @@ def execute_calculation(
             .all()
         )
 
+        # Build emission factor lookup by activity_name for fallback matching
+        all_efs = db_session.query(EmissionFactor).all()
+        ef_by_name = {ef.activity_name: ef for ef in all_efs}
+
         # Calculate CO2e per component
         total_co2e = 0.0
         materials_co2e = 0.0
@@ -212,6 +129,14 @@ def execute_calculation(
 
         for bom_item, ef, child_product in bom_rows:
             quantity = float(bom_item.quantity or 0)
+
+            # If no direct emission_factor_id link, fall back to name matching
+            if ef is None and child_product:
+                name_lower = child_product.name.lower()
+                code_normalized = re.sub(r"_?\d+$", "", child_product.code.lower().replace("-", "_"))
+                name_underscored = name_lower.replace(" ", "_")
+                ef = ef_by_name.get(name_lower) or ef_by_name.get(code_normalized) or ef_by_name.get(name_underscored)
+
             factor_value = float(ef.co2e_factor if ef and ef.co2e_factor else 0)
             component_co2e = quantity * factor_value
 
@@ -289,10 +214,11 @@ def execute_calculation(
     summary="Start PCF calculation",
     description="Start async calculation and return immediately with calculation_id for polling"
 )
-async def start_calculation(
+def start_calculation(
     request: CalculationRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ) -> CalculationStartResponse:
     """
     Start async PCF calculation for a product.
@@ -324,7 +250,7 @@ async def start_calculation(
 
     logger.info(
         f"Received calculation request: calc_id={calc_id}, "
-        f"product_id={request.product_id}, type={request.calculation_type.value}"
+        f"product_id={request.product_id}, type={request.calculation_type}"
     )
 
     # TASK-BE-P9-001: Validate product exists before creating calculation record
@@ -342,7 +268,7 @@ async def start_calculation(
         calculation = PCFCalculation(
             id=calc_id,
             product_id=request.product_id,
-            calculation_type=request.calculation_type.value,  # Use enum value
+            calculation_type=request.calculation_type,  # Use enum value
             status="pending",
             total_co2e_kg=0.0,  # Placeholder until calculation completes
             created_at=datetime.now(UTC)
@@ -364,7 +290,7 @@ async def start_calculation(
         execute_calculation,
         calc_id,
         request.product_id,
-        request.calculation_type.value,  # Use enum value
+        request.calculation_type,  # Use enum value
     )
 
     logger.info(f"Calculation {calc_id} queued for background processing")
