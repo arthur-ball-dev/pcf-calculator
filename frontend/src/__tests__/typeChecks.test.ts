@@ -687,7 +687,6 @@ describe('TypeScript Any Elimination Tests', () => {
         materials_co2e: 125.5,
         energy_co2e: 45.2,
         transport_co2e: 0.5,
-        waste_co2e: 0.5,
         breakdown: {
           'Steel': 100,
           'Aluminum': 25.5,

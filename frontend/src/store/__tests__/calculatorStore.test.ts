@@ -32,12 +32,10 @@ const createProduct = (overrides: Partial<Product> = {}): Product => ({
 const createCalculation = (overrides: Partial<Calculation> = {}): Calculation => ({
   id: 'calc-uuid-123',
   status: 'completed',
-  total_co2e: 150.5,
   total_co2e_kg: 150.5,
   materials_co2e: 100.0,
   energy_co2e: 30.0,
   transport_co2e: 15.0,
-  waste_co2e: 5.5,
   breakdown: {},
   ...overrides,
 });
@@ -224,7 +222,7 @@ describe('calculatorStore', () => {
       markStepComplete('select');
       setStep('edit');
       markStepComplete('edit');
-      const calculation = createCalculation({ id: 'calc-123', status: 'completed', total_co2e: 150.5 });
+      const calculation = createCalculation({ id: 'calc-123', status: 'completed', total_co2e_kg: 150.5 });
       setCalculation(calculation);
       expect(useCalculatorStore.getState().calculation?.status).toBe('completed');
       // In 3-step wizard, edit is marked complete (not 'calculate')

@@ -134,8 +134,8 @@ describe('DataSourceAttribution', () => {
     it('does not display View License link when no URL provided', () => {
       const sourcesWithoutUrl = [
         {
-          code: 'PROXY',
-          name: 'Proxy Emission Factors',
+          code: 'CUSTOM',
+          name: 'Custom Emission Factors',
           license_type: 'INTERNAL',
           factors_used: 1,
           attribution_required: false,
@@ -213,13 +213,6 @@ describe('SourceBadge', () => {
       render(<SourceBadge sourceCode="DEFRA" />);
 
       expect(screen.getByText('[DEF]')).toBeInTheDocument();
-    });
-
-
-    it('renders PROXY badge correctly', () => {
-      render(<SourceBadge sourceCode="PROXY" />);
-
-      expect(screen.getByText('[PRX]')).toBeInTheDocument();
     });
 
     it('renders unknown source codes as plain text', () => {

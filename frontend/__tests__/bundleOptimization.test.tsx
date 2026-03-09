@@ -4,7 +4,7 @@
  *
  * Test Coverage:
  * 1. Lazy loading Suspense boundaries work correctly
- * 2. xlsx library is dynamically imported (not in initial bundle)
+ * 2. exceljs library is dynamically imported (not in initial bundle)
  * 3. Nivo charts are code-split and load on demand
  * 4. Initial bundle size targets are met
  * 5. Code splitting produces separate chunks
@@ -110,7 +110,7 @@ describe('Dynamic Import for xlsx Library', () => {
   });
 
   it('should dynamically import xlsx only when export is triggered', async () => {
-    // This test verifies that xlsx is loaded via dynamic import, not at startup
+    // This test verifies that exceljs is loaded via dynamic import, not at startup
     // We mock the dynamic import to track when it's called
 
     const mockXlsx = {
@@ -126,38 +126,38 @@ describe('Dynamic Import for xlsx Library', () => {
     let xlsxImported = false;
 
     // Mock dynamic import for xlsx
-    vi.doMock('xlsx', () => {
+    vi.doMock('exceljs', () => {
       xlsxImported = true;
       return mockXlsx;
     });
 
-    // At this point, xlsx should NOT have been imported yet
-    // (The actual implementation should use: const xlsx = await import('xlsx'))
+    // At this point, exceljs should NOT have been imported yet
+    // (The actual implementation should use: const xlsx = await import('exceljs'))
     expect(xlsxImported).toBe(false);
 
     // Simulate triggering an export that would dynamically import xlsx
     const dynamicImportXlsx = async () => {
-      const xlsx = await import('xlsx');
+      const xlsx = await import('exceljs');
       return xlsx;
     };
 
     await dynamicImportXlsx();
 
-    // Now xlsx should be imported
+    // Now exceljs should be imported
     expect(xlsxImported).toBe(true);
   });
 
   it('should not include xlsx in the initial module graph', () => {
-    // This test conceptually verifies xlsx is not eagerly imported
+    // This test conceptually verifies exceljs is not eagerly imported
     // In a real bundle analysis, this would check the initial chunk doesn't contain xlsx
 
-    // Check that xlsx is NOT available as a synchronous import at module load time
+    // Check that exceljs is NOT available as a synchronous import at module load time
     // This is a design validation - the actual useExport hook should use dynamic import
 
-    // The hook signature should show xlsx is loaded on-demand:
+    // The hook signature should show exceljs is loaded on-demand:
     // export function useExport() {
     //   const exportToExcel = async () => {
-    //     const xlsx = await import('xlsx'); // Dynamic import
+    //     const xlsx = await import('exceljs'); // Dynamic import
     //     ...
     //   }
     // }
@@ -168,13 +168,13 @@ describe('Dynamic Import for xlsx Library', () => {
 
   it('should handle xlsx import failure gracefully', async () => {
     // Mock a failed dynamic import
-    const importError = new Error('Failed to load xlsx module');
+    const importError = new Error('Failed to load exceljs module');
 
     const dynamicImportXlsx = async () => {
       return Promise.reject(importError);
     };
 
-    await expect(dynamicImportXlsx()).rejects.toThrow('Failed to load xlsx module');
+    await expect(dynamicImportXlsx()).rejects.toThrow('Failed to load exceljs module');
   });
 });
 
@@ -324,7 +324,7 @@ describe('Initial Bundle Size Validation', () => {
     //       manualChunks: {
     //         'vendor-react': ['react', 'react-dom', 'react-router-dom'],
     //         'charts': ['@nivo/sankey', '@nivo/bar', '@nivo/line', '@nivo/pie'],
-    //         'export': ['xlsx'],
+    //         'export': ['exceljs'],
     //       }
     //     }
     //   }
@@ -360,19 +360,19 @@ describe('Initial Bundle Size Validation', () => {
 // =============================================================================
 
 describe('Code Splitting Chunks Verification', () => {
-  it('should create separate chunk for xlsx library', () => {
-    // After implementation, xlsx should be in its own chunk: export.[hash].js
+  it('should create separate chunk for exceljs library', () => {
+    // After implementation, exceljs should be in its own chunk: export.[hash].js
     // This test validates the code-splitting pattern
 
     const expectedChunks = {
       main: ['react', 'react-dom'],
-      export: ['xlsx'],
+      export: ['exceljs'],
       charts: ['@nivo/sankey', '@nivo/bar'],
     };
 
-    // xlsx should NOT be in main chunk
-    expect(expectedChunks.main).not.toContain('xlsx');
-    expect(expectedChunks.export).toContain('xlsx');
+    // exceljs should NOT be in main chunk
+    expect(expectedChunks.main).not.toContain('exceljs');
+    expect(expectedChunks.export).toContain('exceljs');
   });
 
   it('should create separate chunk for Nivo charts', () => {
@@ -744,24 +744,24 @@ describe('Preloading Critical Chunks', () => {
 // =============================================================================
 
 describe('Bundle Analysis Integration Tests', () => {
-  it('should verify xlsx is not imported at module level in useExport', () => {
+  it('should verify exceljs is not imported at module level in useExport', () => {
     // This test documents the expected behavior:
-    // The useExport hook should NOT have a top-level `import * as XLSX from 'xlsx'`
-    // Instead, it should use dynamic import: `const xlsx = await import('xlsx')`
+    // The useExport hook should NOT have a top-level `import * as XLSX from 'exceljs'`
+    // Instead, it should use dynamic import: `const xlsx = await import('exceljs')`
 
     // Pattern to avoid (eager loading):
-    // import * as XLSX from 'xlsx';
+    // import * as XLSX from 'exceljs';
     //
     // Pattern to use (lazy loading):
-    // const xlsx = await import('xlsx');
+    // const xlsx = await import('exceljs');
 
     // This test validates the design requirement
-    const eagerImportPattern = /^import.*from ['"]xlsx['"]/m;
-    const dynamicImportPattern = /await import\(['"]xlsx['"]\)/;
+    const eagerImportPattern = /^import.*from ['"]exceljs['"]/m;
+    const dynamicImportPattern = /await import\(['"]exceljs['"]\)/;
 
     // The implementation should match dynamic pattern, not eager pattern
     // This is a design constraint that will be validated during code review
-    expect(dynamicImportPattern.test('await import("xlsx")')).toBe(true);
+    expect(dynamicImportPattern.test('await import("exceljs")')).toBe(true);
   });
 
   it('should verify Nivo charts are lazy loaded in visualizations index', () => {
@@ -800,7 +800,7 @@ describe('Bundle Analysis Integration Tests', () => {
       // Export chunk (xlsx)
       export: {
         maxGzipped: 150 * 1024, // 150KB
-        description: 'xlsx library for Excel export',
+        description: 'exceljs library for Excel export',
       },
       // Total initial load
       initialLoad: {

@@ -40,7 +40,7 @@ const mockBomItemsWithDataSource: BOMItem[] = [
 const mockBomItemsMixedDataSource: BOMItem[] = [
   { id: '1', name: 'Steel Sheet', quantity: 100, unit: 'kg', category: 'material', data_source: 'EPA' },
   { id: '2', name: 'Unknown Material', quantity: 50, unit: 'kg', category: 'material' }, // No data_source
-  { id: '3', name: 'Proxy Item', quantity: 25, unit: 'kg', category: 'other', data_source: 'PROXY' },
+  { id: '3', name: 'Transport Truck', quantity: 25, unit: 'tkm', category: 'transport', data_source: 'DEFRA' },
 ];
 
 describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
@@ -152,11 +152,11 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
   });
 
   // ==========================================================================
-  // Scenario 2: PROXY source rendering
+  // Scenario 2: DEFRA source rendering in mixed list
   // ==========================================================================
 
-  describe('Scenario 2: PROXY source rendering', () => {
-    it('should render SourceBadge with [PRX] text when data_source is PROXY', () => {
+  describe('Scenario 2: DEFRA source rendering in mixed list', () => {
+    it('should render SourceBadge with [DEF] text when data_source is DEFRA', () => {
       render(
         <BOMCardList
           items={mockBomItemsMixedDataSource}
@@ -165,12 +165,11 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      // SourceBadge for PROXY should display [PRX] text
       const card3 = screen.getByTestId('bom-card-3');
-      expect(within(card3).getByText('[PRX]')).toBeInTheDocument();
+      expect(within(card3).getByText('[DEF]')).toBeInTheDocument();
     });
 
-    it('should apply gray color to PROXY SourceBadge', () => {
+    it('should apply blue color to DEFRA SourceBadge', () => {
       render(
         <BOMCardList
           items={mockBomItemsMixedDataSource}
@@ -180,11 +179,11 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       const card3 = screen.getByTestId('bom-card-3');
-      const proxyBadge = within(card3).getByText('[PRX]');
-      expect(proxyBadge.className).toMatch(/gray/i);
+      const defraBadge = within(card3).getByText('[DEF]');
+      expect(defraBadge.className).toMatch(/blue/i);
     });
 
-    it('should render PROXY SourceBadge with correct anchor href', () => {
+    it('should render DEFRA SourceBadge with correct anchor href', () => {
       render(
         <BOMCardList
           items={mockBomItemsMixedDataSource}
@@ -194,8 +193,8 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       const card3 = screen.getByTestId('bom-card-3');
-      const proxyLink = within(card3).getByText('[PRX]');
-      expect(proxyLink).toHaveAttribute('href', '#proxy-attribution');
+      const defraLink = within(card3).getByText('[DEF]');
+      expect(defraLink).toHaveAttribute('href', '#defra-attribution');
     });
   });
 

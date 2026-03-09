@@ -370,7 +370,7 @@ describe('wizardStore', () => {
       useCalculatorStore.getState().setCalculation({
         id: 'calc-1',
         status: 'completed',
-        total_co2e: 100,
+        total_co2e_kg: 100,
       });
 
       // After calculation completes, verify edit is still complete
