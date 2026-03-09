@@ -45,7 +45,7 @@ TSHIRT_TEMPLATE = BOMTemplate(
 
         # Processing
         ComponentSpec(
-            "water_process", (50, 100), "L",
+            "water_process", (0.05, 0.1), "m3",
             "Dyeing and finishing", "other"
         ),
         ComponentSpec(
@@ -108,7 +108,7 @@ JEANS_TEMPLATE = BOMTemplate(
 
         # Processing
         ComponentSpec(
-            "water_process", (150, 300), "L",
+            "water_process", (0.15, 0.3), "m3",
             "Dyeing and washing", "other"
         ),
         ComponentSpec(
@@ -240,7 +240,7 @@ JACKET_TEMPLATE = BOMTemplate(
 
         # Processing
         ComponentSpec(
-            "water_process", (30, 60), "L",
+            "water_process", (0.03, 0.06), "m3",
             "Processing", "other"
         ),
         ComponentSpec(

@@ -2,7 +2,7 @@
 Electronics industry BOM templates.
 
 TASK-BE-P8-001: BOM Template System (5 Industry Templates)
-TASK-BE-P8-002: Product Catalog Generation - Updated natural gas unit to MJ
+TASK-BE-P8-002: Product Catalog Generation - Units match DEFRA (kg for gas, m3 for water)
 
 Data sources:
 - iFixit teardown reports (public)
@@ -80,17 +80,15 @@ LAPTOP_TEMPLATE = BOMTemplate(
 
         # Manufacturing
         ComponentSpec(
-            "electricity_manufacturing", (15, 35), "kWh",
+            "electricity_manufacturing", (50, 100), "kWh",
             "Assembly electricity", "energy"
         ),
-        # Natural gas converted from m3 to MJ (1 m3 = ~38 MJ)
-        # Original: (0.5, 1.5) m3 -> (19, 57) MJ
         ComponentSpec(
-            "natural_gas_manufacturing", (19, 57), "MJ",
+            "natural_gas_manufacturing", (0.5, 1.5), "kg",
             "Manufacturing heat", "energy"
         ),
         ComponentSpec(
-            "water_process", (20, 50), "L",
+            "water_process", (0.02, 0.05), "m3",
             "Manufacturing water", "other"
         ),
 
@@ -175,7 +173,7 @@ SMARTPHONE_TEMPLATE = BOMTemplate(
 
         # Manufacturing
         ComponentSpec(
-            "electricity_manufacturing", (5, 12), "kWh",
+            "electricity_manufacturing", (15, 35), "kWh",
             "Assembly", "energy"
         ),
 
@@ -253,7 +251,7 @@ MONITOR_TEMPLATE = BOMTemplate(
 
         # Manufacturing
         ComponentSpec(
-            "electricity_manufacturing", (8, 15), "kWh",
+            "electricity_manufacturing", (25, 50), "kWh",
             "Assembly", "energy"
         ),
 
@@ -329,7 +327,7 @@ TABLET_TEMPLATE = BOMTemplate(
 
         # Manufacturing
         ComponentSpec(
-            "electricity_manufacturing", (6, 12), "kWh",
+            "electricity_manufacturing", (15, 30), "kWh",
             "Assembly", "energy"
         ),
 

@@ -179,6 +179,7 @@ def load_product_from_json(session: Session, json_path: Path) -> tuple:
         name=product_data['name'],
         unit=product_data['unit'],
         is_finished_product=product_data['is_finished_product'],
+        category=product_data.get('category'),
     )
     session.add(product)
     session.flush()

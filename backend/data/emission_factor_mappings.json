@@ -61,9 +61,9 @@
       "PET - Combusted"
     ],
     "Copper": [
+      "Metal: mixed cans",
       "Copper Wire - Recycled",
-      "Copper Wire - Landfilled",
-      "Metal: mixed cans"
+      "Copper Wire - Landfilled"
     ],
     "Glass": [
       "Glass",
@@ -79,10 +79,12 @@
       "Tires"
     ],
     "Textile - Cotton": [
+      "Clothing",
       "Textiles - Recycled",
       "Textiles - Landfilled"
     ],
     "Textile - Polyester": [
+      "Clothing",
       "Textiles - Recycled",
       "Textiles - Landfilled"
     ],
@@ -143,6 +145,7 @@
       "CNG"
     ],
     "Natural Gas - Manufacturing": [
+      "Natural gas",
       "Natural Gas",
       "Natural gas (100% mineral blend)"
     ],
@@ -187,22 +190,27 @@
       "Mixed Recyclables - Recycled"
     ],
     "PCB Board": [
+      "Electrical items - IT",
       "Desktop CPUs - Recycled",
       "Desktop CPUs - Landfilled"
     ],
     "Lithium Ion Battery": [
+      "Batteries - Li ion",
       "Mixed Electronics - Recycled",
       "Mixed Electronics - Landfilled"
     ],
     "Semiconductor": [
+      "Electrical items - IT",
       "Desktop CPUs - Recycled",
       "Desktop CPUs - Landfilled"
     ],
     "LCD Panel": [
+      "Electrical items - IT",
       "Flat-panel Displays - Recycled",
       "Flat-panel Displays - Landfilled"
     ],
     "LED Backlight": [
+      "Electrical items - small",
       "Mixed Electronics - Recycled"
     ],
     "Carbon Fiber": [
@@ -216,10 +224,12 @@
       "PS - Recycled"
     ],
     "Motor - Electric": [
+      "Electrical items - large",
       "Copper Wire - Recycled",
       "Metal: mixed cans"
     ],
     "Capacitor": [
+      "Electrical items - small",
       "Mixed Electronics - Recycled"
     ],
     "Nylon": [
@@ -415,12 +425,12 @@
     ]
   },
   "metadata": {
-    "version": "2.0.0",
+    "version": "4.0.0",
     "created": "2026-01-09",
-    "updated": "2026-01-21",
-    "description": "Emission factor mapping with actual EPA/DEFRA activity names",
+    "updated": "2026-03-05",
+    "description": "Emission factor mapping using only real EPA/DEFRA government data sources",
     "sources": ["EPA GHG Hub Table 9", "DEFRA Material Use"],
     "naming_convention": "Capitalized, no underscores, multi-part uses ' - '",
-    "multi_ef_strategy": "First match in list is selected (prefer Recycled over Landfilled)"
+    "multi_ef_strategy": "First match in list is selected. DEFRA manufacturing factors preferred for electronics/textiles, EPA for waste disposal."
   }
 }

@@ -48,7 +48,7 @@ BEVERAGE_BOTTLE_TEMPLATE = BOMTemplate(
 
         # Processing water
         ComponentSpec(
-            "water_process", (0.3, 0.5), "L",
+            "water_process", (0.0003, 0.0005), "m3",
             "Contents (water base)", "other"
         ),
 
@@ -112,7 +112,7 @@ CANNED_FOOD_TEMPLATE = BOMTemplate(
 
         # Processing
         ComponentSpec(
-            "water_process", (0.1, 0.2), "L",
+            "water_process", (0.0001, 0.0002), "m3",
             "Processing water", "other"
         ),
         ComponentSpec(
