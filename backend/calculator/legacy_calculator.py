@@ -1,6 +1,18 @@
 """
 Legacy PCF Calculator Methods with Database Integration.
 
+.. deprecated::
+    This module is DEPRECATED and retained only for backward compatibility.
+    It is imported by ``pcf_calculator.py`` (``PCFCalculator.calculate_product``)
+    which lazily imports ``calculate_product_from_db`` at line 671.
+
+    New code should use the decoupled ``PCFCalculator.calculate()`` with an
+    injected ``EmissionFactorProvider`` instead of calling these legacy
+    methods directly.
+
+    Do NOT add new functionality here. Plan migration or removal in a
+    future phase.
+
 TASK-CALC-P7-022: Decouple Calculator from ORM + Add Emission Factor Cache
 
 This module contains legacy methods that directly access the database

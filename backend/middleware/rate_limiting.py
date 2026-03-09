@@ -340,28 +340,25 @@ def is_admin_request(headers: Headers) -> bool:
     """
     Check if request is from an admin user.
 
+    Uses proper JWT signature verification via decode_token() instead of
+    raw base64 decoding, which would accept forged/unsigned tokens.
+
     Args:
         headers: Request headers
 
     Returns:
         True if admin, False otherwise
     """
-    # Check JWT token for admin role
+    from backend.auth.jwt import decode_token, InvalidTokenError, TokenExpiredError
+
     auth_header = headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         try:
             token = auth_header[7:]
-            parts = token.split(".")
-            if len(parts) == 3:
-                payload_b64 = parts[1]
-                padding = 4 - len(payload_b64) % 4
-                if padding != 4:
-                    payload_b64 += "=" * padding
-                payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-                # Check for admin role in token
-                return payload.get("role") == "admin" or payload.get("is_admin", False)
-        except Exception:
-            pass
+            payload = decode_token(token)
+            return payload.get("role") == "admin" or payload.get("is_admin", False)
+        except (InvalidTokenError, TokenExpiredError):
+            return False
 
     return False
 
