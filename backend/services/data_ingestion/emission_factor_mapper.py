@@ -14,7 +14,7 @@ Mapping Strategy:
 5. Proxy Factor - use calculated proxy from EPA+DEFRA
 6. Log Warning - record unmapped component
 
-CRITICAL: Proxy factors use EPA + DEFRA only (no Exiobase) to avoid ShareAlike.
+Proxy factors are derived from EPA and DEFRA data only.
 
 Usage:
     from backend.services.data_ingestion.emission_factor_mapper import (
@@ -394,7 +394,7 @@ class EmissionFactorMapper:
 
         Proxy factors are marked with data_source="PROXY" and include
         derivation metadata documenting how they were calculated from
-        EPA + DEFRA data (no Exiobase to avoid ShareAlike).
+        EPA and DEFRA data.
 
         Args:
             component_name: Name to look up in proxy factors

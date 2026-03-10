@@ -4,7 +4,7 @@ Proxy Factor Loader
 TASK-DATA-P8-004: Emission Factor Mapping Infrastructure
 
 Loads calculated proxy emission factors into database from CSV.
-Uses EPA + DEFRA only (no EXIOBASE to avoid ShareAlike compliance concerns).
+Uses EPA and DEFRA data sources only.
 
 Proxy factors fill gaps where direct emission factors are not available:
 - Batteries: Weighted average of materials and electricity
@@ -120,8 +120,6 @@ def validate_source_factors(source_factors: str) -> bool:
     """
     Validate that source factors use only EPA and DEFRA.
 
-    CRITICAL: No EXIOBASE to avoid ShareAlike compliance concerns.
-
     Args:
         source_factors: Semicolon-separated list of source references
 
@@ -163,7 +161,7 @@ def load_proxy_factors(session: Session) -> int:
 
     Raises:
         FileNotFoundError: If CSV file doesn't exist
-        ValueError: If source factors contain EXIOBASE
+        ValueError: If source factors are invalid
     """
     if not PROXY_CSV_PATH.exists():
         logger.error(f"Proxy factors CSV not found: {PROXY_CSV_PATH}")
@@ -181,7 +179,7 @@ def load_proxy_factors(session: Session) -> int:
 
         for row_num, row in enumerate(reader, start=2):
             try:
-                # Validate source factors (EPA + DEFRA only)
+                # Validate source factors (EPA and DEFRA only)
                 source_factors = row.get("source_factors", "")
                 if not validate_source_factors(source_factors):
                     logger.warning(
@@ -278,7 +276,7 @@ async def load_proxy_factors_async(session: AsyncSession) -> int:
 
     Raises:
         FileNotFoundError: If CSV file doesn't exist
-        ValueError: If source factors contain EXIOBASE
+        ValueError: If source factors are invalid
     """
     if not PROXY_CSV_PATH.exists():
         logger.error(f"Proxy factors CSV not found: {PROXY_CSV_PATH}")
@@ -296,7 +294,7 @@ async def load_proxy_factors_async(session: AsyncSession) -> int:
 
         for row_num, row in enumerate(reader, start=2):
             try:
-                # Validate source factors (EPA + DEFRA only)
+                # Validate source factors (EPA and DEFRA only)
                 source_factors = row.get("source_factors", "")
                 if not validate_source_factors(source_factors):
                     logger.warning(
