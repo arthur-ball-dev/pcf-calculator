@@ -75,6 +75,10 @@ frontend/dev-dist/
 # E2E test auth state
 frontend/tests/e2e/.auth-state.json
 
+# Untracked runtime/debug artifacts
+e2e-screenshots/
+output/
+
 # Legacy one-time scripts (not needed in repo)
 scripts/update_e2e_auth.py
 scripts/fix-*.py

@@ -97,10 +97,10 @@ describe('Lazy Loading Suspense Boundary', () => {
 });
 
 // =============================================================================
-// Test Suite 2: Dynamic Import for xlsx Library
+// Test Suite 2: Dynamic Import for ExcelJS Library
 // =============================================================================
 
-describe('Dynamic Import for xlsx Library', () => {
+describe('Dynamic Import for ExcelJS Library', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -109,11 +109,11 @@ describe('Dynamic Import for xlsx Library', () => {
     vi.restoreAllMocks();
   });
 
-  it('should dynamically import xlsx only when export is triggered', async () => {
+  it('should dynamically import exceljs only when export is triggered', async () => {
     // This test verifies that exceljs is loaded via dynamic import, not at startup
     // We mock the dynamic import to track when it's called
 
-    const mockXlsx = {
+    const mockExcelJs = {
       utils: {
         book_new: vi.fn(() => ({})),
         aoa_to_sheet: vi.fn(() => ({})),
@@ -122,34 +122,34 @@ describe('Dynamic Import for xlsx Library', () => {
       write: vi.fn(() => new ArrayBuffer(100)),
     };
 
-    // Track if xlsx was imported
-    let xlsxImported = false;
+    // Track if exceljs was imported
+    let exceljsImported = false;
 
-    // Mock dynamic import for xlsx
+    // Mock dynamic import for exceljs
     vi.doMock('exceljs', () => {
-      xlsxImported = true;
-      return mockXlsx;
+      exceljsImported = true;
+      return mockExcelJs;
     });
 
     // At this point, exceljs should NOT have been imported yet
-    // (The actual implementation should use: const xlsx = await import('exceljs'))
-    expect(xlsxImported).toBe(false);
+    // (The actual implementation should use: const exceljs = await import('exceljs'))
+    expect(exceljsImported).toBe(false);
 
-    // Simulate triggering an export that would dynamically import xlsx
-    const dynamicImportXlsx = async () => {
-      const xlsx = await import('exceljs');
-      return xlsx;
+    // Simulate triggering an export that would dynamically import exceljs
+    const dynamicImportExcelJs = async () => {
+      const exceljs = await import('exceljs');
+      return exceljs;
     };
 
-    await dynamicImportXlsx();
+    await dynamicImportExcelJs();
 
     // Now exceljs should be imported
-    expect(xlsxImported).toBe(true);
+    expect(exceljsImported).toBe(true);
   });
 
-  it('should not include xlsx in the initial module graph', () => {
+  it('should not include exceljs in the initial module graph', () => {
     // This test conceptually verifies exceljs is not eagerly imported
-    // In a real bundle analysis, this would check the initial chunk doesn't contain xlsx
+    // In a real bundle analysis, this would check the initial chunk doesn't contain exceljs
 
     // Check that exceljs is NOT available as a synchronous import at module load time
     // This is a design validation - the actual useExport hook should use dynamic import
@@ -157,7 +157,7 @@ describe('Dynamic Import for xlsx Library', () => {
     // The hook signature should show exceljs is loaded on-demand:
     // export function useExport() {
     //   const exportToExcel = async () => {
-    //     const xlsx = await import('exceljs'); // Dynamic import
+    //     const exceljs = await import('exceljs'); // Dynamic import
     //     ...
     //   }
     // }
@@ -166,15 +166,15 @@ describe('Dynamic Import for xlsx Library', () => {
     expect(true).toBe(true); // Placeholder - real test validates dynamic import pattern
   });
 
-  it('should handle xlsx import failure gracefully', async () => {
+  it('should handle exceljs import failure gracefully', async () => {
     // Mock a failed dynamic import
     const importError = new Error('Failed to load exceljs module');
 
-    const dynamicImportXlsx = async () => {
+    const dynamicImportExcelJs = async () => {
       return Promise.reject(importError);
     };
 
-    await expect(dynamicImportXlsx()).rejects.toThrow('Failed to load exceljs module');
+    await expect(dynamicImportExcelJs()).rejects.toThrow('Failed to load exceljs module');
   });
 });
 
