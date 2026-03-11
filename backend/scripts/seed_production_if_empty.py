@@ -31,10 +31,11 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, or_
 
 from backend.database.connection import db_context
 from backend.models import EmissionFactor, Product
+from backend.services.data_ingestion.product_name_pools import TEMPLATE_DISPLAY_NAMES
 
 
 def check_database_state() -> dict:
@@ -52,6 +53,7 @@ def check_database_state() -> dict:
         # New names use fictional brands (e.g., "Naturevale PureFlow 110 Classic 500")
         # Old names always contain " - " separator; new names never do
         old_format_count = 0
+        missing_type_suffix_count = 0
         if product_count > 0:
             old_format_count = session.query(func.count(Product.id)).filter(
                 and_(
@@ -60,6 +62,21 @@ def check_database_state() -> dict:
                 )
             ).scalar() or 0
 
+            # Detect names missing product type suffix (e.g., "Laptop", "T-Shirt")
+            type_suffixes = list(TEMPLATE_DISPLAY_NAMES.values())
+            suffix_filters = [Product.name.like(f'% {s}') for s in type_suffixes]
+            finished_count = session.query(func.count(Product.id)).filter(
+                Product.is_finished_product == True,
+            ).scalar() or 0
+            has_suffix_count = session.query(func.count(Product.id)).filter(
+                and_(
+                    Product.is_finished_product == True,
+                    or_(*suffix_filters),
+                )
+            ).scalar() or 0
+            if finished_count > 50:
+                missing_type_suffix_count = finished_count - has_suffix_count
+
     # Detect data mismatch: many products but few emission factors means
     # test EFs were loaded with production catalog, causing calculation failures
     is_mismatched = ef_count > 0 and ef_count < 100 and product_count > 100
@@ -67,13 +84,18 @@ def check_database_state() -> dict:
     # Detect outdated naming format: finished products with old template-style names
     has_old_names = old_format_count > 50
 
+    # Detect names missing product type suffix (e.g., "... Laptop")
+    missing_type_suffix = missing_type_suffix_count > 50
+
     return {
         "emission_factors": ef_count,
         "products": product_count,
         "old_format_products": old_format_count,
+        "missing_type_suffix": missing_type_suffix_count,
         "is_empty": ef_count == 0,
         "is_mismatched": is_mismatched,
         "has_old_names": has_old_names,
+        "missing_type_suffix_flag": missing_type_suffix,
     }
 
 
@@ -171,6 +193,7 @@ def main() -> int:
     print(f"  Emission Factors: {state['emission_factors']}")
     print(f"  Products: {state['products']}")
     print(f"  Old-format products: {state['old_format_products']}")
+    print(f"  Missing type suffix: {state['missing_type_suffix']}")
     print()
 
     if state["is_mismatched"]:
@@ -190,6 +213,14 @@ def main() -> int:
         print(f"Found {state['old_format_products']} products with old template-style names.")
         print("Reseeding with fictional brand naming system...")
         print()
+    elif state["missing_type_suffix_flag"]:
+        print("=" * 60)
+        print("MISSING PRODUCT TYPE SUFFIXES - RESEEDING")
+        print("=" * 60)
+        print()
+        print(f"Found {state['missing_type_suffix']} finished products missing type suffix.")
+        print("Reseeding to append product type (e.g., Laptop, T-Shirt) to names...")
+        print()
     elif not state["is_empty"]:
         print("=" * 60)
         print("DATABASE ALREADY HAS DATA - SKIPPING SEED")
@@ -201,7 +232,7 @@ def main() -> int:
         return 0
 
     # Database is empty, mismatched, or has old names - seed production data
-    reason = "mismatched" if state.get("is_mismatched") else "has old names" if state.get("has_old_names") else "empty"
+    reason = "mismatched" if state.get("is_mismatched") else "has old names" if state.get("has_old_names") else "missing type suffixes" if state.get("missing_type_suffix_flag") else "empty"
     print(f"Step 2: Database is {reason} - loading production data...")
     print()
 
