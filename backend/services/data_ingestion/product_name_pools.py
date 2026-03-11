@@ -28,6 +28,36 @@ from typing import Optional
 
 
 # ---------------------------------------------------------------------------
+# Human-readable display names for BOM template keys
+# ---------------------------------------------------------------------------
+
+TEMPLATE_DISPLAY_NAMES: dict[str, str] = {
+    # Electronics
+    "laptop": "Laptop",
+    "smartphone": "Smartphone",
+    "monitor": "Monitor",
+    "tablet": "Tablet",
+    # Apparel
+    "tshirt": "T-Shirt",
+    "jeans": "Jeans",
+    "shoes": "Shoes",
+    "jacket": "Jacket",
+    # Automotive
+    "car_seat": "Car Seat",
+    "wheel_assembly": "Wheel Assembly",
+    "dashboard": "Dashboard",
+    # Construction
+    "window_unit": "Window",
+    "door_assembly": "Door",
+    "hvac_unit": "HVAC Unit",
+    # Food & Beverage
+    "beverage_bottle": "Beverage",
+    "canned_food": "Canned Food",
+    "packaged_snack": "Snack",
+}
+
+
+# ---------------------------------------------------------------------------
 # NAME_POOLS: per-industry brands, per-template lines and variant suffixes
 # ---------------------------------------------------------------------------
 
@@ -358,12 +388,15 @@ class ProductNameGenerator:
 
         model_num = self._generate_model_number(product_index, industry)
 
-        candidate = f"{brand} {line} {model_num} {suffix}"
+        display_name = TEMPLATE_DISPLAY_NAMES.get(
+            template_name, template_name.replace("_", " ").title()
+        )
+        candidate = f"{brand} {line} {model_num} {suffix} {display_name}"
 
         # Guarantee uniqueness via model-number bump
         while candidate in self._used_names:
             model_num = self._increment_model(model_num)
-            candidate = f"{brand} {line} {model_num} {suffix}"
+            candidate = f"{brand} {line} {model_num} {suffix} {display_name}"
 
         self._used_names.add(candidate)
         return candidate, brand
@@ -414,4 +447,4 @@ class ProductNameGenerator:
             return model_num + "X"
 
 
-__all__ = ["NAME_POOLS", "ProductNameGenerator"]
+__all__ = ["NAME_POOLS", "ProductNameGenerator", "TEMPLATE_DISPLAY_NAMES"]
