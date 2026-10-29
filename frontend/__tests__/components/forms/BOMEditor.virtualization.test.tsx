@@ -146,7 +146,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByText(/100 components/i)).toBeInTheDocument();
       });
-    }, 15000);
+    });
 
     test('uses virtualization for lists >= threshold (20 items)', async () => {
       const items = generateBOMItems(VIRTUALIZATION_THRESHOLD);
@@ -166,7 +166,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
       });
-    }, 15000);
+    });
 
     test('only renders visible rows plus buffer (not all 100+)', async () => {
       const largeItemList = generateBOMItems(100);
@@ -191,7 +191,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         expect(virtualRows.length).toBeLessThan(30);
         expect(virtualRows.length).toBeGreaterThan(0);
       });
-    }, 15000);
+    });
 
     test('renders with exactly 50 items efficiently', async () => {
       const items = generateBOMItems(50);
@@ -213,7 +213,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         // Should be using virtualization
         expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
       });
-    }, 15000);
+    });
   });
 
   // ============================================================================
@@ -245,7 +245,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Also verify the height style is set (for fixed container height)
       expect(scrollContainer.style.height).toBe('400px');
-    }, 15000);
+    });
 
     test('maintains scroll position after re-render', async () => {
       const largeItemList = generateBOMItems(100);
@@ -278,7 +278,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         const container = screen.getByTestId('bom-virtual-scroll-container');
         expect(container).toBeInTheDocument();
       });
-    }, 15000);
+    });
   });
 
   // ============================================================================
@@ -355,7 +355,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(mockMarkStepIncomplete).toHaveBeenCalledWith('edit');
       });
-    }, 15000);
+    });
   });
 
   // ============================================================================
@@ -391,7 +391,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByText(/51 components/i)).toBeInTheDocument();
       });
-    }, 15000);
+    });
 
     test('removing item works correctly when virtualized', async () => {
       const user = userEvent.setup();
@@ -432,7 +432,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
         expect(screen.getByText(/49 components/i)).toBeInTheDocument();
       });
-    }, 15000);
+    });
   });
 
   // ============================================================================
@@ -461,7 +461,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should still show correct count in footer
       expect(screen.getByText(/19 components/i)).toBeInTheDocument();
-    }, 15000);
+    });
 
     test('handles empty list without virtualization', async () => {
       (useCalculatorStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -482,7 +482,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should NOT have virtualized container (only 1 item)
       expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
-    }, 15000);
+    });
 
     test('handles single item list without virtualization', async () => {
       const singleItem = generateBOMItems(1);
@@ -509,7 +509,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should NOT have virtualized container
       expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
-    }, 15000);
+    });
 
     test('total quantity updates correctly after adding item', async () => {
       const user = userEvent.setup();
@@ -541,7 +541,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByText(new RegExp(`total quantity: ${(expectedTotal + 1).toFixed(2)}`, 'i'))).toBeInTheDocument();
       });
-    }, 15000);
+    });
 
     test('handles rapid add operations', async () => {
       const user = userEvent.setup();
@@ -576,7 +576,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByText(/13 components/i)).toBeInTheDocument();
       });
-    }, 15000);
+    });
   });
 
   // ============================================================================
@@ -611,7 +611,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
       });
-    }, 15000);
+    });
 
     test('virtualization works when loading state transitions', async () => {
       // Start with loading state
@@ -642,7 +642,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         expect(screen.getByText(/100 components/i)).toBeInTheDocument();
         expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
       });
-    }, 15000);
+    });
   });
 
   // ============================================================================
@@ -681,7 +681,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       // More importantly, verify we're not rendering all 100 rows
       const virtualRows = screen.getAllByTestId('bom-virtual-row');
       expect(virtualRows.length).toBeLessThan(20);
-    }, 15000);
+    });
 
     test('scroll does not cause excessive re-renders', async () => {
       const largeItemList = generateBOMItems(100);
@@ -711,6 +711,6 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
         expect(scrollContainer).toBeInTheDocument();
         expect(screen.getByText(/100 components/i)).toBeInTheDocument();
       });
-    }, 15000);
+    });
   });
 });
