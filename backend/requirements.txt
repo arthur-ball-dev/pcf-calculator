@@ -1,0 +1,33 @@
+# Direct dependencies pinned to exact versions (2026-10-19) so fresh Railway builds are reproducible.
+# Unpinned ranges let a rebuild pull SQLAlchemy 2.1, which dropped its implicit greenlet dependency.
+fastapi==0.148.0
+uvicorn[standard]==0.54.0
+sqlalchemy[asyncio]==2.0.55  # [asyncio] extra installs greenlet
+pydantic==2.14.1
+pydantic-settings==2.16.0
+pandas==3.0.6
+numpy==1.26.4  # Must stay below 2.0 for brightway2 compatibility
+brightway2==2.4.3
+python-dotenv==1.2.4
+pytest==9.1.1
+pytest-asyncio==1.4.0
+httpx==0.28.1
+alembic==1.20.0
+pytest-cov==7.1.0
+# Celery and Redis for background task processing
+celery==5.6.3
+redis==8.1.0
+# HTTP client for data ingestion connectors
+aiohttp==3.14.5
+# Excel file parsing for EPA/DEFRA data
+openpyxl==3.1.5
+# HTTP mocking for tests
+respx==0.23.1
+# Async database drivers
+asyncpg==0.32.0  # PostgreSQL async driver
+psycopg[binary]==3.3.6  # PostgreSQL sync driver (psycopg3)
+psycopg2-binary==2.9.13  # PostgreSQL sync driver (psycopg2 - required by SQLAlchemy default)
+# JWT authentication
+PyJWT==2.15.1
+# Password hashing
+bcrypt==5.0.0

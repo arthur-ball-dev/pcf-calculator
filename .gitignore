@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.pyc
+**/__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments (root level)
+.venv/
+venv/
+
+# IDE
+.idea/
+
+# Project runtime/output (only allow logs/ at root)
+logs/
+*.log
+
+**/logs/
+
+!/logs/
+!/logs/**
+
+# Database files (runtime data)
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Prevent committing files that may contain absolute paths
+*.local.json
+.env
+.env.local
+.vscode/settings.json
+
+# Brightway2 data (may contain local paths)
+brightway2_data/
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
+# Test artifacts and reports
+test-results/
+playwright-report/
+reports/
+frontend/test-results/
+frontend/playwright-report/
+frontend/screenshots/
+frontend/debug-screenshots/
+*.backup
+frontend/performance-reports/
+docs/phase4-evidence/
+# Vite build cache and dev artifacts
+.vite/
+frontend/.vite/
+frontend/dev-dist/
+
+# E2E test auth state
+frontend/tests/e2e/.auth-state.json
+
+# Untracked runtime/debug artifacts
+e2e-screenshots/
+output/
+

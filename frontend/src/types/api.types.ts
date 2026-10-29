@@ -1,0 +1,252 @@
+/**
+ * API Type Definitions
+ *
+ * TypeScript interfaces matching backend Pydantic models.
+ * These types ensure type safety for API requests/responses.
+ *
+ * Reference: backend/schemas/__init__.py
+ *
+ * UPDATED: P1-FIX-13 - Added CategoryInfo type for product search responses
+ * UPDATED: P1-FIX-14 - Added category and data_source_id to EmissionFactorCreateRequest
+ */
+
+// ============================================================================
+// Products API Types
+// ============================================================================
+
+export interface BOMItemResponse {
+  id: string;
+  child_product_id: string;
+  child_product_name: string;
+  quantity: number;
+  unit: string | null;
+  notes: string | null;
+  emission_factor_id: string | null;  // From child product metadata
+}
+
+/**
+ * Category information returned by the product search endpoint.
+ * Backend schema: backend/schemas/products.py -> CategoryInfo
+ */
+export interface CategoryInfo {
+  id: string;
+  code: string;
+  name: string;
+  industry_sector: string | null;
+}
+
+export interface ProductListItem {
+  id: string;
+  code: string;
+  name: string;
+  unit: string;
+  category: string | null;
+  is_finished_product: boolean;
+  created_at: string;
+}
+
+export interface ProductDetail {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  category: string | null;
+  is_finished_product: boolean;
+  bill_of_materials: BOMItemResponse[];
+  created_at: string;
+}
+
+/**
+ * Product search result item.
+ * Note: category is CategoryInfo object (not a plain string) in search responses.
+ * Backend schema: backend/schemas/products.py -> ProductSearchItem
+ */
+export interface ProductSearchItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  category: CategoryInfo | null;
+  manufacturer: string | null;
+  country_of_origin: string | null;
+  is_finished_product: boolean;
+  relevance_score: number | null;
+  created_at: string;
+}
+
+export interface ProductListResponse {
+  items: ProductListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * Response from the product search endpoint.
+ * Uses ProductSearchItem (with CategoryInfo) instead of ProductDetail.
+ */
+export interface ProductSearchResponse {
+  items: ProductSearchItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+// ============================================================================
+// Calculations API Types
+// ============================================================================
+
+export type CalculationType = 'cradle_to_gate' | 'cradle_to_grave' | 'gate_to_gate';
+
+export interface CalculationRequest {
+  product_id: string;
+  calculation_type?: CalculationType;
+}
+
+export interface CalculationStartResponse {
+  calculation_id: string;
+  status: string;
+}
+
+/**
+ * Component-level breakdown item
+ * Each item represents emissions from a single BOM component
+ */
+export interface BreakdownItem {
+  name: string;
+  co2e: number;
+  quantity?: number;
+  unit?: string;
+}
+
+/**
+ * Breakdown by component - maps component name to CO2e value
+ * This is the raw format from the backend
+ */
+export type BreakdownByComponent = Record<string, number>;
+
+export interface CalculationStatusResponse {
+  calculation_id: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  product_id: string | null;
+  created_at: string | null;
+
+  // Present when completed
+  total_co2e_kg?: number;
+  materials_co2e?: number;
+  energy_co2e?: number;
+  transport_co2e?: number;
+  calculation_time_ms?: number;
+
+  // Detailed breakdown by component (component_name -> co2e_kg)
+  // TASK-FE-P8-003: Added to support expandable breakdown items
+  breakdown?: BreakdownByComponent;
+
+  // Present when failed
+  error_message?: string;
+}
+
+// ============================================================================
+// Emission Factors API Types
+// ============================================================================
+
+export interface EmissionFactorListItem {
+  id: string;
+  activity_name: string;
+  category: string | null;
+  co2e_factor: number;
+  unit: string;
+  data_source: string;
+  geography: string;
+  reference_year: number | null;
+  data_quality_rating: number | null;
+  created_at: string;
+}
+
+export interface EmissionFactorListResponse {
+  items: EmissionFactorListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface EmissionFactorCreateRequest {
+  activity_name: string;
+  category?: string;
+  co2e_factor: number;
+  unit: string;
+  data_source: string;
+  geography?: string;
+  reference_year?: number;
+  data_quality_rating?: number;
+  uncertainty_min?: number;
+  uncertainty_max?: number;
+  data_source_id?: string;
+}
+
+export interface EmissionFactorCreateResponse {
+  id: string;
+  activity_name: string;
+  category: string | null;
+  co2e_factor: number;
+  unit: string;
+  data_source: string;
+  geography: string;
+  reference_year: number | null;
+  data_quality_rating: number | null;
+  created_at: string;
+}
+
+// ============================================================================
+// Attribution API Types
+// ============================================================================
+
+export interface DataSourceAttribution {
+  id: string;
+  name: string;
+  license_type: string | null;
+  license_url: string | null;
+  attribution_text: string | null;
+  attribution_url: string | null;
+  allows_commercial_use: boolean;
+  requires_attribution: boolean;
+  requires_share_alike: boolean;
+}
+
+export interface AttributionResponse {
+  attributions: DataSourceAttribution[];
+  notice: string;
+}
+
+// ============================================================================
+// Common Types
+// ============================================================================
+
+export interface PaginationParams {
+  limit?: number;
+  offset?: number;
+}
+
+// ============================================================================
+// Error Types
+// ============================================================================
+
+export type APIErrorCode =
+  | 'NETWORK_ERROR'
+  | 'TIMEOUT'
+  | 'SERVER_ERROR'
+  | 'NOT_FOUND'
+  | 'VALIDATION_ERROR'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'RATE_LIMITED'
+  | 'UNKNOWN_ERROR';
+
+export interface APIErrorDetails {
+  code: APIErrorCode;
+  message: string;
+  originalError?: unknown;
+}

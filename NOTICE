@@ -1,0 +1,26 @@
+Product Carbon Footprint (PCF) Calculator
+Copyright (c) 2024-2026 PCF Calculator Contributors
+Licensed under the MIT License. See LICENSE for details.
+
+This project incorporates data from the following third-party sources:
+
+1. EPA GHG Emission Factors Hub
+   Source: U.S. Environmental Protection Agency
+   License: Public Domain (U.S. Government Work)
+   https://www.epa.gov/climateleadership/ghg-emission-factors-hub
+
+2. UK Government GHG Conversion Factors for Company Reporting (DEFRA)
+   Source: Department for Environment, Food & Rural Affairs
+   License: Open Government Licence v3.0
+   Contains public sector information licensed under the Open Government
+   Licence v3.0: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+
+3. Calculated Proxy Factors
+   Derived emission factors computed from EPA and DEFRA source data.
+   These factors carry the attribution requirements of their respective
+   source datasets listed above.
+
+DISCLAIMER: Emission factor data is provided for estimation purposes only.
+Actual emissions may vary based on specific conditions, processes, and
+regional factors. Users should verify calculations against authoritative
+sources for regulatory or compliance reporting.
