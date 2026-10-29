@@ -15,7 +15,7 @@
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, within } from '../testUtils';
+import { render, screen, waitFor } from '../testUtils';
 import BOMEditor from '../../src/components/forms/BOMEditor';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { useWizardStore } from '../../src/store/wizardStore';

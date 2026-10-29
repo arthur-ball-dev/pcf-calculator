@@ -13,7 +13,7 @@
 
 import { describe, test, expect } from 'vitest';
 // Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
-import { calculateDelta, calculateDeltas, type DeltaResult, type ScenarioData } from '../../../src/components/Scenarios/deltaCalculation';
+import { calculateDelta, calculateDeltas, type ScenarioData } from '../../../src/components/Scenarios/deltaCalculation';
 
 describe('Delta Calculations', () => {
   describe('calculateDelta - Single Scenario Comparison', () => {

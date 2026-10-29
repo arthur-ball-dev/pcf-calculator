@@ -51,7 +51,7 @@ function withRenderTracking<P extends object>(
 interface TestWrapperProps {
   initialItems: BOMFormData['items'];
   onRenderCounts?: (counts: Record<string, number>) => void;
-  TrackedBOMTableRow?: React.ComponentType<any>;
+  TrackedBOMTableRow?: React.ElementType;
 }
 
 function TestWrapper({ initialItems, TrackedBOMTableRow }: TestWrapperProps) {
@@ -248,7 +248,7 @@ describe('BOMTableRow React.memo Memoization', () => {
     const hasMemoIndicator =
       isMemoized ||
       componentString.includes('memo') ||
-      (component as any).$$typeof?.toString?.().includes('memo');
+      (component as { $$typeof?: symbol }).$$typeof?.toString?.().includes('memo');
 
     expect(hasMemoIndicator).toBe(true);
   });
@@ -342,12 +342,12 @@ describe('BOMTableRow React.memo Memoization', () => {
   });
 
   test('BOMTableRow re-renders when its own props change', async () => {
-    let formRef: ReturnType<typeof useForm<BOMFormData>> | null = null;
+    let _formRef: ReturnType<typeof useForm<BOMFormData>> | null = null;
 
     render(
       <TestWrapperWithUpdate
         initialItems={defaultItems}
-        onFormReady={(form) => { formRef = form; }}
+        onFormReady={(form) => { _formRef = form; }}
       />
     );
 

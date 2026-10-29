@@ -19,7 +19,6 @@ import { renderHook, waitFor } from '../testUtils';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useProductSearch } from '@/hooks/useProductSearch';
-import type { ProductSearchParams, ProductSearchResult } from '@/hooks/useProductSearch';
 
 // Create wrapper with QueryClient
 function createWrapper() {
@@ -40,60 +39,6 @@ function createWrapper() {
     );
   };
 }
-
-// Mock API responses
-const mockSearchResponse: ProductSearchResult = {
-  items: [
-    {
-      id: '550e8400-e29b-41d4-a716-446655440000',
-      code: 'LAPTOP-001',
-      name: 'Business Laptop 14-inch',
-      description: '14-inch business laptop with aluminum chassis',
-      unit: 'unit',
-      category: {
-        id: '660e8400-e29b-41d4-a716-446655440000',
-        code: 'ELEC-COMP',
-        name: 'Computers',
-        industry_sector: 'electronics',
-      },
-      manufacturer: 'Acme Tech',
-      country_of_origin: 'CN',
-      is_finished_product: true,
-      relevance_score: 0.95,
-      created_at: '2025-01-15T10:00:00Z',
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440001',
-      code: 'LAPTOP-002',
-      name: 'Gaming Laptop 17-inch',
-      description: 'High-performance gaming laptop',
-      unit: 'unit',
-      category: {
-        id: '660e8400-e29b-41d4-a716-446655440000',
-        code: 'ELEC-COMP',
-        name: 'Computers',
-        industry_sector: 'electronics',
-      },
-      manufacturer: 'GameTech Inc',
-      country_of_origin: 'TW',
-      is_finished_product: true,
-      relevance_score: 0.82,
-      created_at: '2025-01-20T14:30:00Z',
-    },
-  ],
-  total: 156,
-  limit: 50,
-  offset: 0,
-  has_more: true,
-};
-
-const mockEmptyResponse: ProductSearchResult = {
-  items: [],
-  total: 0,
-  limit: 50,
-  offset: 0,
-  has_more: false,
-};
 
 describe('useProductSearch Hook', () => {
   beforeEach(() => {
@@ -533,14 +478,6 @@ describe('useProductSearch Hook', () => {
     });
 
     it('should preserve previous data on refetch error', async () => {
-      const queryClient = new QueryClient({
-        defaultOptions: {
-          queries: {
-            retry: false,
-          },
-        },
-      });
-
       // This behavior depends on placeholderData configuration
     });
   });
@@ -679,8 +616,7 @@ describe('useProductSearch Hook', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      const firstData = result.current.data;
-
+      
       // Trigger refetch by changing params slightly
       // With placeholderData, previous data should be available
       expect(result.current.data).toBeDefined();
@@ -784,7 +720,6 @@ describe('useProductSearch Hook', () => {
 
       // Without a query, relevance_score might be null
       if (result.current.data?.items && result.current.data.items.length > 0) {
-        const product = result.current.data.items[0];
         // Relevance score is only set when query is provided
       }
     });

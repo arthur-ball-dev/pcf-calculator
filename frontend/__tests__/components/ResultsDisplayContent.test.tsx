@@ -41,7 +41,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -61,7 +61,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -82,7 +82,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -103,7 +103,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -123,7 +123,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -149,7 +149,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -170,7 +170,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -191,7 +191,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -212,7 +212,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -232,7 +232,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -259,7 +259,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -279,7 +279,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -301,7 +301,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -317,7 +317,7 @@ describe('ResultsDisplayContent Component', () => {
 
   describe('Empty/Loading States', () => {
     it('should show message when no calculation available', () => {
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: null,
       });
 
@@ -333,7 +333,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -349,7 +349,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -366,7 +366,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -393,7 +393,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -414,7 +414,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -437,11 +437,11 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
-      const { container } = render(<ResultsDisplayContent />);
+      render(<ResultsDisplayContent />);
 
       // Should have h2 or h3 for main sections
       // Component uses shadcn Card components (divs), not semantic headings
@@ -468,7 +468,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -491,7 +491,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -522,7 +522,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -551,7 +551,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -571,7 +571,7 @@ describe('ResultsDisplayContent Component', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -593,7 +593,7 @@ describe('ResultsDisplayContent Component', () => {
         // Missing breakdown values
       };
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 
@@ -610,9 +610,9 @@ describe('ResultsDisplayContent Component', () => {
         energy_co2e: 0.15,
         transport_co2e: 0.1,
         // Missing created_at
-      } as any;
+      } as unknown as Calculation;
 
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         calculation: mockCalculation,
       });
 

@@ -12,8 +12,7 @@
  * 4. Step content accessibility
  */
 
-import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '../../testUtils';
+import { describe, test, expect } from 'vitest';
 
 // Configuration to be implemented
 // import { TOUR_STEPS, TOUR_STEP_IDS } from '@/config/tourSteps';

@@ -15,13 +15,12 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act, cleanup } from '../testUtils';
+import { cleanup } from '../testUtils';
 
 // Hook to be implemented
 // import { useGuidedTour } from '@/hooks/useGuidedTour';
 
 // Constants
-const TOUR_STORAGE_KEY = 'pcf-calculator-tour-completed';
 
 // Mock localStorage
 const localStorageMock = (() => {

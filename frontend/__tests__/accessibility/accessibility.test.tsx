@@ -351,7 +351,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
     test('heading receives focus when wizard step changes', async () => {
       render(<CalculationWizard />);
 
-      const heading = screen.getByRole('heading', { level: 2 });
+      screen.getByRole('heading', { level: 2 });
 
       // TDD-EX-P5-002: Wrap store method calls in act()
       await act(async () => {
@@ -567,7 +567,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
       const buttons = screen.getAllByRole('button');
 
       buttons.forEach((button) => {
-        const rect = button.getBoundingClientRect();
+        button.getBoundingClientRect();
         // Note: In JSDOM, dimensions may be 0, so we check computed style or class presence
         // In real browser tests, we'd verify actual dimensions
         expect(button).toBeInTheDocument();

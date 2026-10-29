@@ -11,7 +11,7 @@
  * - Accessibility support
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -74,6 +74,16 @@ export function ExportDialog({
   // UI state
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // An export can finish after the dialog has unmounted (the caller closed it, or a
+  // test environment tore down). Skip the follow-up state updates and onClose then.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -175,12 +185,18 @@ export function ExportDialog({
         await exportToExcel(exportData, filename);
       }
 
-      onClose();
+      if (isMountedRef.current) {
+        onClose();
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Export failed';
-      setError(message);
+      if (isMountedRef.current) {
+        setError(message);
+      }
     } finally {
-      setIsExporting(false);
+      if (isMountedRef.current) {
+        setIsExporting(false);
+      }
     }
   }, [
     format,

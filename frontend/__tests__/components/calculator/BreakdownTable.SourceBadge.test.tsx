@@ -21,37 +21,6 @@ import BreakdownTable from '@/components/calculator/BreakdownTable';
  * Extended BreakdownItem interface with data_source support
  * TASK-FE-P8-005: Items can include source attribution
  */
-interface BreakdownItem {
-  name: string;
-  co2e: number;
-  quantity?: number;
-  unit?: string;
-  data_source?: string; // TASK-FE-P8-005: Source code for SourceBadge
-}
-
-/**
- * Extended breakdown type with data_source for each component
- * Maps component_name -> { co2e: number, data_source?: string }
- * OR component_name -> number (backwards compatible)
- */
-type BreakdownWithSource = Record<string, number | { co2e: number; data_source?: string }>;
-
-// Mock breakdown data WITH source information
-const mockBreakdownWithSource: BreakdownWithSource = {
-  cotton: { co2e: 1.5, data_source: 'DEFRA' },
-  polyester: { co2e: 0.3, data_source: 'EPA' },
-  electricity_us: { co2e: 0.15, data_source: 'EPA' },
-  truck_transport: { co2e: 0.1, data_source: 'EPA' },
-};
-
-// Mock breakdown data with mixed sources (some missing)
-const mockBreakdownMixedSource: BreakdownWithSource = {
-  cotton: { co2e: 1.5, data_source: 'DEFRA' },
-  polyester: { co2e: 0.3 }, // No data_source
-  electricity_us: { co2e: 0.15, data_source: 'EPA' },
-  unknown_material: { co2e: 0.05 }, // No data_source
-};
-
 // Mock itemSources map (alternative approach for source data)
 const mockItemSources: Record<string, string> = {
   cotton: 'DEFRA',
@@ -512,7 +481,7 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         const cottonRow = screen.getByTestId('item-row-cotton');
 
         // The cell content should have both name and badge
-        const nameCell = cottonRow.querySelector('td');
+        cottonRow.querySelector('td');
         const nameSpan = within(cottonRow).getByText(/cotton/i);
         const badge = within(cottonRow).getByText('[DEF]');
 

@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, within } from '../../testUtils';
+import { render, screen } from '../../testUtils';
 import userEvent from '@testing-library/user-event';
 import { DataSourceAttribution, SourceBadge } from '@/components/attribution';
 

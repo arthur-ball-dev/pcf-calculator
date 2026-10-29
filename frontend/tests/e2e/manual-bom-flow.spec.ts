@@ -242,7 +242,7 @@ test.describe('Manual BOM Construction Flow', () => {
       // Wait for the results page content
       await page.waitForSelector('text=Total Carbon Footprint', { timeout: 30000 });
       console.log('Results page loaded!');
-    } catch (e) {
+    } catch {
       console.log('Timeout waiting for "Total Carbon Footprint" - checking alternative indicators...');
 
       // Check if we see "Results" step indicator or any CO2e value

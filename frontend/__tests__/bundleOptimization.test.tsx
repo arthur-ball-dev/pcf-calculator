@@ -229,7 +229,7 @@ describe('Lazy Chart Components Load on Demand', () => {
 
     const LazySankey = createLazyChart('sankeyImported');
     const LazyBar = createLazyChart('barImported');
-    const LazyLine = createLazyChart('lineImported');
+    createLazyChart('lineImported');
 
     // Initially, nothing should be imported
     expect(nivoImportTracker.sankeyImported).toBe(false);
@@ -394,7 +394,6 @@ describe('Code Splitting Chunks Verification', () => {
     // const AdminPage = lazy(() => import('./pages/Admin'));
     // const ResultsPage = lazy(() => import('./pages/Results'));
 
-    const lazyRoutePattern = /lazy\(\(\) => import\(/;
 
     // This pattern should exist in the route configuration
     // For TDD, we validate the expected pattern
@@ -550,7 +549,7 @@ describe('Error Boundaries for Lazy Components', () => {
       LazyRetryComponent = createLazyWithRetry();
     };
 
-    const { rerender } = render(
+    render(
       <RetryErrorBoundary onRetry={handleRetry}>
         <Suspense fallback={<div>Loading...</div>}>
           <LazyRetryComponent />
@@ -756,7 +755,6 @@ describe('Bundle Analysis Integration Tests', () => {
     // const xlsx = await import('exceljs');
 
     // This test validates the design requirement
-    const eagerImportPattern = /^import.*from ['"]exceljs['"]/m;
     const dynamicImportPattern = /await import\(['"]exceljs['"]\)/;
 
     // The implementation should match dynamic pattern, not eager pattern

@@ -26,7 +26,7 @@
  * - No test modifications after initial creation (except test bugs)
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -369,7 +369,7 @@ test.describe('Visual & UX Flow Validation', () => {
 
       // Look for error indicators (red border, error message, etc.)
       // The component should show validation feedback
-      const pageContent = await page.textContent('body');
+      await page.textContent('body');
 
       // Test successfully validated that entering invalid value is possible
       // Full validation behavior (error messages, re-entry) tested in unit tests
@@ -453,11 +453,7 @@ test.describe('Visual & UX Flow Validation', () => {
     });
 
     // Look for loading text or spinner
-    const bodyText = await page.textContent('body');
-    const hasLoadingIndicator =
-      bodyText?.includes('Calculating') ||
-      bodyText?.includes('Loading') ||
-      bodyText?.includes('Please wait');
+    await page.textContent('body');
 
     // Wait for results to appear (loading should disappear)
     const step3Heading = page.locator('h2').filter({ hasText: /Result/ });

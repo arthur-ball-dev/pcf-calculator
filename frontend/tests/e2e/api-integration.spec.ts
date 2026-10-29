@@ -27,13 +27,14 @@
  */
 
 import { test, expect } from './fixtures/auth.fixture';
+import type { Page, Response } from '@playwright/test';
 
 /**
  * Helper function to select a product from the ProductList.
  * The new ProductList component auto-loads products on mount.
  * Products are shown as clickable rows with role="option".
  */
-async function selectFirstProduct(page: any) {
+async function selectFirstProduct(page: Page) {
   // Wait for products to load in the list (auto-fetched on mount)
   await page.waitForSelector('[role="option"]', {
     state: 'visible',
@@ -42,7 +43,7 @@ async function selectFirstProduct(page: any) {
 
   // Setup listener for product detail API call BEFORE selecting
   const productDetailPromise = page.waitForResponse(
-    (response: any) =>
+    (response: Response) =>
       response.url().match(/\/api\/v1\/products\/[a-f0-9-]+$/) &&
       response.request().method() === 'GET' &&
       response.status() === 200,

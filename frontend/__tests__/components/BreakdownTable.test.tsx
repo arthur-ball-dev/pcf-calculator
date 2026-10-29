@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, within, waitFor } from '../testUtils';
+import { render, screen, waitFor } from '../testUtils';
 import userEvent from '@testing-library/user-event';
 import BreakdownTable from '@/components/calculator/BreakdownTable';
 

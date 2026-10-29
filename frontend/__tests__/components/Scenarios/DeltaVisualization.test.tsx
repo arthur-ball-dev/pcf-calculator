@@ -11,8 +11,8 @@
  * - Labels and values display
  */
 
-import { describe, test, expect, vi } from 'vitest';
-import { render, screen, within } from '../../testUtils';
+import { describe, test, expect } from 'vitest';
+import { render, screen } from '../../testUtils';
 // Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
 import { DeltaVisualization, type DeltaData } from '../../../src/components/Scenarios/DeltaVisualization';
 

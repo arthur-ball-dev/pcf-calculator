@@ -21,18 +21,6 @@ import React from 'react';
 import { ProductSearchFilters } from '@/components/ProductSearch/ProductSearchFilters';
 import type { ProductSearchFiltersProps } from '@/components/ProductSearch/ProductSearchFilters';
 
-// Industry options as defined in SPEC
-const INDUSTRIES = [
-  { value: 'electronics', label: 'Electronics' },
-  { value: 'apparel', label: 'Apparel & Textiles' },
-  { value: 'automotive', label: 'Automotive' },
-  { value: 'construction', label: 'Construction' },
-  { value: 'food_beverage', label: 'Food & Beverage' },
-  { value: 'chemicals', label: 'Chemicals' },
-  { value: 'machinery', label: 'Machinery' },
-  { value: 'other', label: 'Other' },
-];
-
 // Create wrapper with QueryClient for category fetching
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -511,7 +499,7 @@ describe('ProductSearchFilters Component', () => {
     it('should have accessible labels for industry select', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      screen.getByTestId('industry-select');
 
       // Should have label association
       expect(screen.getByText(/industry/i)).toBeInTheDocument();
@@ -520,7 +508,7 @@ describe('ProductSearchFilters Component', () => {
     it('should have accessible labels for category select', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const categorySelect = screen.getByTestId('category-select');
+      screen.getByTestId('category-select');
 
       // Should have label association
       expect(screen.getByText(/category/i)).toBeInTheDocument();
@@ -529,7 +517,7 @@ describe('ProductSearchFilters Component', () => {
     it('should be keyboard navigable', async () => {
       const { user } = renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      screen.getByTestId('industry-select');
 
       // Tab to industry select
       await user.tab();

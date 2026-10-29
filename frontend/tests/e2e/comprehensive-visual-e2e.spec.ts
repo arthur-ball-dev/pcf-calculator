@@ -14,7 +14,7 @@
  * - Frontend: http://localhost:5173
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, type APIRequestContext } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -78,7 +78,7 @@ async function dismissJoyride(page: Page) {
 }
 
 // Helper to authenticate and setup page
-async function setupPage(page: Page, request: any) {
+async function setupPage(page: Page, request: APIRequestContext) {
   // Authenticate via API
   const authResponse = await request.post(`${API_BASE_URL}/api/v1/auth/login`, {
     data: { username: 'e2e-test', password: 'E2ETestPassword123!' },
@@ -114,12 +114,6 @@ async function takeScreenshot(
   await page.screenshot({ path: filepath, fullPage: false, timeout: 30000 });
   testResults.push({ step, screenshot: filename, status, notes });
   console.log(`Screenshot saved: ${filename} [${status}]`);
-}
-
-// Helper to record a bug
-function recordBug(id: string, description: string, fixApplied: string, screenshot: string) {
-  bugsFound.push({ id, description, fixApplied, screenshot });
-  console.log(`BUG FOUND: ${id} - ${description}`);
 }
 
 /**

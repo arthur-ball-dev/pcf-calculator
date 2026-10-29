@@ -151,7 +151,7 @@ global.IntersectionObserver = class IntersectionObserver {
     return [];
   }
   unobserve() {}
-} as any;
+} as unknown as typeof IntersectionObserver;
 
 // Mock ResizeObserver (used by some Radix components)
 global.ResizeObserver = class ResizeObserver {
@@ -159,4 +159,4 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
   observe() {}
   unobserve() {}
-} as any;
+} as unknown as typeof ResizeObserver;

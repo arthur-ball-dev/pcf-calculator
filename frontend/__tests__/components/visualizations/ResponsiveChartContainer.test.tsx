@@ -704,7 +704,7 @@ describe('ResponsiveChartContainer', () => {
       );
 
       const container = screen.getByTestId('responsive-chart-container');
-      const childContainer = container.querySelector('[style*="height: 100%"]');
+      container.querySelector('[style*="height: 100%"]');
 
       // Either child container has 100% height or the mock chart does
       const mockChart = screen.getByTestId('mock-chart');

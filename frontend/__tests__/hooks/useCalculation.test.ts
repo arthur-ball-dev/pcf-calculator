@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor, act } from '../testUtils';
+import { renderHook, act } from '../testUtils';
 import { useCalculation } from '../../src/hooks/useCalculation';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { useWizardStore } from '../../src/store/wizardStore';
@@ -52,7 +52,7 @@ describe('useCalculation Hook', () => {
     mockMarkStepComplete = vi.fn();
     mockGoNext = vi.fn();
 
-    (useCalculatorStore as any).mockReturnValue({
+    vi.mocked(useCalculatorStore).mockReturnValue({
       selectedProductId: 'prod-123',
       bomItems: [
         { id: 'bom-1', name: 'Component A', quantity: 2 },
@@ -60,7 +60,7 @@ describe('useCalculation Hook', () => {
       setCalculation: mockSetCalculation,
     });
 
-    (useWizardStore as any).mockReturnValue({
+    vi.mocked(useWizardStore).mockReturnValue({
       markStepComplete: mockMarkStepComplete,
       goNext: mockGoNext,
     });
@@ -85,7 +85,7 @@ describe('useCalculation Hook', () => {
         status: 'pending',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -112,8 +112,8 @@ describe('useCalculation Hook', () => {
         total_co2e_kg: 2.5,
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockStatusResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockStatusResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -150,10 +150,10 @@ describe('useCalculation Hook', () => {
       };
 
       // First call fails to create error state
-      (api.calculations.submit as any).mockRejectedValueOnce(new Error('Network error'));
+      vi.mocked(api.calculations.submit).mockRejectedValueOnce(new Error('Network error'));
       // Second call succeeds
-      (api.calculations.submit as any).mockResolvedValueOnce(mockResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockStatusResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValueOnce(mockResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockStatusResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -180,7 +180,7 @@ describe('useCalculation Hook', () => {
     });
 
     it('should not submit if no product selected', async () => {
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         selectedProductId: null,
         bomItems: [],
         setCalculation: mockSetCalculation,
@@ -196,7 +196,7 @@ describe('useCalculation Hook', () => {
     });
 
     it('should not submit if BOM is empty', async () => {
-      (useCalculatorStore as any).mockReturnValue({
+      vi.mocked(useCalculatorStore).mockReturnValue({
         selectedProductId: 'prod-123',
         bomItems: [],
         setCalculation: mockSetCalculation,
@@ -238,9 +238,9 @@ describe('useCalculation Hook', () => {
         total_co2e_kg: 2.5,
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
       // Return in_progress for first call, then completed to stop polling
-      (api.calculations.getStatus as any)
+      vi.mocked(api.calculations.getStatus)
         .mockResolvedValueOnce(mockStatusResponsePending)
         .mockResolvedValue(mockStatusResponseCompleted);
 
@@ -272,8 +272,8 @@ describe('useCalculation Hook', () => {
       };
 
       let pollCount = 0;
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockImplementation(() => {
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockImplementation(() => {
         pollCount++;
         // After 3 polls, return completed to stop polling
         if (pollCount >= 3) {
@@ -319,8 +319,8 @@ describe('useCalculation Hook', () => {
 
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any)
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus)
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValue({
           calculation_id: 'calc-abc123',
@@ -376,8 +376,8 @@ describe('useCalculation Hook', () => {
         calculation_time_ms: 150,
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockCompletedResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockCompletedResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -421,8 +421,8 @@ describe('useCalculation Hook', () => {
         total_co2e_kg: 2.05,
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockCompletedResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockCompletedResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -436,7 +436,7 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      const pollCountAfterComplete = (api.calculations.getStatus as any).mock.calls.length;
+      const pollCountAfterComplete = vi.mocked(api.calculations.getStatus).mock.calls.length;
 
       // Advance more time - no more polls
       await act(async () => {
@@ -444,7 +444,7 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      expect((api.calculations.getStatus as any).mock.calls.length).toBe(pollCountAfterComplete);
+      expect(vi.mocked(api.calculations.getStatus).mock.calls.length).toBe(pollCountAfterComplete);
     });
   });
 
@@ -466,8 +466,8 @@ describe('useCalculation Hook', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockPendingResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockPendingResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -501,8 +501,8 @@ describe('useCalculation Hook', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockPendingResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockPendingResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -518,7 +518,7 @@ describe('useCalculation Hook', () => {
         });
       }
 
-      const pollCountAfterTimeout = (api.calculations.getStatus as any).mock.calls.length;
+      const pollCountAfterTimeout = vi.mocked(api.calculations.getStatus).mock.calls.length;
 
       // Additional time should not trigger more polls
       await act(async () => {
@@ -526,7 +526,7 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      expect((api.calculations.getStatus as any).mock.calls.length).toBe(pollCountAfterTimeout);
+      expect(vi.mocked(api.calculations.getStatus).mock.calls.length).toBe(pollCountAfterTimeout);
     });
 
     it('should show user-friendly timeout message', async () => {
@@ -542,8 +542,8 @@ describe('useCalculation Hook', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockPendingResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockPendingResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -583,8 +583,8 @@ describe('useCalculation Hook', () => {
         error_message: 'Invalid emission factor for component: Cotton',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockFailedResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockFailedResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -616,8 +616,8 @@ describe('useCalculation Hook', () => {
         error_message: 'Calculation error',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockFailedResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockFailedResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -631,7 +631,7 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      const pollCountAfterFailure = (api.calculations.getStatus as any).mock.calls.length;
+      const pollCountAfterFailure = vi.mocked(api.calculations.getStatus).mock.calls.length;
 
       // Additional time should not trigger more polls
       await act(async () => {
@@ -639,11 +639,11 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      expect((api.calculations.getStatus as any).mock.calls.length).toBe(pollCountAfterFailure);
+      expect(vi.mocked(api.calculations.getStatus).mock.calls.length).toBe(pollCountAfterFailure);
     });
 
     it('should handle submission error', async () => {
-      (api.calculations.submit as any).mockRejectedValue(new Error('Network error'));
+      vi.mocked(api.calculations.submit).mockRejectedValue(new Error('Network error'));
 
       const { result } = renderHook(() => useCalculation());
 
@@ -675,8 +675,8 @@ describe('useCalculation Hook', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockPendingResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockPendingResponse);
 
       const { result } = renderHook(() => useCalculation());
 
@@ -690,7 +690,7 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      const pollCountBeforeStop = (api.calculations.getStatus as any).mock.calls.length;
+      const pollCountBeforeStop = vi.mocked(api.calculations.getStatus).mock.calls.length;
 
       // Stop polling
       act(() => {
@@ -703,7 +703,7 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      expect((api.calculations.getStatus as any).mock.calls.length).toBe(pollCountBeforeStop);
+      expect(vi.mocked(api.calculations.getStatus).mock.calls.length).toBe(pollCountBeforeStop);
       expect(result.current.isCalculating).toBe(false);
     });
 
@@ -720,8 +720,8 @@ describe('useCalculation Hook', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockPendingResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockPendingResponse);
 
       const { result, unmount } = renderHook(() => useCalculation());
 
@@ -735,7 +735,7 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      const pollCountBeforeUnmount = (api.calculations.getStatus as any).mock.calls.length;
+      const pollCountBeforeUnmount = vi.mocked(api.calculations.getStatus).mock.calls.length;
 
       // Unmount component
       unmount();
@@ -746,7 +746,7 @@ describe('useCalculation Hook', () => {
         await vi.runAllTimersAsync();
       });
 
-      expect((api.calculations.getStatus as any).mock.calls.length).toBe(pollCountBeforeUnmount);
+      expect(vi.mocked(api.calculations.getStatus).mock.calls.length).toBe(pollCountBeforeUnmount);
     });
   });
 
@@ -756,7 +756,7 @@ describe('useCalculation Hook', () => {
 
   describe('Retry Functionality', () => {
     it('should allow retry after error', async () => {
-      (api.calculations.submit as any).mockRejectedValueOnce(new Error('Network error'));
+      vi.mocked(api.calculations.submit).mockRejectedValueOnce(new Error('Network error'));
 
       const { result } = renderHook(() => useCalculation());
 
@@ -773,7 +773,7 @@ describe('useCalculation Hook', () => {
         calculation_id: 'calc-abc123',
         status: 'pending',
       };
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
 
       // Retry
       await act(async () => {
@@ -797,8 +797,8 @@ describe('useCalculation Hook', () => {
         created_at: '2024-11-08T10:00:00Z',
       };
 
-      (api.calculations.submit as any).mockResolvedValue(mockSubmitResponse);
-      (api.calculations.getStatus as any).mockResolvedValue(mockPendingResponse);
+      vi.mocked(api.calculations.submit).mockResolvedValue(mockSubmitResponse);
+      vi.mocked(api.calculations.getStatus).mockResolvedValue(mockPendingResponse);
 
       const { result } = renderHook(() => useCalculation());
 

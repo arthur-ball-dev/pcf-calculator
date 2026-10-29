@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // dev-dist is vite-plugin-pwa's dev-mode service worker output (untracked, generated)
+  globalIgnores(['dist', 'dev-dist', 'coverage', 'public/mockServiceWorker.js']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -43,6 +44,21 @@ export default defineConfig([
       ],
       // vite.config.ts needs ts-nocheck for the Vite/Vitest plugin type clash; require a reason.
       '@typescript-eslint/ban-ts-comment': ['error', { 'ts-nocheck': 'allow-with-description' }],
+    },
+  },
+  {
+    // Unit-test helpers are not Vite modules; Fast Refresh export rules do not apply.
+    files: ['__tests__/**/*.{ts,tsx}', 'src/__tests__/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    // Playwright specs and fixtures: `use` is Playwright's fixture API, not a React hook.
+    files: ['tests/**/*.ts'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

@@ -16,32 +16,11 @@
  * Written BEFORE implementation per TDD protocol.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '../testUtils';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-// Minimum touch target size per WCAG 2.5.5
-const MIN_TOUCH_TARGET_SIZE = 44;
-
-/**
- * Helper to get computed dimensions of an element
- * Note: In JSDOM, getBoundingClientRect returns 0 for dimensions
- * We need to mock window.getComputedStyle for proper testing
- */
-function getElementDimensions(element: HTMLElement): { width: number; height: number } {
-  const rect = element.getBoundingClientRect();
-  // If rect returns 0 (JSDOM limitation), fall back to computed styles
-  if (rect.width === 0 && rect.height === 0) {
-    const style = window.getComputedStyle(element);
-    // Parse dimensions from computed style or min-width/min-height
-    const width = parseFloat(style.width) || parseFloat(style.minWidth) || 0;
-    const height = parseFloat(style.height) || parseFloat(style.minHeight) || 0;
-    return { width, height };
-  }
-  return { width: rect.width, height: rect.height };
-}
 
 describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
   // ==========================================================================

@@ -12,11 +12,11 @@
  * - BOM entries list
  */
 
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import { render, screen } from '../../testUtils';
 // Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
 import { ScenarioPanel, type ComparisonDelta } from '../../../src/components/Scenarios/ScenarioPanel';
-import type { Scenario, BOMEntry } from '../../../src/store/scenarioStore';
+import type { Scenario } from '../../../src/store/scenarioStore';
 
 // Mock helper for creating scenarios
 const createMockScenario = (overrides: Partial<Scenario> = {}): Scenario => ({

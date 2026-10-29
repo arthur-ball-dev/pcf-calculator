@@ -18,7 +18,6 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor, within, userEvent } from '../../testUtils';
 
 // Components to be implemented
 // import { TourProvider, useTour } from '@/contexts/TourContext';
@@ -44,38 +43,7 @@ const localStorageMock = (() => {
 
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
-// Constants matching the implementation
-const TOUR_STORAGE_KEY = 'pcf-calculator-tour-completed';
-
-// Test wrapper component that renders tour context
-const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Will wrap with TourProvider once implemented
-  return <>{children}</>;
-};
-
-// Mock application with tour targets
-const MockAppWithTourTargets = () => (
-  <div>
-    <header>
-      <h1>PCF Calculator</h1>
-      {/* TourControls will be rendered here */}
-    </header>
-    <main>
-      <div data-tour="product-select">Product Selection Area</div>
-      <div data-tour="bom-table">BOM Table Area</div>
-      <div data-tour="undo-redo">Undo/Redo Controls</div>
-      <button data-tour="calculate-button">Calculate</button>
-      <div data-tour="results-summary">Results Summary</div>
-      <div data-tour="visualization-tabs">Visualization Tabs</div>
-      <div data-tour="export-buttons">Export Buttons</div>
-      <div data-tour="scenario-compare">Scenario Comparison</div>
-    </main>
-  </div>
-);
-
 describe('TASK-UI-P5-002: GuidedTour Component', () => {
-  const user = userEvent.setup();
-
   beforeEach(() => {
     localStorageMock.clear();
     vi.clearAllMocks();

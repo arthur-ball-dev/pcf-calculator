@@ -292,7 +292,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
 
       // Unknown source should render as plain text without brackets
       // Based on SourceBadge implementation, unknown codes render as plain text
-      const unknownText = within(card1).queryByText('UNKNOWN_CODE');
+      within(card1).queryByText('UNKNOWN_CODE');
       // It's acceptable if shown as plain text or not shown at all
       // The key is: no crash occurs and the card renders
     });

@@ -445,7 +445,7 @@ describe('ScenarioComparison Component', () => {
     test('comparison is keyboard navigable', async () => {
       render(<ScenarioComparison />);
 
-      const container = screen.getByTestId('comparison-container');
+      screen.getByTestId('comparison-container');
 
       // Should be able to tab into the component
       await user.tab();
@@ -460,7 +460,7 @@ describe('ScenarioComparison Component', () => {
       mockGetComparisonScenarios.mockReturnValue([mockBaselineScenario, mockAlternativeScenario]);
       mockGetBaseline.mockReturnValue(mockBaselineScenario);
 
-      const { rerender } = render(<ScenarioComparison />);
+      render(<ScenarioComparison />);
 
       const leftPane = screen.getByTestId('scenario-pane-left');
 

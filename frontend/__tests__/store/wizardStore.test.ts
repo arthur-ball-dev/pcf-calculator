@@ -44,7 +44,7 @@ describe('WizardStore', () => {
 
   describe('Step Navigation - Validation Gates', () => {
     test('prevents skipping to results when steps incomplete', () => {
-      const { setStep, currentStep } = useWizardStore.getState();
+      const { setStep } = useWizardStore.getState();
 
       // Try to skip directly to results
       setStep('results');
@@ -55,7 +55,7 @@ describe('WizardStore', () => {
     });
 
     test('prevents skipping to results when select incomplete', () => {
-      const { setStep, currentStep } = useWizardStore.getState();
+      const { setStep } = useWizardStore.getState();
 
       // Try to skip to results
       setStep('results');
@@ -327,7 +327,6 @@ describe('WizardStore', () => {
       // (In real usage, this happens automatically on page load)
       if (stored) {
         const parsed = JSON.parse(stored);
-        const restoredState = useWizardStore.getState();
         expect(parsed.state.currentStep).toBe('edit');
       }
     });

@@ -351,7 +351,7 @@ describe('ExportButton Component', () => {
     it('should disable buttons when no results', () => {
       render(
         <ExportButton
-          results={null as any}
+          results={null as unknown as CalculationStatusResponse}
           productName={productInfo.name}
           productCode={productInfo.code}
         />

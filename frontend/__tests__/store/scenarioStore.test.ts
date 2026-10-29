@@ -12,9 +12,8 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { act } from '../testUtils';
 // Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
-import { useScenarioStore, type Scenario, type BOMEntry, type CalculationParameters, type CalculationResults } from '../../src/store/scenarioStore';
+import { useScenarioStore, type BOMEntry, type CalculationResults } from '../../src/store/scenarioStore';
 
 describe('ScenarioStore', () => {
   beforeEach(() => {
@@ -470,7 +469,7 @@ describe('ScenarioStore', () => {
 
       // Should be no baseline after deleting the only/baseline scenario
       // Depending on implementation, might return undefined or auto-assign new baseline
-      const baseline = getBaseline();
+      getBaseline();
       // At minimum, the original baseline should not exist
       expect(getScenario(baselineId)).toBeUndefined();
     });

@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, userEvent } from '../../testUtils';
+import { render, screen, userEvent } from '../../testUtils';
 import { ProductSearchPagination } from '@/components/ProductSearch/ProductSearchPagination';
 import type { ProductSearchPaginationProps } from '@/components/ProductSearch/ProductSearchPagination';
 
@@ -292,7 +292,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Current page should be visually distinct
-      const pagination = screen.queryByTestId('pagination');
+      screen.queryByTestId('pagination');
       // Implementation details vary
     });
 
@@ -307,7 +307,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // For many pages, should show ellipsis
-      const pagination = screen.queryByTestId('pagination');
+      screen.queryByTestId('pagination');
       // Implementation may include "..." for skipped pages
     });
 
@@ -597,7 +597,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Should show page navigation instead of Load More
-      const pagination = screen.queryByTestId('pagination');
+      screen.queryByTestId('pagination');
       // Implementation dependent
     });
 

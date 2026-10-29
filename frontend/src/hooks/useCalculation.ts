@@ -128,8 +128,19 @@ export function useCalculation(): UseCalculationReturn {
    * Start calculation submission and polling
    */
   const startCalculation = async () => {
+    // Read the store at call time, not from this render's closure: the Calculate
+    // button can be clicked after the BOM editor has written bomItems to the store
+    // but before React has re-rendered this hook, and the render snapshot would
+    // still say "no items" and drop the click. (Tests may mock the store hook
+    // without getState; fall back to the snapshot then.)
+    const latest = typeof useCalculatorStore.getState === 'function'
+      ? useCalculatorStore.getState()
+      : null;
+    const productId = latest?.selectedProductId ?? selectedProductId;
+    const items = latest?.bomItems ?? bomItems;
+
     // Validation
-    if (!selectedProductId || !bomItems.length) {
+    if (!productId || !items.length) {
       return;
     }
 
@@ -143,7 +154,7 @@ export function useCalculation(): UseCalculationReturn {
     try {
       // Submit calculation request
       const response = await api.calculations.submit({
-        product_id: String(selectedProductId),
+        product_id: String(productId),
       });
 
       const calculationId = response.calculation_id;

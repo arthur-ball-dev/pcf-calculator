@@ -270,6 +270,44 @@ const mvpHandlers = [
       })
     );
   }),
+
+  // GET /api/v1/attributions - Data source attributions
+  // DataSourceAttributions requests this on every wizard render. Without a handler the
+  // request reached the real localhost port, failed with "Network Error" some time
+  // later, and its console.error could land after the test file had finished (Vitest:
+  // "Closing rpc while onUserConsoleLog was pending").
+  rest.get(`${API_BASE_URL}/attributions`, (_req, res, ctx) => {
+    return res(
+      ctx.status(200),
+      ctx.json({
+        attributions: [
+          {
+            id: 'ds-epa',
+            name: 'EPA GHG Emission Factors Hub',
+            license_type: 'Public Domain',
+            license_url: null,
+            attribution_text: 'U.S. Environmental Protection Agency, GHG Emission Factors Hub (2024)',
+            attribution_url: 'https://www.epa.gov/climateleadership/ghg-emission-factors-hub',
+            allows_commercial_use: true,
+            requires_attribution: false,
+            requires_share_alike: false,
+          },
+          {
+            id: 'ds-defra',
+            name: 'DEFRA Conversion Factors',
+            license_type: 'Open Government Licence v3.0',
+            license_url: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/',
+            attribution_text: 'Contains public sector information licensed under the Open Government Licence v3.0',
+            attribution_url: 'https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2024',
+            allows_commercial_use: true,
+            requires_attribution: true,
+            requires_share_alike: false,
+          },
+        ],
+        notice: 'Emission factors from EPA (public domain) and DEFRA (OGL v3.0).',
+      })
+    );
+  }),
 ];
 
 /**

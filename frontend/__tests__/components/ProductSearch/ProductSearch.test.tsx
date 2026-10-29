@@ -256,7 +256,7 @@ describe('ProductSearch Component', () => {
       await user.keyboard('{Escape}');
 
       // Filter button should show badge with count
-      const badge = within(screen.getByTestId('filter-button')).queryByText('1');
+      within(screen.getByTestId('filter-button')).queryByText('1');
       // Badge might appear once filters are applied
     });
 
@@ -319,7 +319,7 @@ describe('ProductSearch Component', () => {
 
       // On initial render, should show loading state
       await waitFor(() => {
-        const skeletons = screen.queryByTestId('loading-skeletons');
+        screen.queryByTestId('loading-skeletons');
         // Loading should appear during fetch
         // May transition quickly in tests with MSW
       });
@@ -447,7 +447,7 @@ describe('ProductSearch Component', () => {
 
       await waitFor(() => {
         // Pagination may appear if results exceed page size
-        const pagination = screen.queryByTestId('pagination');
+        screen.queryByTestId('pagination');
         // Depends on mock data returning has_more=true
       });
     });

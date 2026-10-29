@@ -18,23 +18,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '../testUtils';
 import ResultsDisplay from '../../src/components/calculator/ResultsDisplay';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
-import { useWizardStore } from '../../src/store/wizardStore';
 import type { Calculation, Product, BOMItem } from '../../src/types/store.types';
 
 // Track the last onNodeClick and calculation passed to SankeyDiagram
-let capturedSankeyProps: { calculation: Calculation | null; onNodeClick?: (node: unknown) => void };
+let _capturedSankeyProps: { calculation: Calculation | null; onNodeClick?: (node: unknown) => void };
 
 // Mock SankeyDiagram with a functional mock that simulates drill-down behavior.
 // The real SankeyDiagram handles drill-down internally with expandedCategory state.
 // This mock replicates that behavior: renders category buttons, and when clicked,
 // shows expanded view with back button and breakdown items.
-vi.mock('../../src/components/visualizations/SankeyDiagram', () => {
-  const { useState } = require('react');
-  return {
-    default: ({ calculation }: { calculation: Calculation | null; onNodeClick?: (node: unknown) => void }) => {
+vi.mock('../../src/components/visualizations/SankeyDiagram', async () => {
+  const { useState } = await import('react');
+  const MockSankeyDiagram = ({ calculation }: { calculation: Calculation | null; onNodeClick?: (node: unknown) => void }) => {
       const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
-      capturedSankeyProps = { calculation };
+      _capturedSankeyProps = { calculation };
 
       if (!calculation || calculation.status !== 'completed') {
         return <div data-testid="sankey-container">No data</div>;
@@ -100,8 +98,8 @@ vi.mock('../../src/components/visualizations/SankeyDiagram', () => {
           </div>
         </div>
       );
-    },
   };
+  return { default: MockSankeyDiagram };
 });
 
 // Mock ExportButton to simplify testing

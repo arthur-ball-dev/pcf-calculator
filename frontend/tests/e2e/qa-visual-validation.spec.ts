@@ -11,7 +11,7 @@
  * - Step 3: Results (shows after calculation completes)
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, type APIRequestContext } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -39,7 +39,7 @@ test.beforeAll(async () => {
 });
 
 // Helper to authenticate and setup page
-async function setupPage(page: Page, request: any) {
+async function setupPage(page: Page, request: APIRequestContext) {
   // Authenticate via API
   const authResponse = await request.post(`${API_BASE_URL}/api/v1/auth/login`, {
     data: { username: 'e2e-test', password: 'E2ETestPassword123!' },

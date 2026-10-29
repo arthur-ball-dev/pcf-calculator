@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
-import { renderHook, act, fireEvent, render, screen } from '../testUtils';
+import { renderHook, fireEvent, render, screen } from '../testUtils';
 import React from 'react';
 
 // Mock useBreakpoints to control viewport simulation
@@ -205,7 +205,7 @@ describe('useSwipeNavigation Hook', () => {
     });
 
     it('should not trigger swipe for movements below threshold', () => {
-      const { result } = renderHook(() =>
+      renderHook(() =>
         useSwipeNavigation({
           onSwipeLeft: mockOnSwipeLeft,
           onSwipeRight: mockOnSwipeRight,
@@ -226,7 +226,7 @@ describe('useSwipeNavigation Hook', () => {
 
   describe('Vertical Swipe Handling', () => {
     it('should not trigger horizontal navigation on vertical swipes', () => {
-      const { result } = renderHook(() =>
+      renderHook(() =>
         useSwipeNavigation({
           onSwipeLeft: mockOnSwipeLeft,
           onSwipeRight: mockOnSwipeRight,

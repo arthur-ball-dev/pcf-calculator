@@ -58,7 +58,6 @@ vi.mock('@/utils/exportAttribution', () => ({
 
 import { exportToCSV } from '@/utils/export/csvExport';
 import { exportToExcel } from '@/utils/export/excelExport';
-import { generateAttributionText, appendAttributionToCSV } from '@/utils/exportAttribution';
 
 describe('useExport Hook - Attribution Integration', () => {
   // Sample data sources for testing
@@ -159,7 +158,7 @@ describe('useExport Hook - Attribution Integration', () => {
   describe('CSV Export with Attribution - Scenario 1', () => {
     it('should pass data sources to CSV export when available', async () => {
       const { result } = renderHook(() =>
-        useExport(sampleResultsWithSources as any, productInfo)
+        useExport(sampleResultsWithSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -175,7 +174,7 @@ describe('useExport Hook - Attribution Integration', () => {
 
     it('should include attribution text in exported CSV content', async () => {
       const { result } = renderHook(() =>
-        useExport(sampleResultsWithSources as any, productInfo)
+        useExport(sampleResultsWithSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -201,7 +200,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithDEFRA as any, productInfo)
+        useExport(resultsWithDEFRA as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -218,7 +217,7 @@ describe('useExport Hook - Attribution Integration', () => {
 
     it('should include disclaimer in exported CSV', async () => {
       const { result } = renderHook(() =>
-        useExport(sampleResultsWithSources as any, productInfo)
+        useExport(sampleResultsWithSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -242,7 +241,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithMultipleSources as any, productInfo)
+        useExport(resultsWithMultipleSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -284,7 +283,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithMixedSources as any, productInfo)
+        useExport(resultsWithMixedSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -310,7 +309,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithNoSources as any, productInfo)
+        useExport(resultsWithNoSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       // Should not throw
@@ -328,7 +327,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithNoSources as any, productInfo)
+        useExport(resultsWithNoSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -346,7 +345,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithUndefinedSources as any, productInfo)
+        useExport(resultsWithUndefinedSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       // Should not throw
@@ -365,7 +364,7 @@ describe('useExport Hook - Attribution Integration', () => {
   describe('Excel Export with Attribution - Scenario 4', () => {
     it('should pass data sources to Excel export', async () => {
       const { result } = renderHook(() =>
-        useExport(sampleResultsWithSources as any, productInfo)
+        useExport(sampleResultsWithSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -380,7 +379,7 @@ describe('useExport Hook - Attribution Integration', () => {
 
     it('should include data sources in export data for Excel', async () => {
       const { result } = renderHook(() =>
-        useExport(sampleResultsWithSources as any, productInfo)
+        useExport(sampleResultsWithSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -389,8 +388,7 @@ describe('useExport Hook - Attribution Integration', () => {
 
       // When implemented, the export data passed to exportToExcel
       // should include dataSources field for attribution sheet creation
-      const exportData = (exportToExcel as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
-
+      
       // This test will fail until Phase B implementation adds dataSources to export data
       // expect(exportData.dataSources).toBeDefined();
     });
@@ -402,7 +400,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithMultipleSources as any, productInfo)
+        useExport(resultsWithMultipleSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -422,7 +420,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithNoSources as any, productInfo)
+        useExport(resultsWithNoSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       // Should not throw
@@ -451,7 +449,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithBOMSources as any, productInfo)
+        useExport(resultsWithBOMSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -474,7 +472,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithDuplicateSources as any, productInfo)
+        useExport(resultsWithDuplicateSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -505,7 +503,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithSpecialChars as any, productInfo)
+        useExport(resultsWithSpecialChars as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -518,7 +516,7 @@ describe('useExport Hook - Attribution Integration', () => {
 
     it('should not change export filename when attribution is added', async () => {
       const { result } = renderHook(() =>
-        useExport(sampleResultsWithSources as any, productInfo)
+        useExport(sampleResultsWithSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       vi.setSystemTime(new Date('2024-06-15'));
@@ -551,7 +549,7 @@ describe('useExport Hook - Attribution Integration', () => {
       };
 
       const { result } = renderHook(() =>
-        useExport(resultsWithLongText as any, productInfo)
+        useExport(resultsWithLongText as unknown as CalculationStatusResponse, productInfo)
       );
 
       // Should not throw
@@ -570,7 +568,7 @@ describe('useExport Hook - Attribution Integration', () => {
   describe('Integration with Export Options', () => {
     it('should include attribution even with custom CSV options', async () => {
       const { result } = renderHook(() =>
-        useExport(sampleResultsWithSources as any, productInfo)
+        useExport(sampleResultsWithSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {
@@ -584,7 +582,7 @@ describe('useExport Hook - Attribution Integration', () => {
 
     it('should include attribution with custom filename', async () => {
       const { result } = renderHook(() =>
-        useExport(sampleResultsWithSources as any, productInfo)
+        useExport(sampleResultsWithSources as unknown as CalculationStatusResponse, productInfo)
       );
 
       await act(async () => {

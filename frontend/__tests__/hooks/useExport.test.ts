@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '../testUtils';
+import { renderHook, act } from '../testUtils';
 import { useExport } from '@/hooks/useExport';
 import type { CalculationStatusResponse } from '@/types/api.types';
 
@@ -203,7 +203,7 @@ describe('useExport Hook', () => {
 
       // Filename should not contain special characters
       const callArgs = (exportToCSV as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(callArgs[1]).not.toMatch(/[\/\*]/);
+      expect(callArgs[1]).not.toMatch(/[/*]/);
     });
   });
 
@@ -473,7 +473,7 @@ describe('useExport Hook', () => {
 
   describe('Edge Cases', () => {
     it('should handle null results gracefully', () => {
-      const { result } = renderHook(() => useExport(null as any, productInfo));
+      const { result } = renderHook(() => useExport(null as unknown as CalculationStatusResponse, productInfo));
 
       expect(result.current.isExporting).toBe(false);
     });

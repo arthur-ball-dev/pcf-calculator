@@ -9,7 +9,7 @@
  * - Integration with wizard store
  */
 
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { useWizardStore } from '../../src/store/wizardStore';
 

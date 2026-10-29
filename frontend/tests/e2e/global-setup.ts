@@ -34,7 +34,7 @@ const AUTH_LOGIN_ENDPOINT = `${API_BASE_URL}/api/v1/auth/login`;
 // Path to store auth state
 const AUTH_STATE_PATH = path.join(__dirname, '.auth-state.json');
 
-async function globalSetup(config: FullConfig) {
+async function globalSetup(_config: FullConfig) {
   console.log('[Global Setup] Authenticating for E2E tests...');
 
   // Use Playwright's request context for API calls

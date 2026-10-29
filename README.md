@@ -7,7 +7,7 @@
 
 > **Live Demo:** [pcf.glideslopeintelligence.ai](https://pcf.glideslopeintelligence.ai/)
 >
-> *Last synced: 2026-10-29 from production commit a676460*
+> *Last synced: 2026-10-29 from production commit a1b726a*
 
 Professional carbon footprint calculator implementing ISO 14067 and GHG Protocol for cradle-to-gate emissions analysis.
 

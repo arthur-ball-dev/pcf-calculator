@@ -259,14 +259,13 @@ describe('useMediaQuery Hook', () => {
     it('should not cause unnecessary re-renders when value does not change', () => {
       window.matchMedia = createMatchMedia(1200);
 
-      let renderCount = 0;
+      let _renderCount = 0;
       const { result } = renderHook(() => {
-        renderCount++;
+        _renderCount++;
         return useMediaQuery('(max-width: 640px)');
       });
 
-      const initialRenderCount = renderCount;
-      expect(result.current).toBe(false);
+            expect(result.current).toBe(false);
 
       // Resize but stay above threshold (value unchanged)
       act(() => {

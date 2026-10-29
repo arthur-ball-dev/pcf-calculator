@@ -210,7 +210,7 @@ describe('CalculationWizard Responsive Layout', () => {
         expect(screen.getByRole('contentinfo')).toBeInTheDocument();
       });
 
-      const footer = screen.getByRole('contentinfo');
+      screen.getByRole('contentinfo');
       const nextButton = screen.getByRole('button', { name: /next/i });
 
       // On mobile, buttons should be full width (w-full)
@@ -611,7 +611,7 @@ describe('CalculationWizard Responsive Layout', () => {
       });
 
       // Initially desktop
-      const main = screen.getByRole('main');
+      screen.getByRole('main');
       expect(window.innerWidth).toBe(1280);
 
       // Resize to mobile

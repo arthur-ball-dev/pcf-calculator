@@ -12,7 +12,7 @@
  * - Step 3: Results (after calculation completes)
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, type APIRequestContext } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -33,7 +33,7 @@ async function takeScreenshot(page: Page, name: string) {
 }
 
 // Helper to set up auth and dismiss tour
-async function setupAuth(page: Page, request: any) {
+async function setupAuth(page: Page, request: APIRequestContext) {
   const authResponse = await request.post('http://localhost:8000/api/v1/auth/login', {
     data: { username: 'e2e-test', password: 'E2ETestPassword123!' },
   });
