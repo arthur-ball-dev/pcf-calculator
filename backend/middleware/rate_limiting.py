@@ -30,6 +30,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from backend.api.utils.error_responses import create_error_dict
+
 logger = logging.getLogger(__name__)
 
 
@@ -466,9 +468,10 @@ class RateLimitMiddleware:
                 path, "Rate limit exceeded. Try again later."
             )
 
+            # Same error envelope as every other API error (#47)
             response = JSONResponse(
                 status_code=429,
-                content={"detail": error_message},
+                content=create_error_dict(code="RATE_LIMITED", message=error_message),
                 headers=rate_limit_headers,
             )
             await response(scope, receive, send)

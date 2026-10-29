@@ -251,10 +251,14 @@ def test_rate_limit_exceeded_response_body():
 
     assert response.status_code == 429
     data = response.json()
-    assert "detail" in data, "Response should contain 'detail' field"
-    assert "rate limit" in data["detail"].lower(), (
-        f"Error message should mention rate limit. Got: {data['detail']}"
+    assert "detail" not in data, "The legacy 'detail' key must not be present"
+    assert data["error"]["code"] == "RATE_LIMITED", \
+        "429 responses use the error envelope with code RATE_LIMITED"
+    assert "rate limit" in data["error"]["message"].lower(), (
+        f"Error message should mention rate limit. Got: {data['error']['message']}"
     )
+    assert data["request_id"].startswith("req_")
+    assert "timestamp" in data
 
 
 def test_rate_limit_exceeded_retry_after_header():
@@ -830,9 +834,10 @@ def test_auth_rate_limit_error_message():
 
     assert response.status_code == 429
     data = response.json()
-    assert "Too many login attempts" in data.get("detail", ""), (
+    assert "Too many login attempts" in data["error"]["message"], (
         f"Auth rate limit should have specific message. Got: {data}"
     )
+    assert data["error"]["code"] == "RATE_LIMITED"
 
 
 def test_auth_rate_limit_retry_after():

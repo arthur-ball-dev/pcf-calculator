@@ -423,7 +423,9 @@ class TestLoginEndpoint:
         # Assert
         assert response.status_code == 401
         data = response.json()
-        assert data["detail"] == "Invalid username or password"
+        assert data["error"]["code"] == "UNAUTHORIZED"
+        assert data["error"]["message"] == "Invalid username or password"
+        assert "detail" not in data
 
     def test_login_invalid_password_returns_401(self, auth_client, test_user):
         """Test login with invalid password returns 401 (Scenario 2)."""
@@ -439,7 +441,9 @@ class TestLoginEndpoint:
         # Assert
         assert response.status_code == 401
         data = response.json()
-        assert data["detail"] == "Invalid username or password"
+        assert data["error"]["code"] == "UNAUTHORIZED"
+        assert data["error"]["message"] == "Invalid username or password"
+        assert "detail" not in data
 
     def test_login_inactive_user_returns_401(self, auth_client, db_session):
         """Test login with inactive user returns 401."""
@@ -468,7 +472,9 @@ class TestLoginEndpoint:
         # Assert
         assert response.status_code == 401
         data = response.json()
-        assert "inactive" in data["detail"].lower() or "invalid" in data["detail"].lower()
+        message = data["error"]["message"].lower()
+        assert "inactive" in message or "invalid" in message
+        assert data["error"]["code"] == "UNAUTHORIZED"
 
     def test_login_missing_fields_returns_422(self, auth_client):
         """Test login with missing fields returns 422."""
@@ -645,7 +651,11 @@ class TestProtectedEndpoints:
         # Assert
         assert response.status_code == 401
         data = response.json()
-        assert data["detail"] == "Not authenticated"
+        assert data["error"]["code"] == "UNAUTHORIZED"
+        assert data["error"]["message"] == "Not authenticated"
+        assert "detail" not in data
+        assert response.headers.get("WWW-Authenticate") == "Bearer", \
+            "The envelope must not drop the WWW-Authenticate challenge header"
 
     def test_protected_endpoint_with_valid_token_succeeds(self, auth_client, valid_user_token):
         """Test protected endpoint with valid token succeeds (Scenario 4)."""
@@ -693,7 +703,9 @@ class TestProtectedEndpoints:
         # Assert
         assert response.status_code == 401
         data = response.json()
-        assert data["detail"] == "Token has expired"
+        assert data["error"]["code"] == "UNAUTHORIZED"
+        assert data["error"]["message"] == "Token has expired"
+        assert "detail" not in data
 
     def test_protected_endpoint_with_invalid_token_format_returns_401(self, auth_client):
         """Test protected endpoint with malformed token returns 401."""

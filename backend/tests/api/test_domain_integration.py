@@ -340,7 +340,9 @@ class TestDomainServiceIntegration:
         assert response.status_code == 404
         data = response.json()
 
-        assert "detail" in data or "error" in data
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
+        assert data["error"]["code"].endswith("NOT_FOUND")
+        assert isinstance(data["error"]["message"], str)
 
     def test_calculation_not_found_via_domain_service(
         self, authenticated_client, seed_products
@@ -353,7 +355,9 @@ class TestDomainServiceIntegration:
         assert response.status_code == 404
         data = response.json()
 
-        assert "detail" in data or "error" in data
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
+        assert data["error"]["code"].endswith("NOT_FOUND")
+        assert isinstance(data["error"]["message"], str)
 
 
 # ============================================================================
@@ -459,7 +463,9 @@ class TestErrorResponseFormat:
         assert response.status_code == 404
         data = response.json()
 
-        assert "detail" in data or "error" in data
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
+        assert data["error"]["code"].endswith("NOT_FOUND")
+        assert isinstance(data["error"]["message"], str)
 
     def test_calculation_not_found_response_format(self, authenticated_client):
         """
@@ -470,4 +476,6 @@ class TestErrorResponseFormat:
         assert response.status_code == 404
         data = response.json()
 
-        assert "detail" in data or "error" in data
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
+        assert data["error"]["code"].endswith("NOT_FOUND")
+        assert isinstance(data["error"]["message"], str)

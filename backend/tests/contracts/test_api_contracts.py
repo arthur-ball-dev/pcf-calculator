@@ -343,13 +343,13 @@ class TestProductDetailContract:
             "Contract violation: Non-existent product must return 404"
 
         data = response.json()
-        # Either FastAPI's default {"detail": str} or the API's standard
-        # {"error": {"code", "message", "details"}} envelope
-        message = data.get("detail") if "detail" in data else data.get("error", {}).get("message")
-        assert message is not None, \
-            "Contract violation: 404 response must contain 'detail' or 'error.message'"
-        assert isinstance(message, str), \
-            "Contract violation: error message must be a string"
+        # The API's single error envelope: {"error": {"code", "message", "details"}, ...}
+        assert "detail" not in data, \
+            "Contract violation: the legacy 'detail' key must not be present"
+        assert isinstance(data["error"]["message"], str), \
+            "Contract violation: error.message must be a string"
+        assert data["error"]["code"] == "PRODUCT_NOT_FOUND", \
+            "Contract violation: 404 for a product must carry code PRODUCT_NOT_FOUND"
 
 
 class TestEmissionFactorsListContract:
@@ -503,8 +503,10 @@ class TestCalculateContract:
             "Contract violation: Invalid request must return 422"
 
         data = response.json()
-        assert "detail" in data, \
-            "Contract violation: 422 response must contain 'detail' field"
+        assert data["error"]["code"] == "VALIDATION_ERROR", \
+            "Contract violation: 422 response must use the error envelope with code VALIDATION_ERROR"
+        assert "detail" not in data, \
+            "Contract violation: the legacy 'detail' key must not be present"
 
 
 class TestCalculationStatusContract:
@@ -575,8 +577,10 @@ class TestCalculationStatusContract:
             "Contract violation: Non-existent calculation must return 404"
 
         data = response.json()
-        assert "detail" in data, \
-            "Contract violation: 404 response must contain 'detail' field"
+        assert data["error"]["code"] == "CALCULATION_NOT_FOUND", \
+            "Contract violation: 404 for a calculation must carry code CALCULATION_NOT_FOUND"
+        assert "detail" not in data, \
+            "Contract violation: the legacy 'detail' key must not be present"
 
     def test_calculation_status_valid_status_values(
         self, authenticated_client, seed_contract_data
@@ -648,11 +652,12 @@ class TestAPIResponseConsistency:
                 f"Expected 404 for {endpoint}"
 
             data = response.json()
-            message = data.get("detail") if "detail" in data else data.get("error", {}).get("message")
-            assert message is not None, \
-                f"Contract violation: {endpoint} 404 response missing 'detail' or 'error.message'"
-            assert isinstance(message, str), \
-                f"Contract violation: {endpoint} error message must be string"
+            assert "detail" not in data, \
+                f"Contract violation: {endpoint} 404 response must not carry the legacy 'detail' key"
+            assert isinstance(data["error"]["message"], str), \
+                f"Contract violation: {endpoint} error.message must be a string"
+            assert data["error"]["code"].endswith("NOT_FOUND"), \
+                f"Contract violation: {endpoint} 404 must carry a *_NOT_FOUND code"
 
     def test_datetime_fields_are_iso8601_format(self, authenticated_client, seed_contract_data):
         """

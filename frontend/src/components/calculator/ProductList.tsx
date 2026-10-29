@@ -593,10 +593,9 @@ const ProductList: React.FC = () => {
               {/* Product Rows */}
               {industryProducts.map((product) => {
                 const isSelected = selectedProductId === product.id;
+                // Only ProductDetail carries the BOM; search items have no count
                 const bomCount =
-                  ('bill_of_materials' in product ? product.bill_of_materials?.length : 0) ||
-                  (product as ProductDetail & { bom_count?: number }).bom_count ||
-                  0;
+                  'bill_of_materials' in product ? (product.bill_of_materials?.length ?? 0) : 0;
                 return (
                   <div
                     key={product.id}

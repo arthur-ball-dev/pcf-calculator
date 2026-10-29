@@ -240,13 +240,41 @@ export type APIErrorCode =
   | 'SERVER_ERROR'
   | 'NOT_FOUND'
   | 'VALIDATION_ERROR'
+  | 'CONFLICT'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
   | 'RATE_LIMITED'
   | 'UNKNOWN_ERROR';
 
+/**
+ * One field-level entry of a backend error envelope.
+ * `type` is set for request-validation errors (pydantic's error type).
+ */
+export interface APIErrorDetail {
+  field?: string;
+  message: string;
+  type?: string;
+}
+
+/**
+ * The backend's single error response format (#47).
+ * Mirrors backend/schemas/admin.py ErrorResponse and
+ * knowledge/api/api-specifications.md.
+ */
+export interface APIErrorResponse {
+  error: {
+    code: string;
+    message: string;
+    details: APIErrorDetail[];
+  };
+  request_id: string;
+  timestamp: string;
+}
+
 export interface APIErrorDetails {
   code: APIErrorCode;
   message: string;
   originalError?: unknown;
+  details?: ReadonlyArray<APIErrorDetail>;
+  requestId?: string;
 }

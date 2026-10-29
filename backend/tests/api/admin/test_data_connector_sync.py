@@ -299,13 +299,10 @@ class TestUnknownConnectorError:
 
         assert response.status_code == 422
         data = response.json()
-        assert "detail" in data
-        # Check error message contains reference to no connector
-        error_detail = data["detail"]
-        if isinstance(error_detail, dict):
-            message = error_detail.get("error", {}).get("message", "").lower()
-        else:
-            message = str(error_detail).lower()
+        # The envelope is the top-level body, not nested under FastAPI's 'detail'
+        assert "detail" not in data
+        assert "request_id" in data
+        message = data["error"]["message"].lower()
         assert "connector" in message or "no connector" in message
 
 

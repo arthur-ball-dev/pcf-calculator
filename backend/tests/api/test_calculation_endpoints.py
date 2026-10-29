@@ -192,7 +192,9 @@ class TestStartCalculation:
             f"Should return 422 for missing product_id, got {response.status_code}"
 
         data = response.json()
-        assert "detail" in data, "Error response should include detail"
+        assert data["error"]["code"] == "VALIDATION_ERROR", \
+            "Request validation errors use the error envelope with code VALIDATION_ERROR"
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
 
     def test_start_calculation_invalid_product_id(self, authenticated_client):
         """
@@ -321,7 +323,10 @@ class TestGetCalculationStatus:
             f"Should return 404 for missing calculation, got {response.status_code}"
 
         data = response.json()
-        assert "detail" in data, "404 response should include detail message"
+        assert data["error"]["code"] == "CALCULATION_NOT_FOUND", \
+            "404 response should use the error envelope with code CALCULATION_NOT_FOUND"
+        assert isinstance(data["error"]["message"], str)
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
 
     def test_get_calculation_failed_status(self, authenticated_client, sample_product, db_session):
         """

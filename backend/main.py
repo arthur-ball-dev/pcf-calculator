@@ -9,12 +9,9 @@ TASK-BE-P7-050: Added domain exception handlers for clean architecture.
 
 import logging
 import time
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.errors import ServerErrorMiddleware
 
@@ -33,16 +30,12 @@ from backend.api.routes.emission_factors import router as emission_factors_route
 from backend.api.routes.admin import router as admin_router
 from backend.api.routes.auth import router as auth_router
 from backend.api.routes.health import router as health_router
+from backend.api.error_handlers import (
+    register_error_handlers,
+    unhandled_exception_handler as global_exception_handler,  # noqa: F401  (public name, used by tests)
+)
 from backend.database.connection import db_context
 from backend.database.seeds.data_sources import seed_data_sources, verify_data_sources
-
-# Domain layer error imports (TASK-BE-P7-050)
-from backend.domain.entities.errors import (
-    ProductNotFoundError,
-    CalculationNotFoundError,
-    DomainValidationError,
-    DuplicateProductError,
-)
 
 # Configure logging
 logging.basicConfig(
@@ -218,167 +211,9 @@ async def log_requests(request: Request, call_next):
 
 
 # ============================================================================
-# Domain Exception Handlers (TASK-BE-P7-050)
+# Error handlers: one error envelope for every failure (#47)
 # ============================================================================
-
-
-@app.exception_handler(ProductNotFoundError)
-async def product_not_found_handler(request: Request, exc: ProductNotFoundError):
-    """
-    Handle ProductNotFoundError from domain layer.
-
-    Maps domain ProductNotFoundError to HTTP 404 Not Found response.
-
-    Args:
-        request: HTTP request that caused the exception
-        exc: ProductNotFoundError exception
-
-    Returns:
-        JSONResponse: 404 response with error details
-    """
-    logger.warning(f"Product not found: {exc.product_id}")
-
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={
-            "detail": f"Product not found: {exc.product_id}",
-            "error": {
-                "code": "PRODUCT_NOT_FOUND",
-                "message": str(exc),
-                "details": [{"field": "product_id", "value": exc.product_id}]
-            },
-            "request_id": f"req_{uuid.uuid4().hex[:12]}",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    )
-
-
-@app.exception_handler(CalculationNotFoundError)
-async def calculation_not_found_handler(request: Request, exc: CalculationNotFoundError):
-    """
-    Handle CalculationNotFoundError from domain layer.
-
-    Maps domain CalculationNotFoundError to HTTP 404 Not Found response.
-
-    Args:
-        request: HTTP request that caused the exception
-        exc: CalculationNotFoundError exception
-
-    Returns:
-        JSONResponse: 404 response with error details
-    """
-    logger.warning(f"Calculation not found: {exc.calculation_id}")
-
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={
-            "detail": f"Calculation not found: {exc.calculation_id}",
-            "error": {
-                "code": "CALCULATION_NOT_FOUND",
-                "message": str(exc),
-                "details": [{"field": "calculation_id", "value": exc.calculation_id}]
-            },
-            "request_id": f"req_{uuid.uuid4().hex[:12]}",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    )
-
-
-@app.exception_handler(DomainValidationError)
-async def domain_validation_error_handler(request: Request, exc: DomainValidationError):
-    """
-    Handle DomainValidationError from domain layer.
-
-    Maps domain DomainValidationError to HTTP 422 Unprocessable Entity response.
-
-    Args:
-        request: HTTP request that caused the exception
-        exc: DomainValidationError exception
-
-    Returns:
-        JSONResponse: 422 response with error details
-    """
-    logger.warning(f"Domain validation error: {exc.message}")
-
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "detail": exc.message,
-            "error": {
-                "code": "VALIDATION_ERROR",
-                "message": exc.message,
-                "details": []
-            },
-            "request_id": f"req_{uuid.uuid4().hex[:12]}",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    )
-
-
-@app.exception_handler(DuplicateProductError)
-async def duplicate_product_handler(request: Request, exc: DuplicateProductError):
-    """
-    Handle DuplicateProductError from domain layer.
-
-    Maps domain DuplicateProductError to HTTP 409 Conflict response.
-
-    Args:
-        request: HTTP request that caused the exception
-        exc: DuplicateProductError exception
-
-    Returns:
-        JSONResponse: 409 response with error details
-    """
-    logger.warning(f"Duplicate product code: {exc.code}")
-
-    return JSONResponse(
-        status_code=status.HTTP_409_CONFLICT,
-        content={
-            "detail": f"Product with code already exists: {exc.code}",
-            "error": {
-                "code": "DUPLICATE_PRODUCT",
-                "message": str(exc),
-                "details": [{"field": "code", "value": exc.code}]
-            },
-            "request_id": f"req_{uuid.uuid4().hex[:12]}",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    )
-
-
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """
-    Handle all unhandled exceptions globally
-
-    Logs the full error details server-side but returns a generic
-    error message to the client to avoid leaking sensitive information
-
-    Returns error in format matching API specification
-    (see knowledge/api-specifications.md lines 470-496)
-
-    Args:
-        request: HTTP request that caused the exception
-        exc: Exception that was raised
-
-    Returns:
-        JSONResponse: Structured error response per API specification
-    """
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
-
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "error": {
-                "code": "INTERNAL_ERROR",
-                "message": "Internal server error",
-                "details": []
-            },
-            "request_id": f"req_{uuid.uuid4().hex[:12]}",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    )
+register_error_handlers(app)
 
 
 # Include API routers

@@ -31,6 +31,7 @@ from backend.database.connection import get_db
 from backend.models import Product, PCFCalculation, generate_uuid
 from backend.models.user import User
 from backend.auth.dependencies import get_optional_user, get_current_active_user
+from backend.domain.entities.errors import CalculationNotFoundError, ProductNotFoundError
 from backend.schemas import (
     CalculationRequest,
     CalculationStartResponse,
@@ -272,11 +273,8 @@ def start_calculation(
     # This prevents FK violation and returns proper 404 for nonexistent products
     product = db.query(Product).filter(Product.id == request.product_id).first()
     if not product:
-        logger.warning(f"Calculation requested for nonexistent product: {request.product_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Product not found: {request.product_id}"
-        )
+        # Handled by backend/api/error_handlers.py as 404 PRODUCT_NOT_FOUND
+        raise ProductNotFoundError(request.product_id)
 
     # Create initial calculation record
     try:
@@ -374,10 +372,8 @@ def get_calculation_status(
     calculation = db.query(PCFCalculation).filter_by(id=calculation_id).first()
 
     if not calculation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Calculation not found"
-        )
+        # Handled by backend/api/error_handlers.py as 404 CALCULATION_NOT_FOUND
+        raise CalculationNotFoundError(calculation_id)
 
     # Map internal status values to frontend-compatible values
     # TASK-API-P7-027: Ensure 'running' and 'processing' are mapped to 'in_progress'

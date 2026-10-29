@@ -480,8 +480,10 @@ class TestCategoriesErrorResponseContract:
         response = authenticated_client.get(f"/api/v1/products/categories?parent_id={fake_id}")
         data = response.json()
 
-        assert "error" in data or "detail" in data, \
-            "Contract violation: error response must have 'error' or 'detail'"
+        assert "detail" not in data, \
+            "Contract violation: the legacy 'detail' key must not be present"
+        assert isinstance(data["error"]["code"], str) and isinstance(data["error"]["message"], str), \
+            "Contract violation: error response must use the {error: {code, message}} envelope"
 
 
 # ============================================================================

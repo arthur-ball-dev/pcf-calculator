@@ -308,7 +308,10 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       const firstInput = visibleInputs[0];
       await user.clear(firstInput);
-      await user.type(firstInput, 'Modified');
+      // One keystroke is enough to dirty the form; each keystroke re-renders
+      // the 30-row form and syncs the store, so a long string made this test
+      // the slowest in the suite and a timeout under parallel load.
+      await user.type(firstInput, 'M');
 
       // Simulate scroll (scroll away and back)
       const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
@@ -329,7 +332,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(mockSetBomItems).toHaveBeenCalled();
       });
-    }, 15000);
+    });
 
     test('validation state persists across virtualized items', async () => {
       const items = generateBOMItems(50);

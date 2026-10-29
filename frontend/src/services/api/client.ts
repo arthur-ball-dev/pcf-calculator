@@ -13,6 +13,7 @@
 
 import axios, { type AxiosError } from 'axios';
 import { APIError } from './errors';
+import type { APIErrorCode, APIErrorResponse } from '@/types/api.types';
 
 // API Configuration from environment variables
 // Default to empty string for production (same-origin requests)
@@ -75,6 +76,49 @@ client.interceptors.request.use(
 // Response Interceptor - Error Transformation
 // ============================================================================
 
+/** HTTP status to APIErrorCode; anything 5xx is SERVER_ERROR, the rest UNKNOWN_ERROR. */
+const STATUS_CODES: Readonly<Record<number, APIErrorCode>> = {
+  400: 'VALIDATION_ERROR',
+  401: 'UNAUTHORIZED',
+  403: 'FORBIDDEN',
+  404: 'NOT_FOUND',
+  409: 'CONFLICT',
+  422: 'VALIDATION_ERROR',
+  429: 'RATE_LIMITED',
+};
+
+/** User-facing fallback when the response carries no error envelope. */
+const GENERIC_MESSAGES: Readonly<Partial<Record<APIErrorCode, string>>> = {
+  VALIDATION_ERROR: 'Invalid request. Please check your input.',
+  UNAUTHORIZED: 'Authentication required. Please log in.',
+  FORBIDDEN: 'You do not have permission to access this resource.',
+  NOT_FOUND: 'Resource not found',
+  CONFLICT: 'The request conflicts with existing data.',
+  RATE_LIMITED: 'Too many requests. Please try again later.',
+  SERVER_ERROR: 'An unexpected server error occurred. Please try again later.',
+};
+
+/**
+ * Recognize the backend's error envelope
+ * ({ error: { code, message, details }, request_id, timestamp }).
+ * Anything else (an empty body, a proxy's HTML, a legacy shape) yields null.
+ */
+function parseErrorEnvelope(data: unknown): APIErrorResponse | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const { error, request_id, timestamp } = data as Partial<APIErrorResponse>;
+  if (typeof error !== 'object' || error === null) return null;
+  if (typeof error.code !== 'string' || typeof error.message !== 'string') return null;
+  return {
+    error: {
+      code: error.code,
+      message: error.message,
+      details: Array.isArray(error.details) ? error.details : [],
+    },
+    request_id: typeof request_id === 'string' ? request_id : '',
+    timestamp: typeof timestamp === 'string' ? timestamp : '',
+  };
+}
+
 client.interceptors.response.use(
   (response) => {
     // Pass through successful responses
@@ -111,61 +155,21 @@ client.interceptors.response.use(
           console.error(`[API Error] Status: ${status}, URL: ${error.config?.url}, Data:`, error.response.data);
         }
 
-        // 401 Unauthorized
-        if (status === 401) {
-          throw new APIError(
-            'UNAUTHORIZED',
-            'Authentication required. Please log in.',
-            error
-          );
-        }
+        const envelope = parseErrorEnvelope(error.response.data);
+        const code: APIErrorCode =
+          status >= 500 ? 'SERVER_ERROR' : (STATUS_CODES[status] ?? 'UNKNOWN_ERROR');
 
-        // 403 Forbidden
-        if (status === 403) {
-          throw new APIError(
-            'FORBIDDEN',
-            'You do not have permission to access this resource.',
-            error
-          );
-        }
+        // The server's message is shown for client errors; 5xx messages are
+        // not written for users, so those keep the generic text.
+        const message =
+          (status < 500 && envelope?.error.message) ||
+          GENERIC_MESSAGES[code] ||
+          `Request failed with status ${status}`;
 
-        // 404 Not Found
-        if (status === 404) {
-          throw new APIError('NOT_FOUND', 'Resource not found', error);
-        }
-
-        // 400 Bad Request / Validation Error
-        if (status === 400) {
-          const message =
-            (error.response.data as { error?: string } | undefined)?.error ||
-            'Invalid request. Please check your input.';
-          throw new APIError('VALIDATION_ERROR', message, error);
-        }
-
-        // 429 Rate Limit
-        if (status === 429) {
-          throw new APIError(
-            'RATE_LIMITED',
-            'Too many requests. Please try again later.',
-            error
-          );
-        }
-
-        // 500 Server Error
-        if (status >= 500) {
-          throw new APIError(
-            'SERVER_ERROR',
-            'An unexpected server error occurred. Please try again later.',
-            error
-          );
-        }
-
-        // Other HTTP errors
-        throw new APIError(
-          'UNKNOWN_ERROR',
-          `Request failed with status ${status}`,
-          error
-        );
+        throw new APIError(code, message, error, {
+          details: envelope?.error.details,
+          requestId: envelope?.request_id || undefined,
+        });
       }
     }
 

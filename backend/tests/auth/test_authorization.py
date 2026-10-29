@@ -267,7 +267,9 @@ class TestAdminEndpointsWithUserRole:
         # Assert
         assert response.status_code == 403
         data = response.json()
-        assert data["detail"] == "Insufficient permissions"
+        assert data["error"]["code"] == "FORBIDDEN"
+        assert data["error"]["message"] == "Insufficient permissions"
+        assert "detail" not in data
 
     def test_emission_factors_post_with_user_role_returns_403(self, auth_client, user_token):
         """Test POST /emission-factors with user role returns 403."""
@@ -289,7 +291,9 @@ class TestAdminEndpointsWithUserRole:
         # Assert
         assert response.status_code == 403
         data = response.json()
-        assert data["detail"] == "Insufficient permissions"
+        assert data["error"]["code"] == "FORBIDDEN"
+        assert data["error"]["message"] == "Insufficient permissions"
+        assert "detail" not in data
 
     def test_emission_factors_put_with_user_role_returns_403(self, auth_client, user_token):
         """Test PUT /emission-factors/{id} with user role returns 403."""
@@ -306,7 +310,9 @@ class TestAdminEndpointsWithUserRole:
         # Assert
         assert response.status_code == 403
         data = response.json()
-        assert data["detail"] == "Insufficient permissions"
+        assert data["error"]["code"] == "FORBIDDEN"
+        assert data["error"]["message"] == "Insufficient permissions"
+        assert "detail" not in data
 
     def test_emission_factors_delete_with_user_role_returns_403(self, auth_client, user_token):
         """Test DELETE /emission-factors/{id} with user role returns 403."""
@@ -319,7 +325,9 @@ class TestAdminEndpointsWithUserRole:
         # Assert
         assert response.status_code == 403
         data = response.json()
-        assert data["detail"] == "Insufficient permissions"
+        assert data["error"]["code"] == "FORBIDDEN"
+        assert data["error"]["message"] == "Insufficient permissions"
+        assert "detail" not in data
 
     def test_admin_any_endpoint_with_user_role_returns_403(self, auth_client, user_token):
         """Test any POST /admin/* endpoint with user role returns 403."""

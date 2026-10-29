@@ -170,12 +170,14 @@ class TestMissingRequiredFieldRejected:
             f"Missing required field should return 422, got {response.status_code}"
 
         data = response.json()
-        assert "detail" in data, "Error response should include detail"
+        assert data["error"]["code"] == "VALIDATION_ERROR", \
+            "Request validation errors use the error envelope with code VALIDATION_ERROR"
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
 
-        # Check that error message mentions the missing field
-        error_str = str(data["detail"]).lower()
+        # Check that error details mention the missing field
+        error_str = str(data["error"]["details"]).lower()
         assert "product_id" in error_str, \
-            "Error message should mention missing 'product_id' field"
+            "Error details should mention missing 'product_id' field"
 
     def test_emission_factor_missing_activity_name(self, admin_client):
         """Test emission factor creation without activity_name returns 422"""
@@ -192,7 +194,7 @@ class TestMissingRequiredFieldRejected:
             f"Missing required field should return 422, got {response.status_code}"
 
         data = response.json()
-        error_str = str(data["detail"]).lower()
+        error_str = str(data["error"]["details"]).lower()
         assert "activity_name" in error_str, \
             "Error message should mention missing 'activity_name' field"
 
@@ -211,7 +213,7 @@ class TestMissingRequiredFieldRejected:
             f"Missing required field should return 422, got {response.status_code}"
 
         data = response.json()
-        error_str = str(data["detail"]).lower()
+        error_str = str(data["error"]["details"]).lower()
         assert "co2e_factor" in error_str, \
             "Error message should mention missing 'co2e_factor' field"
 
@@ -230,7 +232,7 @@ class TestMissingRequiredFieldRejected:
             f"Missing required field should return 422, got {response.status_code}"
 
         data = response.json()
-        error_str = str(data["detail"]).lower()
+        error_str = str(data["error"]["details"]).lower()
         assert "unit" in error_str, \
             "Error message should mention missing 'unit' field"
 
@@ -249,7 +251,7 @@ class TestMissingRequiredFieldRejected:
             f"Missing required field should return 422, got {response.status_code}"
 
         data = response.json()
-        error_str = str(data["detail"]).lower()
+        error_str = str(data["error"]["details"]).lower()
         assert "data_source" in error_str, \
             "Error message should mention missing 'data_source' field"
 
@@ -341,7 +343,7 @@ class TestQuantityConstraintsEnforced:
             f"Negative co2e_factor should return 422, got {response.status_code}"
 
         data = response.json()
-        error_str = str(data["detail"]).lower()
+        error_str = str(data["error"]["details"]).lower()
         assert any(word in error_str for word in ["negative", "greater", "co2e_factor"]), \
             "Error message should mention constraint violation"
 
@@ -681,16 +683,19 @@ class TestErrorMessageClarity:
         assert response.status_code == 422
         data = response.json()
 
-        # FastAPI validation errors have 'detail' field
-        assert "detail" in data, "Error response should have 'detail' field"
-        assert isinstance(data["detail"], list), "Detail should be a list of errors"
+        # Request validation errors use the error envelope; pydantic's per-field
+        # errors are listed under error.details
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
+        assert data["error"]["code"] == "VALIDATION_ERROR"
+        details = data["error"]["details"]
+        assert isinstance(details, list), "error.details should be a list of errors"
+        assert len(details) > 0, "At least one field error is expected"
 
-        # Each error should have loc, msg, type
-        if len(data["detail"]) > 0:
-            error = data["detail"][0]
-            assert "loc" in error, "Error should have 'loc' field (location)"
-            assert "msg" in error, "Error should have 'msg' field (message)"
-            assert "type" in error, "Error should have 'type' field (error type)"
+        # Each error should have field, message, type
+        error = details[0]
+        assert "field" in error, "Error should have 'field' (dotted location)"
+        assert "message" in error, "Error should have 'message'"
+        assert "type" in error, "Error should have 'type' (pydantic error type)"
 
     def test_multiple_validation_errors_reported(self, admin_client):
         """Test that multiple validation errors are reported together"""
@@ -704,7 +709,7 @@ class TestErrorMessageClarity:
         data = response.json()
 
         # Should report multiple missing fields
-        assert len(data["detail"]) >= 3, \
+        assert len(data["error"]["details"]) >= 3, \
             "Should report multiple validation errors"
 
     def test_error_indicates_field_location(self, admin_client):
@@ -722,8 +727,8 @@ class TestErrorMessageClarity:
         data = response.json()
 
         # Error location should mention co2e_factor
-        error_locations = [str(err["loc"]) for err in data["detail"]]
-        assert any("co2e_factor" in loc for loc in error_locations), \
+        error_fields = [err["field"] for err in data["error"]["details"]]
+        assert any("co2e_factor" in field for field in error_fields), \
             "Error should indicate co2e_factor field"
 
 
@@ -756,8 +761,9 @@ class TestComplexValidationScenarios:
             f"Duplicate should return 409, got {response2.status_code}"
 
         data = response2.json()
-        assert "detail" in data
-        assert "already exists" in data["detail"].lower()
+        assert data["error"]["code"] == "CONFLICT"
+        assert "already exists" in data["error"]["message"].lower()
+        assert "detail" not in data
 
     def test_boundary_values_accepted(self, admin_client):
         """Test that boundary values are accepted"""

@@ -688,10 +688,12 @@ class TestDuplicatePrevention:
         response = admin_client.post("/api/v1/emission-factors", json=duplicate_factor)
         data = response.json()
 
-        assert "detail" in data, \
-            "409 response should include 'detail' field"
-        assert "already exists" in data["detail"].lower() or "duplicate" in data["detail"].lower(), \
+        assert data["error"]["code"] == "CONFLICT", \
+            "409 response should use the error envelope with code CONFLICT"
+        message = data["error"]["message"].lower()
+        assert "already exists" in message or "duplicate" in message, \
             "Error message should indicate duplicate"
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
 
     def test_same_activity_different_source_allowed(self, admin_client, seed_test_emission_factors):
         """Test that same activity with different data_source is allowed"""

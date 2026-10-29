@@ -436,8 +436,10 @@ class TestGetChildCategories:
         response = authenticated_client.get(f"/api/v1/products/categories?parent_id={fake_id}")
         data = response.json()
 
-        assert "error" in data or "detail" in data, \
-            "404 response should include error details"
+        assert "detail" not in data, "The legacy 'detail' key must not be present"
+        assert isinstance(data["error"]["code"], str), \
+            "404 response should use the error envelope"
+        assert isinstance(data["error"]["message"], str)
 
 
 # ============================================================================
