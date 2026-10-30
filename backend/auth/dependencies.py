@@ -28,7 +28,8 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from backend.auth.jwt import decode_token, InvalidTokenError, TokenExpiredError
+from backend.auth.jwt import InvalidTokenError, TokenExpiredError
+from backend.auth.revocation import decode_active_token
 from backend.database.connection import get_db
 from backend.models.user import User
 
@@ -126,7 +127,7 @@ def get_current_user_from_token(
         HTTPException: 401 if token invalid or user not found
     """
     try:
-        payload = decode_token(token)
+        payload = decode_active_token(token, db)
     except TokenExpiredError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -193,7 +194,7 @@ def get_current_user(
     token = credentials.credentials
 
     try:
-        payload = decode_token(token)
+        payload = decode_active_token(token, db)
     except TokenExpiredError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -256,7 +257,7 @@ def get_optional_user(
         return None
 
     try:
-        payload = decode_token(credentials.credentials)
+        payload = decode_active_token(credentials.credentials, db)
     except (TokenExpiredError, InvalidTokenError):
         return None
 

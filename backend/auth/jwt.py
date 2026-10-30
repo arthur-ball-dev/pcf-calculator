@@ -16,13 +16,14 @@ Security Features:
 JWT Specification:
 - Algorithm: HS256
 - Token Expiry: 1 hour (configurable)
-- Required Claims: user_id, username, role, exp, iss, aud
+- Required Claims: user_id, username, role, exp, iss, aud, jti
 
 References:
 - PyJWT: https://pyjwt.readthedocs.io/
 - JWT RFC 7519: https://datatracker.ietf.org/doc/html/rfc7519
 """
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 
@@ -93,6 +94,7 @@ def create_access_token(
     to_encode = data.copy()
     to_encode["iss"] = JWT_ISSUER
     to_encode["aud"] = JWT_AUDIENCE
+    to_encode["jti"] = uuid.uuid4().hex
 
     # Set expiration time
     if expires_delta is None:

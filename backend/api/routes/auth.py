@@ -6,6 +6,7 @@ TASK-BE-P7-018: JWT Authentication + Role-Based Admin Access
 Endpoints:
 - POST /api/v1/auth/login - Authenticate user and return JWT token
 - POST /api/v1/auth/refresh - Refresh access token
+- POST /api/v1/auth/logout - Revoke the current token
 - GET /api/v1/auth/me - Get current user info
 
 Security Notes:
@@ -17,7 +18,8 @@ Security Notes:
 from datetime import timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from backend.schemas.auth import LoginRequest, TokenResponse, UserInfoResponse
 
@@ -29,6 +31,7 @@ from backend.auth.jwt import (
     DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 from backend.auth.password import verify_password
+from backend.auth.revocation import revoke_token
 from backend.auth.dependencies import (
     get_current_user,
     get_current_active_user,
@@ -138,13 +141,16 @@ def login(
         401: {"description": "Token expired or invalid"},
     },
 )
-async def refresh_token(
+def refresh_token(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ) -> TokenResponse:
     """
     Refresh access token.
 
-    Returns a new access token for the authenticated user.
+    Returns a new access token for the authenticated user and revokes the one
+    presented, so only one token in a chain is live and logout ends the session.
     The current token must still be valid (not expired).
 
     Headers:
@@ -166,12 +172,41 @@ async def refresh_token(
     }
 
     access_token = create_access_token(data=token_data)
+    revoke_token(db, decode_token(credentials.credentials))
 
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
         expires_in=DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Log out",
+    description="Revoke the current access token so it can no longer be used",
+    responses={
+        401: {"description": "Not authenticated, or token already revoked"},
+    },
+)
+def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    _current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """
+    Revoke the access token used for this request.
+
+    Only this token is revoked: other sessions of the same user keep working.
+    get_current_active_user has already rejected a missing, invalid, expired or
+    revoked token, so the token here decodes cleanly.
+
+    Raises:
+    - 401: Not authenticated, or token already revoked
+    """
+    revoke_token(db, decode_token(credentials.credentials))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

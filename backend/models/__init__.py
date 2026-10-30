@@ -576,6 +576,7 @@ from backend.models.data_sync_log import DataSyncLog
 
 # Import Phase 7 User model for authentication (TASK-BE-P7-018)
 from backend.models.user import User
+from backend.models.revoked_token import RevokedToken
 
 # Import Phase 8 Compliance models (TASK-DB-P8-002)
 from backend.models.data_source_license import DataSourceLicense
@@ -596,6 +597,7 @@ __all__ = [
     'DataSyncLog',
     # Phase 7 models (TASK-BE-P7-018)
     'User',
+    'RevokedToken',
     # Phase 8 Compliance models (TASK-DB-P8-002)
     'DataSourceLicense',
     'EmissionFactorProvenance',

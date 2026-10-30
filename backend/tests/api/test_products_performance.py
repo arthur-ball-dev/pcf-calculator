@@ -89,6 +89,10 @@ def create_bom_item(db_session, parent_id, child_id, quantity=1.0, unit="unit", 
     return bom
 
 
+# Product, BOM with children, authenticated user, and the token revocation check (#24).
+MAX_QUERIES = 4
+
+
 class TestProductDetailQueryCount:
     def test_query_count_with_5_bom_items(self, db_session, authenticated_client, test_engine):
         parent = create_product(db_session, "PARENT-5", "Parent Product 5 Children")
@@ -100,7 +104,7 @@ class TestProductDetailQueryCount:
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 5
-        assert counter.total <= 3, f"Expected max 3 queries, got {counter.total}. N+1 query pattern detected!"
+        assert counter.total <= MAX_QUERIES, f"Expected max {MAX_QUERIES} queries, got {counter.total}. N+1 query pattern detected!"
 
     def test_query_count_with_10_bom_items(self, db_session, authenticated_client, test_engine):
         parent = create_product(db_session, "PARENT-10", "Parent Product 10 Children")
@@ -112,7 +116,7 @@ class TestProductDetailQueryCount:
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 10
-        assert counter.total <= 3, f"Expected max 3 queries for 10 BOM items, got {counter.total}. N+1 detected!"
+        assert counter.total <= MAX_QUERIES, f"Expected max {MAX_QUERIES} queries for 10 BOM items, got {counter.total}. N+1 detected!"
 
     def test_query_count_with_20_bom_items(self, db_session, authenticated_client, test_engine):
         parent = create_product(db_session, "PARENT-20", "Parent Product 20 Children")
@@ -124,7 +128,7 @@ class TestProductDetailQueryCount:
         assert response.status_code == 200
         data = response.json()
         assert len(data["bill_of_materials"]) == 20
-        assert counter.total <= 3, f"Expected max 3 queries for 20 BOM items, got {counter.total}. N+1 detected!"
+        assert counter.total <= MAX_QUERIES, f"Expected max {MAX_QUERIES} queries for 20 BOM items, got {counter.total}. N+1 detected!"
 
     def test_query_count_does_not_scale_with_bom_size(self, db_session, authenticated_client, test_engine):
         query_counts = []
@@ -247,7 +251,7 @@ class TestProductDetailEdgeCases:
         assert response.status_code == 200
         data = response.json()
         assert data["bill_of_materials"] == []
-        assert counter.total <= 3
+        assert counter.total <= MAX_QUERIES
 
     def test_product_not_found_returns_404(self, authenticated_client):
         response = authenticated_client.get("/api/v1/products/nonexistent-id-12345")
@@ -263,7 +267,7 @@ class TestProductDetailEdgeCases:
         data = response.json()
         assert len(data["bill_of_materials"]) == 1
         assert data["bill_of_materials"][0]["child_product_name"] == "Only Child"
-        assert counter.total <= 3
+        assert counter.total <= MAX_QUERIES
 
     def test_bom_with_null_optional_fields(self, db_session, authenticated_client):
         parent = create_product(db_session, "NULL-FIELDS-PARENT", "Parent")
