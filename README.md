@@ -7,7 +7,7 @@
 
 > **Live Demo:** [pcf.glideslopeintelligence.ai](https://pcf.glideslopeintelligence.ai/)
 >
-> *Last synced: 2026-10-29 from production commit a567957*
+> *Last synced: 2026-10-30 from production commit b2b820f*
 
 Professional carbon footprint calculator implementing ISO 14067 and GHG Protocol for cradle-to-gate emissions analysis.
 
@@ -58,7 +58,7 @@ cd frontend
 npm ci && npm run dev                             # http://localhost:5173
 ```
 
-Tests: `python -m pytest backend/tests` and `cd frontend && npm test`. The backend suite expects two databases: the app database (`DATABASE_URL`) loaded with the test-mode dataset via `python backend/scripts/load_test_data.py`, and a separate fixtures database named by `TEST_DATABASE_URL`, which the tests truncate. Run `alembic upgrade head` against both (`DATABASE_URL=$TEST_DATABASE_URL python -m alembic -c backend/alembic.ini upgrade head` for the second).
+Tests: `python -m pytest backend/tests -m "not performance and not production_data"` and `cd frontend && npm test`. The two excluded markers are wall-clock checks and checks that need the full product catalog. The backend suite expects two databases: the app database (`DATABASE_URL`) loaded with the test-mode dataset via `python backend/scripts/load_test_data.py`, and a separate fixtures database named by `TEST_DATABASE_URL`, which the tests truncate. Run `alembic upgrade head` against both (`DATABASE_URL=$TEST_DATABASE_URL python -m alembic -c backend/alembic.ini upgrade head` for the second).
 
 ---
 

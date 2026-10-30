@@ -22,54 +22,17 @@ References:
 
 import pytest
 from datetime import timedelta
-from typing import Generator
 from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from backend.models import Base
 
 
 # ============================================================================
 # Test Fixtures
 # ============================================================================
-
-
-@pytest.fixture(scope="function")
-def test_engine():
-    """Create an in-memory SQLite test engine."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    # Enable foreign keys for SQLite
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    Base.metadata.create_all(bind=engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(test_engine) -> Generator[Session, None, None]:
-    """Provide a database session for testing."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=test_engine
-    )
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+# `db_session` comes from backend/tests/conftest.py and runs on PostgreSQL (issue #21:
+# this file used to build its own SQLite engine, a different dialect from production).
 
 
 @pytest.fixture

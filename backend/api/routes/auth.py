@@ -18,8 +18,8 @@ from datetime import timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from backend.schemas.auth import LoginRequest, TokenResponse, UserInfoResponse
 
 from backend.auth.jwt import (
     create_access_token,
@@ -36,70 +36,6 @@ from backend.auth.dependencies import (
 )
 from backend.database.connection import get_db
 from backend.models.user import User
-
-
-# ============================================================================
-# Request/Response Models
-# ============================================================================
-
-
-class LoginRequest(BaseModel):
-    """Request model for login endpoint."""
-    username: str = Field(
-        ...,
-        min_length=1,
-        max_length=50,
-        description="Username for authentication"
-    )
-    password: str = Field(
-        ...,
-        min_length=1,
-        description="Password for authentication"
-    )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "username": "testuser",
-                "password": "validpassword123"
-            }
-        }
-
-
-class TokenResponse(BaseModel):
-    """Response model for successful authentication."""
-    access_token: str = Field(..., description="JWT access token")
-    token_type: str = Field(default="bearer", description="Token type (always 'bearer')")
-    expires_in: int = Field(..., description="Token expiration time in seconds")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-                "token_type": "bearer",
-                "expires_in": 3600
-            }
-        }
-
-
-class UserInfoResponse(BaseModel):
-    """Response model for user info endpoint."""
-    user_id: str = Field(..., description="User UUID")
-    username: str = Field(..., description="Username")
-    email: str = Field(..., description="Email address")
-    role: str = Field(..., description="User role (user or admin)")
-    is_active: bool = Field(..., description="Account active status")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "user_id": "abc123def456ghi789jkl012",
-                "username": "testuser",
-                "email": "testuser@example.com",
-                "role": "user",
-                "is_active": True
-            }
-        }
 
 
 # ============================================================================

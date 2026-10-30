@@ -637,6 +637,10 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers",
+        "production_data: needs the full catalog loaded; excluded from CI, run with -m production_data"
+    )
+    config.addinivalue_line(
+        "markers",
         "slow: long-running test"
     )
 
@@ -647,7 +651,6 @@ def pytest_configure(config):
 WALL_CLOCK_SLA_TESTS = (
     "api/test_products_performance.py::TestProductDetailResponseTime",
     "api/test_products_has_bom.py::TestIntegration::test_has_bom_filter_performance",
-    "calculation/test_bom_tree_performance.py::TestBOMTreePerformance",
     "calculation/test_concurrent_calculations.py::TestConcurrentEdgeCases::test_provider_delay_does_not_block",
     "database/test_bom_view.py::TestViewPerformance",
     "database/test_emission_factor_index.py::TestPerformanceImprovement",
@@ -657,18 +660,36 @@ WALL_CLOCK_SLA_TESTS = (
     "integration/test_schema_extensions.py::TestCategoryTreePerformance",
     "integration/test_schema_extensions.py::TestFullTextSearchPerformance",
     "middleware/test_rate_limiting.py::test_rate_limiting_overhead_minimal",
-    "services/test_task_service.py::TestAsyncTaskExecution::test_submit_task_returns_immediately",
-    "services/test_task_service.py::TestAsyncTaskExecution::test_multiple_tasks_can_be_submitted_quickly",
 )
 
 
+# Tests that assert on the size or shape of a fully loaded product catalog. They
+# cannot pass on the small test dataset, so they are named here instead of being
+# skipped, and CI deselects them. Same node-id prefix rules as above.
+PRODUCTION_DATA_TESTS = (
+    "integration/test_product_catalog.py::TestCategoryCountRequirement::test_category_table_has_1000_plus_records",
+    "integration/test_product_catalog.py::TestProductCountRequirement::test_products_table_has_1000_plus_records",
+    "integration/test_product_catalog.py::TestProductCountRequirement::test_products_have_category_id",
+    "integration/test_product_catalog.py::TestIndustryRepresentation",
+    "integration/test_product_catalog.py::TestHierarchyLevels",
+)
+
+
+def _matches(nodeid, prefixes):
+    return any(
+        nodeid == prefix or nodeid.startswith(prefix + "::") or nodeid.startswith(prefix + "[")
+        for prefix in prefixes
+    )
+
+
 def pytest_collection_modifyitems(config, items):
-    """Mark the wall-clock SLA tests listed above as `performance`."""
+    """Apply the `performance` and `production_data` markers from the lists above."""
     for item in items:
         nodeid = item.nodeid.replace("backend/tests/", "", 1).replace("tests/", "", 1)
-        if any(nodeid == prefix or nodeid.startswith(prefix + "::") or nodeid.startswith(prefix + "[")
-               for prefix in WALL_CLOCK_SLA_TESTS):
+        if _matches(nodeid, WALL_CLOCK_SLA_TESTS):
             item.add_marker(pytest.mark.performance)
+        if _matches(nodeid, PRODUCTION_DATA_TESTS):
+            item.add_marker(pytest.mark.production_data)
 
 
 # ============================================================================

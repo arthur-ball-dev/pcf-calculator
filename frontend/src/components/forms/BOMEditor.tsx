@@ -38,6 +38,7 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
+import { useShallow } from 'zustand/react/shallow';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { bomFormSchema, type BOMFormData } from '@/schemas/bomSchema';
@@ -104,8 +105,13 @@ interface BOMEditorFormProps {
  * Separated to allow progressive rendering without violating React's rules of hooks
  */
 const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadingFactors }) => {
-  const { bomItems, setBomItems } = useCalculatorStore();
-  const { markStepComplete, markStepIncomplete } = useWizardStore();
+  // Granular subscriptions (issue #38)
+  const { bomItems, setBomItems } = useCalculatorStore(
+    useShallow((s) => ({ bomItems: s.bomItems, setBomItems: s.setBomItems })),
+  );
+  const { markStepComplete, markStepIncomplete } = useWizardStore(
+    useShallow((s) => ({ markStepComplete: s.markStepComplete, markStepIncomplete: s.markStepIncomplete })),
+  );
   const { isMobile } = useBreakpoints();
 
   const parentRef = useRef<HTMLDivElement>(null);
@@ -444,7 +450,7 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
  * Handles progressive rendering to prevent UI blocking
  */
 export default function BOMEditor() {
-  const { isLoadingBOM } = useCalculatorStore();
+  const { isLoadingBOM } = useCalculatorStore(useShallow((s) => ({ isLoadingBOM: s.isLoadingBOM })));
   const { data: emissionFactors = [], isLoading: isLoadingFactors } = useEmissionFactors();
 
   // Progressive rendering: defer heavy form rendering to allow loading indicator to paint

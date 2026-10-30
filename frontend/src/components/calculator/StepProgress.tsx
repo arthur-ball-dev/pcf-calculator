@@ -22,6 +22,7 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { useShallow } from 'zustand/react/shallow';
 import { useWizardStore } from '@/store/wizardStore';
 import type { StepConfig, WizardStep } from '@/types/store.types';
 
@@ -31,7 +32,9 @@ interface StepProgressProps {
 }
 
 const StepProgress: React.FC<StepProgressProps> = ({ steps, currentStep }) => {
-  const { completedSteps, setStep } = useWizardStore();
+  const { completedSteps, setStep } = useWizardStore(
+    useShallow((s) => ({ completedSteps: s.completedSteps, setStep: s.setStep })),
+  );
 
   return (
     <nav

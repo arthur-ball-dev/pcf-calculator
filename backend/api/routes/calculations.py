@@ -18,11 +18,8 @@ This module implements the async calculation pattern:
 """
 
 import logging
-import re
-from typing import Optional
+from typing import Callable, Optional
 from datetime import datetime, UTC
-
-from typing import Callable
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -30,13 +27,16 @@ from sqlalchemy.orm import Session
 from backend.database.connection import get_db
 from backend.models import Product, PCFCalculation, generate_uuid
 from backend.models.user import User
-from backend.auth.dependencies import get_optional_user, get_current_active_user
+from backend.auth.dependencies import get_optional_user
 from backend.domain.entities.errors import CalculationNotFoundError, ProductNotFoundError
 from backend.schemas import (
     CalculationRequest,
     CalculationStartResponse,
     CalculationStatusResponse,
 )
+# The background task lives in the service layer (issue #34); it is re-exported here
+# because tests patch it through this module.
+from backend.services.calculation_runner import execute_calculation  # noqa: F401
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -62,160 +62,6 @@ def get_background_session_factory() -> Callable[[], Session]:
     """
     from backend.database.connection import SessionLocal
     return SessionLocal
-
-
-def execute_calculation(
-    calculation_id: str,
-    product_id: str,
-    calculation_type: str,
-    session_factory: Optional[Callable[[], Session]] = None,
-):
-    """
-    Background task: Execute PCF calculation using SQL-backed emission factors.
-
-    This function runs asynchronously in the background after returning
-    202 Accepted to the client. Updates database with results or error.
-
-    Creates its own database session to avoid using the request-scoped
-    session which may be closed by the time this task executes.
-
-    Lifecycle:
-    1. Update status to 'in_progress'
-    2. Verify product exists
-    3. Query BOM items with emission factors from PostgreSQL
-    4. Calculate CO2e per component (quantity * emission_factor)
-    5. Update status to 'completed' with results
-    6. Handle errors and update status to 'failed'
-
-    Args:
-        calculation_id: UUID of calculation record
-        product_id: UUID of product to calculate
-        calculation_type: Type of calculation
-    """
-    import time
-    from backend.database.connection import SessionLocal
-    from backend.models import BillOfMaterials, EmissionFactor
-
-    start_time = time.time()
-    db_session = (session_factory or SessionLocal)()
-
-    try:
-        # Update status to 'in_progress'
-        calculation = db_session.query(PCFCalculation).filter_by(id=calculation_id).first()
-
-        if not calculation:
-            logger.error(f"Calculation {calculation_id} not found in database")
-            return
-
-        calculation.status = "in_progress"
-        db_session.commit()
-
-        logger.info(f"Starting calculation {calculation_id} for product {product_id}")
-
-        # Verify product exists
-        product = db_session.query(Product).filter_by(id=product_id).first()
-
-        if not product:
-            raise ValueError(f"Product {product_id} not found")
-
-        # Query BOM items joined with emission factors from PostgreSQL
-        bom_rows = (
-            db_session.query(
-                BillOfMaterials,
-                EmissionFactor,
-                Product,
-            )
-            .join(Product, Product.id == BillOfMaterials.child_product_id)
-            .outerjoin(EmissionFactor, EmissionFactor.id == BillOfMaterials.emission_factor_id)
-            .filter(BillOfMaterials.parent_product_id == product_id)
-            .all()
-        )
-
-        # Build emission factor lookup by activity_name for fallback matching
-        all_efs = db_session.query(EmissionFactor).all()
-        ef_by_name = {ef.activity_name: ef for ef in all_efs}
-
-        # Calculate CO2e per component
-        total_co2e = 0.0
-        materials_co2e = 0.0
-        energy_co2e = 0.0
-        transport_co2e = 0.0
-        breakdown = {}
-
-        for bom_item, ef, child_product in bom_rows:
-            quantity = float(bom_item.quantity or 0)
-
-            # If no direct emission_factor_id link, fall back to name matching
-            if ef is None and child_product:
-                name_lower = child_product.name.lower()
-                code_normalized = re.sub(r"_?\d+$", "", child_product.code.lower().replace("-", "_"))
-                name_underscored = name_lower.replace(" ", "_")
-                ef = ef_by_name.get(name_lower) or ef_by_name.get(code_normalized) or ef_by_name.get(name_underscored)
-
-            factor_value = float(ef.co2e_factor if ef and ef.co2e_factor else 0)
-            component_co2e = quantity * factor_value
-
-            component_name = child_product.name if child_product else "Unknown"
-            breakdown[component_name] = round(component_co2e, 6)
-            total_co2e += component_co2e
-
-            # Categorize by component name heuristics
-            name_lower = component_name.lower()
-            if "electricity" in name_lower or "energy" in name_lower or "grid" in name_lower:
-                energy_co2e += component_co2e
-            elif "transport" in name_lower or "truck" in name_lower or "ship" in name_lower:
-                transport_co2e += component_co2e
-            else:
-                materials_co2e += component_co2e
-
-        # Calculate execution time
-        elapsed_ms = int((time.time() - start_time) * 1000)
-
-        # Update calculation record with results
-        calculation.status = "completed"
-        calculation.total_co2e_kg = round(total_co2e, 6)
-        calculation.materials_co2e = round(materials_co2e, 6)
-        calculation.energy_co2e = round(energy_co2e, 6)
-        calculation.transport_co2e = round(transport_co2e, 6)
-        calculation.calculation_time_ms = elapsed_ms
-        calculation.calculation_method = "SQL_DirectCalculation"
-
-        # Store detailed breakdown in JSON field
-        calculation.breakdown = breakdown
-
-        db_session.commit()
-
-        logger.info(
-            f"Calculation {calculation_id} completed: "
-            f"{total_co2e:.3f} kg CO2e in {elapsed_ms}ms"
-        )
-
-    except ValueError as e:
-        # Product not found or validation error
-        logger.error(f"Calculation {calculation_id} validation error: {e}")
-
-        calculation = db_session.query(PCFCalculation).filter_by(id=calculation_id).first()
-        if calculation:
-            calculation.status = "failed"
-            if not calculation.calculation_metadata:
-                calculation.calculation_metadata = {}
-            calculation.calculation_metadata["error_message"] = str(e)
-            db_session.commit()
-
-    except Exception as e:
-        # Unexpected error
-        logger.error(f"Calculation {calculation_id} failed with error: {e}", exc_info=True)
-
-        calculation = db_session.query(PCFCalculation).filter_by(id=calculation_id).first()
-        if calculation:
-            calculation.status = "failed"
-            if not calculation.calculation_metadata:
-                calculation.calculation_metadata = {}
-            calculation.calculation_metadata["error_message"] = f"Calculation error: {str(e)}"
-            db_session.commit()
-
-    finally:
-        db_session.close()
 
 
 # ============================================================================
@@ -392,10 +238,11 @@ def get_calculation_status(
     # Add result fields if completed
     if calculation.status == "completed":
         response_data.update({
-            "total_co2e_kg": float(calculation.total_co2e_kg) if calculation.total_co2e_kg else 0.0,
-            "materials_co2e": float(calculation.materials_co2e) if calculation.materials_co2e else None,
-            "energy_co2e": float(calculation.energy_co2e) if calculation.energy_co2e else None,
-            "transport_co2e": float(calculation.transport_co2e) if calculation.transport_co2e else None,
+            # `is not None`, not truthiness: a stored 0 is a result, not a missing value
+            "total_co2e_kg": float(calculation.total_co2e_kg) if calculation.total_co2e_kg is not None else 0.0,
+            "materials_co2e": float(calculation.materials_co2e) if calculation.materials_co2e is not None else None,
+            "energy_co2e": float(calculation.energy_co2e) if calculation.energy_co2e is not None else None,
+            "transport_co2e": float(calculation.transport_co2e) if calculation.transport_co2e is not None else None,
             "calculation_time_ms": calculation.calculation_time_ms,
             # TASK-FE-P8-003: Include breakdown for expandable items in frontend
             "breakdown": calculation.breakdown if calculation.breakdown else None

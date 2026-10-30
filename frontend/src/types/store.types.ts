@@ -87,7 +87,6 @@ export interface Calculation {
   status: CalculationStatus;
   product_id?: string;
   created_at?: string;
-  calculation_type?: CalculationType;
 
   // Present when completed - aligned with backend CalculationStatusResponse
   total_co2e_kg?: number;

@@ -38,7 +38,7 @@ from backend.infrastructure.repositories.sqlalchemy_calculation_repository impor
 # ============================================================================
 
 
-async def get_ef_provider(
+def get_ef_provider(
     session=Depends(get_db),
 ) -> EmissionFactorProvider:
     sql_provider = SQLAlchemyEmissionFactorProvider(session)
@@ -46,7 +46,7 @@ async def get_ef_provider(
     return CachedEmissionFactorProvider(sql_provider, ttl_seconds=ttl)
 
 
-async def get_calculator(
+def get_calculator(
     ef_provider: EmissionFactorProvider = Depends(get_ef_provider),
 ) -> PCFCalculator:
     return PCFCalculator(ef_provider=ef_provider)

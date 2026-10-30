@@ -7,7 +7,7 @@ Tests the PCFCalculator class to ensure:
 3. Breakdown by category (materials, energy, transport) is accurate
 4. Error handling for missing emission factors
 5. Data quality score calculation
-6. Integration with real database (t-shirt, water bottle, phone case)
+6. The stored-calculation path is covered in tests/services/test_calculation_runner.py
 
 Following TDD methodology - tests written BEFORE implementation.
 TASK-CALC-003: Implement Simplified PCF Calculator
@@ -369,37 +369,6 @@ class TestHierarchicalBOMCalculation:
         assert "max_depth" in result
         assert result["max_depth"] == 2
 
-    def test_calculate_with_database_product(self, db_session, initialized_brightway):
-        """
-        Test calculation using actual product from database.
-
-        Given: T-shirt product exists in database with BOM
-        When: calculate_product() is called with product_id
-        Then: PCF is calculated from database BOM structure
-        """
-        from backend.calculator.pcf_calculator import PCFCalculator
-        from backend.models import Product
-
-        calculator = PCFCalculator()
-
-        # Find t-shirt product in database
-        product = db_session.query(Product).filter(
-            Product.code == "TSHIRT-001"
-        ).first()
-
-        # Skip if product doesn't exist (depends on seed data)
-        if product is None:
-            pytest.skip("Test product TSHIRT-001 not found in database")
-
-        result = calculator.calculate_product(product.id, db_session)
-
-        # Should have total CO2e
-        assert "total_co2e_kg" in result
-        assert result["total_co2e_kg"] > 0
-
-        # Should have breakdown
-        assert "breakdown" in result
-
 
 class TestBreakdownByCategory:
     """Test emissions breakdown by category (materials, energy, transport)."""
@@ -510,23 +479,6 @@ class TestErrorHandling:
         assert result["total_co2e_kg"] == pytest.approx(0.0, abs=0.001)
         assert result["breakdown"] == {}
 
-    def test_invalid_product_id_raises_error(self, db_session, initialized_brightway):
-        """
-        Test error handling for non-existent product ID.
-
-        Given: Invalid product_id
-        When: calculate_product() is called
-        Then: ValueError is raised
-        """
-        from backend.calculator.pcf_calculator import PCFCalculator
-
-        calculator = PCFCalculator()
-
-        with pytest.raises(ValueError) as exc_info:
-            calculator.calculate_product("invalid-id-12345", db_session)
-
-        assert "product not found" in str(exc_info.value).lower()
-
 
 class TestDataQualityScore:
     """Test data quality score calculation."""
@@ -582,107 +534,6 @@ class TestDataQualityScore:
         # Quality score should be calculated
         assert "data_quality_score" in result
         assert isinstance(result["data_quality_score"], (int, float))
-
-
-class TestRealisticProducts:
-    """Test calculations for realistic demo products."""
-
-    def test_cotton_tshirt_realistic(self, db_session, initialized_brightway):
-        """
-        Test T-shirt realistic calculation.
-
-        Given: T-shirt with full BOM (materials, energy, transport)
-        When: calculate_product() is called
-        Then: Total CO2e is approximately 2.05 kg
-
-        Expected breakdown:
-        - Materials: ~1.04 kg CO2e
-        - Energy: ~1.0 kg CO2e
-        - Transport: ~0.01 kg CO2e
-        """
-        from backend.calculator.pcf_calculator import PCFCalculator
-        from backend.models import Product
-
-        calculator = PCFCalculator()
-
-        # Find t-shirt product
-        product = db_session.query(Product).filter(
-            Product.code == "TSHIRT-001"
-        ).first()
-
-        if product is None:
-            pytest.skip("Test product TSHIRT-001 not found in database")
-
-        result = calculator.calculate_product(product.id, db_session)
-
-        # Check total is approximately 2.05 kg CO2e (±5% tolerance)
-        assert result["total_co2e_kg"] == pytest.approx(2.05, rel=0.05)
-
-        # Check breakdown by category if available
-        if "breakdown_by_category" in result:
-            assert result["breakdown_by_category"]["materials"] == pytest.approx(1.04, rel=0.1)
-            assert result["breakdown_by_category"]["energy"] == pytest.approx(1.0, rel=0.1)
-            assert result["breakdown_by_category"]["transport"] == pytest.approx(0.01, rel=0.2)
-
-    def test_water_bottle_realistic(self, db_session, initialized_brightway):
-        """
-        Test water bottle realistic calculation.
-
-        Given: Water bottle with PET, cap, and production energy
-        When: calculate_product() is called
-        Then: Total CO2e is approximately 0.105 kg
-
-        Note: Task spec shows 0.157 kg in one place and 0.105 kg in another.
-        Using 0.105 kg from task acceptance criteria.
-        """
-        from backend.calculator.pcf_calculator import PCFCalculator
-        from backend.models import Product
-
-        calculator = PCFCalculator()
-
-        # Find water bottle product
-        product = db_session.query(Product).filter(
-            Product.code.like("BOTTLE%")
-        ).first()
-
-        if product is None:
-            pytest.skip("Test product BOTTLE not found in database")
-
-        result = calculator.calculate_product(product.id, db_session)
-
-        # Check total is in expected range (±10% tolerance due to spec ambiguity)
-        assert result["total_co2e_kg"] == pytest.approx(0.105, rel=0.1) or \
-               result["total_co2e_kg"] == pytest.approx(0.157, rel=0.1)
-
-    def test_phone_case_realistic(self, db_session, initialized_brightway):
-        """
-        Test phone case realistic calculation.
-
-        Given: Phone case with plastic and packaging
-        When: calculate_product() is called
-        Then: Total CO2e is approximately 0.157 kg or 0.343 kg
-
-        Note: Task spec shows both values in different sections.
-        Using range check for flexibility.
-        """
-        from backend.calculator.pcf_calculator import PCFCalculator
-        from backend.models import Product
-
-        calculator = PCFCalculator()
-
-        # Find phone case product
-        product = db_session.query(Product).filter(
-            Product.code.like("CASE%")
-        ).first()
-
-        if product is None:
-            pytest.skip("Test product CASE not found in database")
-
-        result = calculator.calculate_product(product.id, db_session)
-
-        # Check total is in expected range
-        assert result["total_co2e_kg"] > 0.1
-        assert result["total_co2e_kg"] < 0.5
 
 
 class TestCalculationPerformance:

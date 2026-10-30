@@ -162,7 +162,7 @@ def get_current_user_from_token(
     return user
 
 
-async def get_current_user(
+def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
@@ -239,7 +239,7 @@ async def get_current_user(
     return user
 
 
-async def get_optional_user(
+def get_optional_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> Optional[User]:
@@ -267,7 +267,7 @@ async def get_optional_user(
     return db.query(User).filter(User.id == user_id).first()
 
 
-async def get_current_active_user(
+def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
     """
@@ -293,7 +293,7 @@ async def get_current_active_user(
     return current_user
 
 
-async def require_admin(
+def require_admin(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
     """

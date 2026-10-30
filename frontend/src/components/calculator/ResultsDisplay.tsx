@@ -23,6 +23,7 @@
  * Emerald Night 5B Rebuild: Vertical stack, hero section, glass cards
  */
 
+import { useShallow } from 'zustand/react/shallow';
 import { useWizardStore } from '../../store/wizardStore';
 import { useCalculatorStore } from '../../store/calculatorStore';
 import { Button } from '../ui/button';
@@ -43,8 +44,16 @@ import { RotateCcw } from 'lucide-react';
  * Includes LicenseFooter for data source attribution.
  */
 export default function ResultsDisplay() {
-  const { reset: resetWizard } = useWizardStore();
-  const { calculation, selectedProduct, bomItems, reset: resetCalculator } = useCalculatorStore();
+  // Granular subscriptions (issue #38)
+  const { reset: resetWizard } = useWizardStore(useShallow((s) => ({ reset: s.reset })));
+  const { calculation, selectedProduct, bomItems, reset: resetCalculator } = useCalculatorStore(
+    useShallow((s) => ({
+      calculation: s.calculation,
+      selectedProduct: s.selectedProduct,
+      bomItems: s.bomItems,
+      reset: s.reset,
+    })),
+  );
 
   /**
    * Handle New Calculation button click

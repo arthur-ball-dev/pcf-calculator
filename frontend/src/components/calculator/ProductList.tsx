@@ -22,6 +22,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Search, Loader2, Check, Grid2X2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useShallow } from 'zustand/react/shallow';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { productsAPI } from '@/services/api/products';
@@ -266,15 +267,26 @@ const ProductList: React.FC = () => {
   // ---------------------------------------------------------------------------
   // Store access
   // ---------------------------------------------------------------------------
+  // Granular subscriptions (issue #38)
   const {
     selectedProductId,
     setSelectedProduct,
     setLoadingBOM,
     setBomItems,
     setSelectedProductDetails,
-  } = useCalculatorStore();
+  } = useCalculatorStore(
+    useShallow((s) => ({
+      selectedProductId: s.selectedProductId,
+      setSelectedProduct: s.setSelectedProduct,
+      setLoadingBOM: s.setLoadingBOM,
+      setBomItems: s.setBomItems,
+      setSelectedProductDetails: s.setSelectedProductDetails,
+    })),
+  );
 
-  const { markStepComplete, markStepIncomplete } = useWizardStore();
+  const { markStepComplete, markStepIncomplete } = useWizardStore(
+    useShallow((s) => ({ markStepComplete: s.markStepComplete, markStepIncomplete: s.markStepIncomplete })),
+  );
 
   // ---------------------------------------------------------------------------
   // Derived state

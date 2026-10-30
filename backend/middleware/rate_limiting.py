@@ -18,8 +18,6 @@ Features:
 Reference: RFC 6585 (429 status), IETF draft-polli-ratelimit-headers
 """
 
-import base64
-import json
 import logging
 import threading
 import time
@@ -308,34 +306,26 @@ def get_user_from_token(headers: Headers) -> Optional[str]:
         headers: Request headers
 
     Returns:
-        User ID if authenticated, None otherwise
-    """
-    auth_header = headers.get("authorization", "")
+        User ID if the token is valid, None otherwise
 
+    The signature is verified (issue #17): an unsigned token used to be able to
+    pick its own rate-limit bucket by rotating the ID claim, which is a way around
+    the per-IP limit. Our tokens carry `user_id`; `sub` is accepted for
+    standards-shaped tokens.
+    """
+    from backend.auth.jwt import decode_token, InvalidTokenError, TokenExpiredError
+
+    auth_header = headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
 
     try:
-        # Extract token
-        token = auth_header[7:]
-
-        # Decode JWT payload (without verification - just for ID extraction)
-        # The auth middleware handles actual verification
-        parts = token.split(".")
-        if len(parts) != 3:
-            return None
-
-        # Decode payload (middle part)
-        payload_b64 = parts[1]
-        # Add padding if needed
-        padding = 4 - len(payload_b64) % 4
-        if padding != 4:
-            payload_b64 += "=" * padding
-
-        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-        return payload.get("sub")
-    except Exception:
+        payload = decode_token(auth_header[7:])
+    except (InvalidTokenError, TokenExpiredError):
         return None
+
+    user_id = payload.get("user_id") or payload.get("sub")
+    return str(user_id) if user_id is not None else None
 
 
 def is_admin_request(headers: Headers) -> bool:

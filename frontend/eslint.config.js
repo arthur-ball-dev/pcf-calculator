@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
+import testIdAllowlist from './eslint.testid-allowlist.js'
 
 export default defineConfig([
   // dev-dist is vite-plugin-pwa's dev-mode service worker output (untracked, generated)
@@ -59,6 +60,21 @@ export default defineConfig([
     rules: {
       'react-hooks/rules-of-hooks': 'off',
       'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    // Issue #42: tests query what users perceive. Existing TestId users are frozen in the allowlist.
+    files: ['__tests__/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'src/**/__tests__/**/*.{ts,tsx}'],
+    ignores: testIdAllowlist,
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'CallExpression[callee.name=/^(get|query|find)(All)?ByTestId$/], CallExpression[callee.property.name=/^(get|query|find)(All)?ByTestId$/]',
+          message: 'Use an accessible query (ByRole, ByLabelText, ByText) instead of ByTestId.',
+        },
+      ],
     },
   },
 ])

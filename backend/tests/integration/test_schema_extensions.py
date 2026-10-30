@@ -45,7 +45,6 @@ def is_postgresql(engine) -> bool:
 class TestProductFullTextSearch:
     """Test full-text search functionality on products."""
 
-    @pytest.mark.skipif(True, reason="PostgreSQL TSVECTOR required")
     def test_product_search_vector_populated(self, db_session: Session):
         """Test that product search_vector is populated automatically."""
         from backend.models import Product
@@ -66,7 +65,6 @@ class TestProductFullTextSearch:
         # search_vector should be populated
         assert product.search_vector is not None
 
-    @pytest.mark.skipif(True, reason="PostgreSQL TSVECTOR required")
     def test_product_full_text_search_by_name(self, db_session: Session):
         """Test searching products by name."""
         from backend.models import Product
@@ -112,7 +110,6 @@ class TestProductFullTextSearch:
         names = [r[1] for r in results]
         assert any("Laptop" in name for name in names)
 
-    @pytest.mark.skipif(True, reason="PostgreSQL TSVECTOR required")
     def test_product_full_text_search_by_description(self, db_session: Session):
         """Test searching products by description."""
         from backend.models import Product
@@ -138,7 +135,6 @@ class TestProductFullTextSearch:
 
         assert len(results) >= 1
 
-    @pytest.mark.skipif(True, reason="PostgreSQL TSVECTOR required")
     def test_product_search_ranking(self, db_session: Session):
         """Test that search results are ranked by relevance."""
         from backend.models import Product
@@ -163,7 +159,7 @@ class TestProductFullTextSearch:
         # Search with ranking
         results = db_session.execute(
             text("""
-                SELECT id, name, ts_rank(search_vector, query) as rank
+                SELECT id, name, ts_rank(search_vector::tsvector, query) as rank
                 FROM products, to_tsquery('english', 'laptop') query
                 WHERE search_vector @@ query
                 ORDER BY rank DESC
@@ -174,7 +170,6 @@ class TestProductFullTextSearch:
         if len(results) >= 2:
             assert results[0][1] == "Laptop Computer"
 
-    @pytest.mark.skipif(True, reason="PostgreSQL TSVECTOR required")
     def test_product_search_partial_match(self, db_session: Session):
         """Test partial word matching with prefix search."""
         from backend.models import Product
@@ -207,7 +202,6 @@ class TestProductFullTextSearch:
 class TestEmissionFactorFullTextSearch:
     """Test full-text search functionality on emission factors."""
 
-    @pytest.mark.skipif(True, reason="PostgreSQL TSVECTOR required")
     def test_emission_factor_search_vector_populated(self, db_session: Session):
         """Test that emission factor search_vector is populated automatically."""
         from backend.models import EmissionFactor
@@ -227,7 +221,6 @@ class TestEmissionFactorFullTextSearch:
 
         assert ef.search_vector is not None
 
-    @pytest.mark.skipif(True, reason="PostgreSQL TSVECTOR required")
     def test_emission_factor_search_by_activity_name(self, db_session: Session):
         """Test searching emission factors by activity name."""
         from backend.models import EmissionFactor
@@ -272,7 +265,6 @@ class TestEmissionFactorFullTextSearch:
         activity_names = [r[1] for r in results]
         assert all("Steel" in name for name in activity_names)
 
-    @pytest.mark.skipif(True, reason="PostgreSQL TSVECTOR required")
     def test_emission_factor_combined_search(self, db_session: Session):
         """Test combined search with multiple terms."""
         from backend.models import EmissionFactor
@@ -340,7 +332,6 @@ class TestCategoryHierarchyQueries:
         all_cats = db_session.query(ProductCategory).all()
         assert len(all_cats) == 3
 
-    @pytest.mark.skipif(True, reason="PostgreSQL CTE required for recursive queries")
     def test_get_all_descendants_cte(self, db_session: Session):
         """Test getting all descendants using recursive CTE."""
         from backend.models import ProductCategory
@@ -365,7 +356,7 @@ class TestCategoryHierarchyQueries:
                 WITH RECURSIVE category_tree AS (
                     -- Base case: start from root
                     SELECT id, code, name, parent_id, level,
-                           ARRAY[code] as path
+                           ARRAY[code::varchar] as path
                     FROM product_categories
                     WHERE code = 'R'
 
@@ -391,7 +382,6 @@ class TestCategoryHierarchyQueries:
         assert "L2A" in codes
         assert "L2B" in codes
 
-    @pytest.mark.skipif(True, reason="PostgreSQL CTE required for recursive queries")
     def test_get_ancestors_cte(self, db_session: Session):
         """Test getting all ancestors using recursive CTE."""
         from backend.models import ProductCategory
@@ -440,7 +430,6 @@ class TestCategoryHierarchyQueries:
         codes = [r[0] for r in results]
         assert codes == ["L0", "L1", "L2", "L3"]
 
-    @pytest.mark.skipif(True, reason="PostgreSQL CTE required for recursive queries")
     def test_get_full_path_string(self, db_session: Session):
         """Test building full category path as string."""
         from backend.models import ProductCategory
@@ -463,7 +452,7 @@ class TestCategoryHierarchyQueries:
             text("""
                 WITH RECURSIVE ancestors AS (
                     SELECT id, code, name, parent_id, level,
-                           name as path_name
+                           name::varchar as path_name
                     FROM product_categories
                     WHERE code = 'LAPT'
 
@@ -493,7 +482,6 @@ class TestCategoryHierarchyQueries:
 class TestCategoryTreePerformance:
     """Test category tree query performance."""
 
-    @pytest.mark.skipif(True, reason="Performance test requires PostgreSQL with real data")
     def test_category_tree_query_under_200ms(self, db_session: Session):
         """Test that category tree query completes in under 200ms."""
         from backend.models import ProductCategory
@@ -588,7 +576,6 @@ class TestCategoryTreePerformance:
 class TestFullTextSearchPerformance:
     """Test full-text search performance."""
 
-    @pytest.mark.skipif(True, reason="Performance test requires PostgreSQL with real data")
     def test_product_search_under_100ms(self, db_session: Session):
         """Test that product full-text search completes in under 100ms."""
         from backend.models import Product
@@ -640,7 +627,6 @@ class TestFullTextSearchPerformance:
         # Verify we got results
         assert len(results) > 0, "Expected search results"
 
-    @pytest.mark.skipif(True, reason="Performance test requires PostgreSQL with real data")
     def test_emission_factor_search_under_100ms(self, db_session: Session):
         """Test that emission factor full-text search completes in under 100ms."""
         from backend.models import EmissionFactor
@@ -758,7 +744,6 @@ class TestSchemaExtensionValidation:
 class TestIndexValidation:
     """Test that required indexes exist."""
 
-    @pytest.mark.skipif(True, reason="PostgreSQL required for index validation")
     def test_product_search_gin_index_exists(self, db_session: Session):
         """Test that GIN index exists on products.search_vector."""
         result = db_session.execute(
@@ -772,7 +757,6 @@ class TestIndexValidation:
 
         assert result is not None, "GIN index on products.search_vector not found"
 
-    @pytest.mark.skipif(True, reason="PostgreSQL required for index validation")
     def test_emission_factor_search_gin_index_exists(self, db_session: Session):
         """Test that GIN index exists on emission_factors.search_vector."""
         result = db_session.execute(
@@ -786,7 +770,6 @@ class TestIndexValidation:
 
         assert result is not None, "GIN index on emission_factors.search_vector not found"
 
-    @pytest.mark.skipif(True, reason="PostgreSQL required for index validation")
     def test_category_parent_index_exists(self, db_session: Session):
         """Test that index exists on product_categories.parent_id."""
         result = db_session.execute(

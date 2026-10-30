@@ -37,6 +37,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ArrowRight, Calculator } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useShallow } from 'zustand/react/shallow';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { useAnnouncer } from '@/hooks/useAnnouncer';
@@ -56,9 +57,27 @@ import { CalculationOverlay } from './CalculationOverlay';
  * Main CalculationWizard component
  */
 const CalculationWizard: React.FC = () => {
+  // Granular subscriptions (issue #38)
   const { currentStep, completedSteps, markStepComplete, markStepIncomplete, goNext, goBack, canProceed: wizardCanProceed } =
-    useWizardStore();
-  const { selectedProduct, calculation, isLoadingBOM, bomItems } = useCalculatorStore();
+    useWizardStore(
+      useShallow((s) => ({
+        currentStep: s.currentStep,
+        completedSteps: s.completedSteps,
+        markStepComplete: s.markStepComplete,
+        markStepIncomplete: s.markStepIncomplete,
+        goNext: s.goNext,
+        goBack: s.goBack,
+        canProceed: s.canProceed,
+      })),
+    );
+  const { selectedProduct, calculation, isLoadingBOM, bomItems } = useCalculatorStore(
+    useShallow((s) => ({
+      selectedProduct: s.selectedProduct,
+      calculation: s.calculation,
+      isLoadingBOM: s.isLoadingBOM,
+      bomItems: s.bomItems,
+    })),
+  );
   const { announce } = useAnnouncer();
   const { isCalculating, error, elapsedSeconds, startCalculation, stopPolling } = useCalculation();
   const { isMobile, isTablet } = useBreakpoints();

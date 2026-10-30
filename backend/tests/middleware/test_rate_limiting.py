@@ -712,10 +712,10 @@ def test_authenticated_user_tracked_by_user_id():
 
     client = TestClient(test_app)
 
-    # Simulate authenticated user by adding auth header
-    # (The middleware should extract user ID from token)
+    # A server-signed token: the middleware verifies the signature before trusting the
+    # user claim (issue #17), so an unsigned token falls back to the IP bucket.
     auth_headers = {
-        "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyXzEyMyJ9.test",
+        **_get_test_auth_headers(),
         "X-Forwarded-For": "10.0.0.1"
     }
 
@@ -967,6 +967,61 @@ def test_admin_can_exceed_regular_limit():
         assert response.status_code == 200, (
             f"Admin request {i+1} should succeed (under admin limit)"
         )
+
+
+def _forged_token(payload: dict) -> str:
+    """A JWT-shaped token signed with the wrong key (issue #17)."""
+    import jwt as pyjwt
+    from backend.auth.jwt import JWT_ALGORITHM, JWT_AUDIENCE, JWT_ISSUER
+    claims = {**payload, "iss": JWT_ISSUER, "aud": JWT_AUDIENCE}
+    return pyjwt.encode(claims, "not-the-server-secret", algorithm=JWT_ALGORITHM)
+
+
+def test_forged_admin_token_does_not_get_admin_limit():
+    """A token claiming role=admin but not signed by the server gets the regular limit."""
+    from backend.middleware.rate_limiting import RateLimitMiddleware, MemoryStorage
+
+    test_app = FastAPI()
+
+    @test_app.get("/test")
+    async def test_endpoint():
+        return {"status": "ok"}
+
+    test_app.add_middleware(
+        RateLimitMiddleware, storage=MemoryStorage(), default_limit=100, window_seconds=60, admin_multiplier=10
+    )
+    client = TestClient(test_app)
+
+    forged = _forged_token({"user_id": "forged-admin", "username": "x", "role": "admin"})
+    response = client.get("/test", headers={"Authorization": f"Bearer {forged}"})
+
+    assert int(response.headers.get("X-RateLimit-Limit", 0)) == 100
+
+
+def test_forged_token_cannot_choose_its_own_rate_limit_bucket():
+    """
+    Rotating a forged token's user claim must not reset the counter: unsigned tokens
+    fall back to the IP bucket, so the per-IP limit still applies.
+    """
+    from backend.middleware.rate_limiting import RateLimitMiddleware, MemoryStorage
+
+    test_app = FastAPI()
+
+    @test_app.get("/test")
+    async def test_endpoint():
+        return {"status": "ok"}
+
+    test_app.add_middleware(
+        RateLimitMiddleware, storage=MemoryStorage(), default_limit=5, window_seconds=60
+    )
+    client = TestClient(test_app)
+
+    statuses = []
+    for i in range(6):
+        forged = _forged_token({"user_id": f"rotating-{i}", "username": "x", "role": "user"})
+        statuses.append(client.get("/test", headers={"Authorization": f"Bearer {forged}"}).status_code)
+
+    assert statuses == [200, 200, 200, 200, 200, 429]
 
 
 # ============================================================================

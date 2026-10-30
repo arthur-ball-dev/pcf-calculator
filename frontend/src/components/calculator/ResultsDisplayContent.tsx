@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { EMISSION_CATEGORY_COLORS } from '@/constants/colors';
 import { getUserFriendlyError } from '@/utils/errorMessages';
@@ -64,7 +65,8 @@ function formatDate(dateString: string | undefined): string {
 }
 
 export function ResultsDisplayContent() {
-  const { calculation } = useCalculatorStore();
+  // Granular subscription (issue #38); the object form keeps whole-state test mocks working
+  const { calculation } = useCalculatorStore(useShallow((s) => ({ calculation: s.calculation })));
 
   // No calculation available
   if (!calculation) {

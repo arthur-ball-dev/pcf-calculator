@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import api from '@/services/api';
+import { useShallow } from 'zustand/react/shallow';
 import { useCalculatorStore } from '@/store/calculatorStore';
 import { useWizardStore } from '@/store/wizardStore';
 import type { Calculation } from '@/types/store.types';
@@ -43,8 +44,17 @@ export function useCalculation(): UseCalculationReturn {
   const pollCountRef = useRef(0);
   const startTimeRef = useRef<number>(0);
 
-  const { selectedProductId, bomItems, setCalculation } = useCalculatorStore();
-  const { markStepComplete, goNext } = useWizardStore();
+  // Granular subscriptions (issue #38)
+  const { selectedProductId, bomItems, setCalculation } = useCalculatorStore(
+    useShallow((s) => ({
+      selectedProductId: s.selectedProductId,
+      bomItems: s.bomItems,
+      setCalculation: s.setCalculation,
+    })),
+  );
+  const { markStepComplete, goNext } = useWizardStore(
+    useShallow((s) => ({ markStepComplete: s.markStepComplete, goNext: s.goNext })),
+  );
 
   /**
    * Stop polling and reset state

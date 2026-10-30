@@ -44,6 +44,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { useShallow } from 'zustand/react/shallow';
 import { useWizardStore } from '@/store/wizardStore';
 import { useCalculatorStore } from '@/store/calculatorStore';
 
@@ -70,9 +71,19 @@ const WizardNavigation: React.FC<WizardNavigationProps> = ({
   isNavigating: isNavigatingProp,
   setIsNavigating: setIsNavigatingProp,
 }) => {
-  const { currentStep, canGoBack, canProceed, goBack, goNext, reset } =
-    useWizardStore();
-  const { isLoadingBOM } = useCalculatorStore();
+  // Granular subscriptions (issue #38): the component re-renders only when a selected
+  // field changes, not on every store update.
+  const { currentStep, canGoBack, canProceed, goBack, goNext, reset } = useWizardStore(
+    useShallow((s) => ({
+      currentStep: s.currentStep,
+      canGoBack: s.canGoBack,
+      canProceed: s.canProceed,
+      goBack: s.goBack,
+      goNext: s.goNext,
+      reset: s.reset,
+    })),
+  );
+  const { isLoadingBOM } = useCalculatorStore(useShallow((s) => ({ isLoadingBOM: s.isLoadingBOM })));
 
   const isLastStep = currentStep === 'results';
   const isEditStep = currentStep === 'edit';

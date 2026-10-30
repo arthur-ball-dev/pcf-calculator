@@ -667,27 +667,6 @@ class PCFCalculator:
 
         return result
 
-    def calculate_product(self, product_id: str, db_session) -> Dict[str, Any]:
-        """
-        Calculate PCF for a product from database using its BOM.
-
-        This is a legacy method that delegates to the legacy_calculator module.
-        For new implementations, use calculate() with an injected ef_provider.
-
-        Args:
-            product_id: UUID of product in database
-            db_session: SQLAlchemy database session
-
-        Returns:
-            Dictionary with calculation results
-
-        Raises:
-            ValueError: If product not found in database
-        """
-        # Import here to avoid module-level SQLAlchemy dependency
-        from backend.calculator.legacy_calculator import calculate_product_from_db
-        return calculate_product_from_db(self, product_id, db_session)
-
     def _get_co2e_from_activity(self, activity) -> float:
         """
         Extract CO2e emission factor from Brightway2 activity.
