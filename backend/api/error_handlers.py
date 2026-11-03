@@ -31,7 +31,8 @@ from backend.api.utils.error_responses import create_error_dict
 from backend.domain.entities.errors import (
     CalculationNotFoundError,
     DomainValidationError,
-    DuplicateProductError,
+    DuplicateEmissionFactorError,
+    EmissionFactorNotFoundError,
     ProductNotFoundError,
 )
 
@@ -151,14 +152,24 @@ async def domain_validation_handler(request: Request, exc: DomainValidationError
     )
 
 
-async def duplicate_product_handler(request: Request, exc: DuplicateProductError) -> JSONResponse:
-    logger.warning(f"Duplicate product code: {exc.code}")
+async def emission_factor_not_found_handler(
+    request: Request, exc: EmissionFactorNotFoundError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content=create_error_dict(
+            code=error_code_for_status(status.HTTP_404_NOT_FOUND), message=str(exc)
+        ),
+    )
+
+
+async def duplicate_emission_factor_handler(
+    request: Request, exc: DuplicateEmissionFactorError
+) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT,
         content=create_error_dict(
-            code="DUPLICATE_PRODUCT",
-            message=str(exc),
-            details=[{"field": "code", "message": f"A product with code {exc.code} already exists"}],
+            code=error_code_for_status(status.HTTP_409_CONFLICT), message=str(exc)
         ),
     )
 
@@ -179,5 +190,6 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ProductNotFoundError, product_not_found_handler)
     app.add_exception_handler(CalculationNotFoundError, calculation_not_found_handler)
     app.add_exception_handler(DomainValidationError, domain_validation_handler)
-    app.add_exception_handler(DuplicateProductError, duplicate_product_handler)
+    app.add_exception_handler(EmissionFactorNotFoundError, emission_factor_not_found_handler)
+    app.add_exception_handler(DuplicateEmissionFactorError, duplicate_emission_factor_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

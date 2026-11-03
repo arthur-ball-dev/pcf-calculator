@@ -10,18 +10,18 @@ Search and categories endpoints moved to:
 - product_categories.py (GET /api/v1/products/categories)
 """
 
-from typing import List, Optional
+from typing import Optional
 import re
 import logging
 
 from fastapi import APIRouter, Depends, Query, Path, status
-from sqlalchemy.orm import Session, joinedload
 
-from backend.database.connection import get_db
-from backend.models import Product, BillOfMaterials
+from backend.api.dependencies import get_product_service
 from backend.models.user import User
 from backend.auth.dependencies import get_optional_user
 from backend.api.utils.error_responses import create_error_response
+from backend.domain.entities.errors import ProductNotFoundError
+from backend.domain.services.product_service import ProductService
 from backend.schemas import (
     BOMItemResponse,
     ProductListItemResponse,
@@ -107,7 +107,7 @@ def list_products(
         None,
         description="Alias for is_finished_product (deprecated, use is_finished_product)"
     ),
-    db: Session = Depends(get_db),
+    service: ProductService = Depends(get_product_service),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     """
@@ -137,19 +137,9 @@ def list_products(
         logger.debug(f"Cache hit for product list: {cache_key}")
         return ProductListResponse(**cached_response)
 
-    # Step 2: Build query (cache miss)
+    # Step 2: Query (cache miss)
     logger.debug(f"Cache miss for product list: {cache_key}")
-    query = db.query(Product)
-
-    # Apply filter
-    if effective_filter is not None:
-        query = query.filter(Product.is_finished_product == effective_filter)
-
-    # Get total count
-    total = query.count()
-
-    # Apply pagination and execute
-    products = query.order_by(Product.name).offset(offset).limit(limit).all()
+    page = service.list_products(limit=limit, offset=offset, is_finished_product=effective_filter)
 
     # Format response
     items = [
@@ -162,12 +152,12 @@ def list_products(
             "is_finished_product": p.is_finished_product,
             "created_at": p.created_at.isoformat() if p.created_at else ""
         }
-        for p in products
+        for p in page.items
     ]
 
     response_dict = {
         "items": items,
-        "total": total,
+        "total": page.total,
         "limit": limit,
         "offset": offset
     }
@@ -194,7 +184,7 @@ def get_product(
         ...,
         description="Product ID (UUID format)"
     ),
-    db: Session = Depends(get_db),
+    service: ProductService = Depends(get_product_service),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     """
@@ -215,12 +205,9 @@ def get_product(
             details=[{"field": "product_id", "message": "Must be a valid UUID or identifier"}]
         )
 
-    # Query product with BOM
-    product = db.query(Product).options(
-        joinedload(Product.bom_items).joinedload(BillOfMaterials.child_product)
-    ).filter(Product.id == product_id).first()
-
-    if product is None:
+    try:
+        result = service.get_product_with_bom(product_id)
+    except ProductNotFoundError:
         return create_error_response(
             status_code=404,
             code="PRODUCT_NOT_FOUND",
@@ -228,18 +215,20 @@ def get_product(
             details=[{"field": "product_id", "message": f"No product exists with ID {product_id}"}]
         )
 
+    product = result.product
+
     # Format BOM items
     bom_items = [
         BOMItemResponse(
-            id=bom.id,
-            child_product_id=bom.child_product_id,
-            child_product_name=bom.child_product.name if bom.child_product else "Unknown",
-            quantity=float(bom.quantity),
-            unit=bom.unit,
-            notes=bom.notes,
-            emission_factor_id=bom.emission_factor_id,  # Stored in database
+            id=item.id,
+            child_product_id=item.component_id,
+            child_product_name=item.component_name,
+            quantity=item.quantity,
+            unit=item.unit,
+            notes=item.notes,
+            emission_factor_id=item.emission_factor_id,
         )
-        for bom in product.bom_items
+        for item in result.bom_items
     ]
 
     return ProductDetailResponse(

@@ -5,20 +5,21 @@ Endpoints:
 - GET /api/v1/products/search - Full-text search with multi-criteria filtering
 """
 
-from typing import List, Optional, Tuple, Any, Dict
+from typing import List, Optional, Any, Dict
 from dataclasses import dataclass
 import re
 import logging
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.orm import Session, joinedload, Query as SQLAQuery
-from sqlalchemy import or_, func, exists, select, not_
 
-from backend.database.connection import get_db
-from backend.models import Product, BillOfMaterials, ProductCategory
+from backend.api.dependencies import get_category_service, get_product_service
 from backend.models.user import User
 from backend.auth.dependencies import get_optional_user
 from backend.api.utils.error_responses import create_error_response
+from backend.domain.entities.errors import CategoryNotFoundError
+from backend.domain.entities.product import ProductSearchCriteria, ScoredProduct
+from backend.domain.services.category_service import CategoryService
+from backend.domain.services.product_service import ProductService
 from backend.schemas.products import (
     IndustrySector,
     CategoryInfo,
@@ -76,7 +77,7 @@ def _validate_search_params(
     has_bom: Optional[bool],
     limit: int,
     offset: int,
-    db: Session
+    categories: CategoryService,
 ) -> ValidatedParams:
     """Validate and normalize search parameters."""
     normalized_query = query
@@ -137,8 +138,9 @@ def _validate_search_params(
         )
 
     if category_id is not None:
-        category = db.query(ProductCategory).filter(ProductCategory.id == category_id).first()
-        if category is None:
+        try:
+            categories.get_category(category_id)
+        except CategoryNotFoundError:
             return ValidatedParams(
                 query=None, category_id=None, industry=None, manufacturer=None,
                 country_of_origin=None, is_finished_product=None, has_bom=None,
@@ -165,107 +167,22 @@ def _validate_search_params(
     )
 
 
-def _build_search_query(db: Session, params: ValidatedParams) -> SQLAQuery:
-    """Build SQLAlchemy query with filters from validated parameters."""
-    base_query = db.query(Product).options(
-        joinedload(Product.product_category)
-    )
-
-    if params.query:
-        query_lower = f"%{params.query.lower()}%"
-        base_query = base_query.filter(
-            or_(
-                func.lower(Product.name).like(query_lower),
-                func.lower(Product.description).like(query_lower),
-                func.lower(Product.code).like(query_lower),
-                func.lower(Product.search_vector).like(query_lower)
-            )
-        )
-
-    if params.category_id is not None:
-        base_query = base_query.filter(Product.category_id == params.category_id)
-
-    if params.industry is not None:
-        base_query = base_query.filter(
-            or_(
-                exists(
-                    select(ProductCategory.id).where(
-                        ProductCategory.id == Product.category_id,
-                        ProductCategory.industry_sector == params.industry
-                    )
-                ),
-                func.lower(Product.category) == params.industry.lower()
-            )
-        )
-
-    if params.manufacturer is not None:
-        manufacturer_pattern = f"%{params.manufacturer}%"
-        base_query = base_query.filter(
-            func.lower(Product.manufacturer).like(func.lower(manufacturer_pattern))
-        )
-
-    if params.country_of_origin is not None:
-        base_query = base_query.filter(Product.country_of_origin == params.country_of_origin)
-
-    if params.is_finished_product is not None:
-        base_query = base_query.filter(Product.is_finished_product == params.is_finished_product)
-
-    has_bom_subquery = exists(
-        select(BillOfMaterials.id).where(
-            BillOfMaterials.parent_product_id == Product.id
-        )
-    )
-    if params.has_bom is True:
-        base_query = base_query.filter(has_bom_subquery)
-    elif params.has_bom is False:
-        base_query = base_query.filter(not_(has_bom_subquery))
-
-    base_query = base_query.order_by(Product.name)
-    return base_query
-
-
-def _apply_relevance_scoring(
-    products: List[Product],
-    query: Optional[str]
-) -> List[Tuple[Product, Optional[float]]]:
-    """Apply relevance scoring to search results."""
-    if not query:
-        return [(p, None) for p in products]
-
-    query_lower = query.lower()
-    scored_products = []
-
-    for p in products:
-        score = 0.0
-        if p.name and query_lower in p.name.lower():
-            score += 0.5
-            if p.name.lower().startswith(query_lower):
-                score += 0.3
-        if p.description and query_lower in p.description.lower():
-            score += 0.1
-        if p.code and query_lower in p.code.lower():
-            score += 0.1
-        relevance_score = min(score, 1.0)
-        scored_products.append((p, relevance_score))
-
-    return scored_products
-
-
 def _format_search_results(
-    scored_products: List[Tuple[Product, Optional[float]]],
+    results: List[ScoredProduct],
     total: int,
     params: ValidatedParams
 ) -> Dict[str, Any]:
     """Format search results into response dict (cacheable)."""
     items = []
-    for p, relevance_score in scored_products:
+    for result in results:
+        p = result.product
         category_info = None
-        if p.product_category:
+        if p.category_info:
             category_info = {
-                "id": p.product_category.id,
-                "code": p.product_category.code,
-                "name": p.product_category.name,
-                "industry_sector": p.product_category.industry_sector
+                "id": p.category_info.id,
+                "code": p.category_info.code,
+                "name": p.category_info.name,
+                "industry_sector": p.category_info.industry_sector
             }
         elif p.category:
             category_info = {
@@ -285,7 +202,7 @@ def _format_search_results(
             "manufacturer": p.manufacturer,
             "country_of_origin": p.country_of_origin,
             "is_finished_product": p.is_finished_product,
-            "relevance_score": relevance_score,
+            "relevance_score": result.relevance_score,
             "created_at": p.created_at.isoformat() if p.created_at else ""
         })
 
@@ -322,7 +239,8 @@ def search_products(
     has_bom: Optional[bool] = Query(None, description="Filter products with bill of materials entries"),
     limit: int = Query(50, ge=1, le=100, description="Number of results to return (1-100)"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
-    db: Session = Depends(get_db),
+    service: ProductService = Depends(get_product_service),
+    categories: CategoryService = Depends(get_category_service),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     """Search products with full-text search and multi-criteria filtering."""
@@ -332,7 +250,7 @@ def search_products(
         query=search_query, category_id=category_id, industry=industry,
         manufacturer=manufacturer, country_of_origin=country_of_origin,
         is_finished_product=is_finished_product, has_bom=has_bom,
-        limit=limit, offset=offset, db=db
+        limit=limit, offset=offset, categories=categories
     )
 
     if validated.error:
@@ -357,11 +275,20 @@ def search_products(
         return ProductSearchResponse(**cached_response)
 
     logger.debug(f"Cache miss for product search: {cache_key}")
-    db_query = _build_search_query(db, validated)
-    total = db_query.count()
-    products = db_query.offset(validated.offset).limit(validated.limit).all()
-    scored = _apply_relevance_scoring(products, validated.query)
-    response_dict = _format_search_results(scored, total, validated)
+    result = service.search_products(
+        ProductSearchCriteria(
+            query=validated.query,
+            category_id=validated.category_id,
+            industry=validated.industry,
+            manufacturer=validated.manufacturer,
+            country_of_origin=validated.country_of_origin,
+            is_finished_product=validated.is_finished_product,
+            has_bom=validated.has_bom,
+            limit=validated.limit,
+            offset=validated.offset,
+        )
+    )
+    response_dict = _format_search_results(result.items, result.total, validated)
     cache_response_sync(cache_key, response_dict, PRODUCT_SEARCH_TTL)
 
     return ProductSearchResponse(**response_dict)

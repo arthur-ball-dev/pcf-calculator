@@ -10,15 +10,18 @@ Endpoints:
 - DELETE /api/v1/emission-factors/{id} - Delete emission factor (admin role)
 """
 
-from typing import List, Optional
-from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
-from sqlalchemy.orm import Session
+from typing import Optional
+from fastapi import APIRouter, Depends, Query, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import or_
 
-from backend.database.connection import get_db, get_async_db
-from backend.models import EmissionFactor, DataSource
+from backend.api.dependencies import get_emission_factor_service
+from backend.database.connection import get_async_db
+from backend.domain.entities.emission_factor import (
+    EmissionFactor,
+    EmissionFactorFilters,
+    NewEmissionFactor,
+)
+from backend.domain.services.emission_factor_service import EmissionFactorService
 from backend.models.user import User
 from backend.auth.dependencies import require_admin, get_optional_user
 from backend.services.data_ingestion.emission_factor_mapper import EmissionFactorMapper
@@ -41,6 +44,26 @@ router = APIRouter(prefix="/api/v1", tags=["emission-factors"])
 
 
 # ============================================================================
+# Response Helpers
+# ============================================================================
+
+def _saved_response(factor: EmissionFactor) -> EmissionFactorCreateResponse:
+    """Build the response for a created or updated emission factor."""
+    return EmissionFactorCreateResponse(
+        id=factor.id,
+        activity_name=factor.activity_name,
+        category=factor.category,
+        co2e_factor=factor.co2e_factor,
+        unit=factor.unit,
+        data_source=factor.data_source,
+        geography=factor.geography,
+        reference_year=factor.reference_year,
+        data_quality_rating=factor.data_quality_rating,
+        created_at=factor.created_at.isoformat() if factor.created_at else ""
+    )
+
+
+# ============================================================================
 # API Endpoints
 # ============================================================================
 
@@ -58,7 +81,7 @@ def list_emission_factors(
     geography: Optional[str] = Query(None, description="Filter by geography (GLO, US, EU, etc.)"),
     unit: Optional[str] = Query(None, description="Filter by unit (kg, L, kWh, etc.)"),
     activity_name: Optional[str] = Query(None, description="Filter by activity name (case-insensitive partial match)"),
-    db: Session = Depends(get_db),
+    service: EmissionFactorService = Depends(get_emission_factor_service),
     current_user: Optional[User] = Depends(get_optional_user),
 ) -> EmissionFactorListResponse:
     """
@@ -78,51 +101,36 @@ def list_emission_factors(
     - limit: Applied limit
     - offset: Applied offset
     """
-    # Build query
-    query = db.query(EmissionFactor)
+    page = service.list_factors(
+        EmissionFactorFilters(
+            data_source=data_source,
+            geography=geography,
+            unit=unit,
+            activity_name=activity_name,
+        ),
+        limit=limit,
+        offset=offset,
+    )
 
-    # Apply filters
-    if data_source is not None:
-        query = query.filter(EmissionFactor.data_source == data_source)
-
-    if geography is not None:
-        query = query.filter(EmissionFactor.geography == geography)
-
-    if unit is not None:
-        query = query.filter(EmissionFactor.unit == unit)
-
-    if activity_name is not None:
-        # Case-insensitive partial match
-        query = query.filter(
-            EmissionFactor.activity_name.ilike(f"%{activity_name}%")
-        )
-
-    # Get total count before pagination
-    total = query.count()
-
-    # Apply pagination
-    emission_factors = query.offset(offset).limit(limit).all()
-
-    # Convert emission factors to response format
     items = [
         EmissionFactorListItemResponse(
             id=ef.id,
             activity_name=ef.activity_name,
             category=ef.category,
-            co2e_factor=float(ef.co2e_factor),
+            co2e_factor=ef.co2e_factor,
             unit=ef.unit,
             data_source=ef.data_source,
             geography=ef.geography,
             reference_year=ef.reference_year,
-            data_quality_rating=float(ef.data_quality_rating) if ef.data_quality_rating else None,
+            data_quality_rating=ef.data_quality_rating,
             created_at=ef.created_at.isoformat() if ef.created_at else ""
         )
-        for ef in emission_factors
+        for ef in page.items
     ]
 
     return EmissionFactorListResponse(
         items=items,
-        total=total,
+        total=page.total,
         limit=limit,
         offset=offset
     )
@@ -137,7 +145,7 @@ def list_emission_factors(
 )
 def create_emission_factor(
     emission_factor: EmissionFactorCreateRequest,
-    db: Session = Depends(get_db),
+    service: EmissionFactorService = Depends(get_emission_factor_service),
     current_user: User = Depends(require_admin)
 ) -> EmissionFactorCreateResponse:
     """
@@ -165,55 +173,23 @@ def create_emission_factor(
       (activity_name + data_source + geography + reference_year)
     - 422: Validation error (missing required fields, invalid values)
     """
-    # Check for duplicate based on unique constraint
-    # Composite key: (activity_name, data_source, geography, reference_year)
-    existing = db.query(EmissionFactor).filter(
-        EmissionFactor.activity_name == emission_factor.activity_name,
-        EmissionFactor.data_source == emission_factor.data_source,
-        EmissionFactor.geography == emission_factor.geography,
-        EmissionFactor.reference_year == emission_factor.reference_year
-    ).first()
-
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Emission factor already exists for activity '{emission_factor.activity_name}' "
-                   f"with data_source='{emission_factor.data_source}', "
-                   f"geography='{emission_factor.geography}', "
-                   f"reference_year={emission_factor.reference_year}"
+    created = service.create_factor(
+        NewEmissionFactor(
+            activity_name=emission_factor.activity_name,
+            category=emission_factor.category,
+            co2e_factor=emission_factor.co2e_factor,
+            unit=emission_factor.unit,
+            data_source=emission_factor.data_source,
+            geography=emission_factor.geography,
+            reference_year=emission_factor.reference_year,
+            data_quality_rating=emission_factor.data_quality_rating,
+            uncertainty_min=emission_factor.uncertainty_min,
+            uncertainty_max=emission_factor.uncertainty_max,
+            data_source_id=emission_factor.data_source_id,
         )
-
-    # Create new emission factor
-    new_emission_factor = EmissionFactor(
-        activity_name=emission_factor.activity_name,
-        category=emission_factor.category,
-        co2e_factor=Decimal(str(emission_factor.co2e_factor)),
-        unit=emission_factor.unit,
-        data_source=emission_factor.data_source,
-        geography=emission_factor.geography,
-        reference_year=emission_factor.reference_year,
-        data_quality_rating=Decimal(str(emission_factor.data_quality_rating)) if emission_factor.data_quality_rating else None,
-        uncertainty_min=Decimal(str(emission_factor.uncertainty_min)) if emission_factor.uncertainty_min else None,
-        uncertainty_max=Decimal(str(emission_factor.uncertainty_max)) if emission_factor.uncertainty_max else None,
-        data_source_id=emission_factor.data_source_id
     )
 
-    db.add(new_emission_factor)
-    db.commit()
-    db.refresh(new_emission_factor)
-
-    return EmissionFactorCreateResponse(
-        id=new_emission_factor.id,
-        activity_name=new_emission_factor.activity_name,
-        category=new_emission_factor.category,
-        co2e_factor=float(new_emission_factor.co2e_factor),
-        unit=new_emission_factor.unit,
-        data_source=new_emission_factor.data_source,
-        geography=new_emission_factor.geography,
-        reference_year=new_emission_factor.reference_year,
-        data_quality_rating=float(new_emission_factor.data_quality_rating) if new_emission_factor.data_quality_rating else None,
-        created_at=new_emission_factor.created_at.isoformat() if new_emission_factor.created_at else ""
-    )
+    return _saved_response(created)
 
 
 @router.put(
@@ -226,7 +202,7 @@ def create_emission_factor(
 def update_emission_factor(
     factor_id: str = Path(..., description="Emission factor ID"),
     updates: EmissionFactorUpdateRequest = None,
-    db: Session = Depends(get_db),
+    service: EmissionFactorService = Depends(get_emission_factor_service),
     current_user: User = Depends(require_admin)
 ) -> EmissionFactorCreateResponse:
     """
@@ -248,44 +224,9 @@ def update_emission_factor(
     - 404: Emission factor not found
     - 422: Validation error
     """
-    # Find the emission factor
-    emission_factor = db.query(EmissionFactor).filter(
-        EmissionFactor.id == factor_id
-    ).first()
+    changes = updates.model_dump(exclude_unset=True) if updates else {}
 
-    if not emission_factor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Emission factor not found"
-        )
-
-    # Update provided fields
-    if updates:
-        update_data = updates.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            if value is not None:
-                if field == 'co2e_factor':
-                    setattr(emission_factor, field, Decimal(str(value)))
-                elif field == 'data_quality_rating':
-                    setattr(emission_factor, field, Decimal(str(value)) if value else None)
-                else:
-                    setattr(emission_factor, field, value)
-
-    db.commit()
-    db.refresh(emission_factor)
-
-    return EmissionFactorCreateResponse(
-        id=emission_factor.id,
-        activity_name=emission_factor.activity_name,
-        category=emission_factor.category,
-        co2e_factor=float(emission_factor.co2e_factor),
-        unit=emission_factor.unit,
-        data_source=emission_factor.data_source,
-        geography=emission_factor.geography,
-        reference_year=emission_factor.reference_year,
-        data_quality_rating=float(emission_factor.data_quality_rating) if emission_factor.data_quality_rating else None,
-        created_at=emission_factor.created_at.isoformat() if emission_factor.created_at else ""
-    )
+    return _saved_response(service.update_factor(factor_id, changes))
 
 
 @router.delete(
@@ -296,7 +237,7 @@ def update_emission_factor(
 )
 def delete_emission_factor(
     factor_id: str = Path(..., description="Emission factor ID"),
-    db: Session = Depends(get_db),
+    service: EmissionFactorService = Depends(get_emission_factor_service),
     current_user: User = Depends(require_admin)
 ):
     """
@@ -314,19 +255,7 @@ def delete_emission_factor(
     - 403: Insufficient permissions (user role)
     - 404: Emission factor not found
     """
-    # Find the emission factor
-    emission_factor = db.query(EmissionFactor).filter(
-        EmissionFactor.id == factor_id
-    ).first()
-
-    if not emission_factor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Emission factor not found"
-        )
-
-    db.delete(emission_factor)
-    db.commit()
+    service.delete_factor(factor_id)
 
     return None
 
@@ -406,7 +335,7 @@ async def suggest_emission_factor(
     description="Get license and attribution information for all active data sources"
 )
 def get_attributions(
-    db: Session = Depends(get_db),
+    service: EmissionFactorService = Depends(get_emission_factor_service),
     current_user: Optional[User] = Depends(get_optional_user),
 ) -> AttributionResponse:
     """
@@ -421,27 +350,19 @@ def get_attributions(
     - attributions: List of data source attributions with license info
     - notice: General notice about data usage
     """
-    # Query active data sources with license info
-    data_sources = (
-        db.query(DataSource)
-        .filter(DataSource.is_active == True)
-        .all()
-    )
-
-    attributions = []
-    for ds in data_sources:
-        attributions.append(
-            DataSourceAttribution(
-                id=ds.id,
-                name=ds.name,
-                license_type=ds.license_type,
-                license_url=ds.license_url,
-                attribution_text=ds.attribution_text,
-                attribution_url=ds.attribution_url,
-                allows_commercial_use=ds.allows_commercial_use if ds.allows_commercial_use is not None else True,
-                requires_attribution=ds.requires_attribution if ds.requires_attribution is not None else False,
-                requires_share_alike=ds.requires_share_alike if ds.requires_share_alike is not None else False,
-            )
+    attributions = [
+        DataSourceAttribution(
+            id=license_.id,
+            name=license_.name,
+            license_type=license_.license_type,
+            license_url=license_.license_url,
+            attribution_text=license_.attribution_text,
+            attribution_url=license_.attribution_url,
+            allows_commercial_use=license_.allows_commercial_use,
+            requires_attribution=license_.requires_attribution,
+            requires_share_alike=license_.requires_share_alike,
         )
+        for license_ in service.list_licenses()
+    ]
 
     return AttributionResponse(attributions=attributions)

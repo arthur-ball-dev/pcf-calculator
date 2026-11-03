@@ -8,6 +8,9 @@ These are distinct from infrastructure errors (database, HTTP, etc.)
 """
 
 
+from typing import Optional
+
+
 class DomainValidationError(Exception):
     """
     Raised when domain entity validation fails.
@@ -41,17 +44,56 @@ class ProductNotFoundError(Exception):
         return self.message
 
 
-class DuplicateProductError(Exception):
+class CategoryNotFoundError(Exception):
     """
-    Raised when attempting to create a product with a duplicate code.
+    Raised when a product category is not found in the repository.
 
     Attributes:
-        code: The product code that already exists.
+        category_id: The ID of the category that was not found.
     """
 
-    def __init__(self, code: str):
-        self.code = code
-        self.message = f"Product with code already exists: {code}"
+    def __init__(self, category_id: str):
+        self.category_id = category_id
+        self.message = f"Category not found: {category_id}"
+        super().__init__(self.message)
+
+    def __str__(self) -> str:
+        return self.message
+
+
+class EmissionFactorNotFoundError(Exception):
+    """
+    Raised when an emission factor is not found in the repository.
+
+    Attributes:
+        factor_id: The ID of the emission factor that was not found.
+    """
+
+    def __init__(self, factor_id: str):
+        self.factor_id = factor_id
+        self.message = "Emission factor not found"
+        super().__init__(self.message)
+
+    def __str__(self) -> str:
+        return self.message
+
+
+class DuplicateEmissionFactorError(Exception):
+    """Raised when an emission factor with the same composite key already exists."""
+
+    def __init__(
+        self,
+        activity_name: str,
+        data_source: str,
+        geography: str,
+        reference_year: Optional[int],
+    ):
+        self.message = (
+            f"Emission factor already exists for activity '{activity_name}' "
+            f"with data_source='{data_source}', "
+            f"geography='{geography}', "
+            f"reference_year={reference_year}"
+        )
         super().__init__(self.message)
 
     def __str__(self) -> str:

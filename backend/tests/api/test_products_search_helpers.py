@@ -20,6 +20,14 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 
+from backend.domain.entities.product import ProductSearchCriteria, ScoredProduct
+from backend.domain.services.category_service import CategoryService
+from backend.infrastructure.repositories.sqlalchemy_category_repository import (
+    SQLAlchemyCategoryRepository,
+)
+from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+    SQLAlchemyProductRepository,
+)
 from backend.models import Product, ProductCategory, BillOfMaterials
 from backend.schemas.products import (
     IndustrySector,
@@ -27,6 +35,12 @@ from backend.schemas.products import (
     ProductSearchItem,
     ProductSearchResponse,
 )
+
+
+def _domain_products(db_session):
+    """Products as the search repository returns them."""
+    repository = SQLAlchemyProductRepository(db_session)
+    return repository.search(ProductSearchCriteria(limit=100)).items
 
 
 # ============================================================================
@@ -158,7 +172,7 @@ class TestValidateSearchParams:
             has_bom=None,
             limit=50,
             offset=0,
-            db=db_session
+            categories=CategoryService(SQLAlchemyCategoryRepository(db_session))
         )
 
         assert result.query is None, "Empty query should be normalized to None"
@@ -177,7 +191,7 @@ class TestValidateSearchParams:
             has_bom=None,
             limit=50,
             offset=0,
-            db=db_session
+            categories=CategoryService(SQLAlchemyCategoryRepository(db_session))
         )
 
         assert result.error is not None, "Should return error for query <2 chars"
@@ -199,7 +213,7 @@ class TestValidateSearchParams:
             has_bom=None,
             limit=50,
             offset=0,
-            db=db_session
+            categories=CategoryService(SQLAlchemyCategoryRepository(db_session))
         )
 
         assert result.error is not None, "Should return error for query >200 chars"
@@ -219,7 +233,7 @@ class TestValidateSearchParams:
             has_bom=None,
             limit=50,
             offset=0,
-            db=db_session
+            categories=CategoryService(SQLAlchemyCategoryRepository(db_session))
         )
 
         assert result.error is not None, "Should return error for invalid country code"
@@ -239,7 +253,7 @@ class TestValidateSearchParams:
             has_bom=None,
             limit=50,
             offset=0,
-            db=db_session
+            categories=CategoryService(SQLAlchemyCategoryRepository(db_session))
         )
 
         assert result.error is not None, "Should return error for invalid industry"
@@ -259,7 +273,7 @@ class TestValidateSearchParams:
             has_bom=None,
             limit=50,
             offset=0,
-            db=db_session
+            categories=CategoryService(SQLAlchemyCategoryRepository(db_session))
         )
 
         assert result.error is not None, "Should return error for non-existent category"
@@ -279,7 +293,7 @@ class TestValidateSearchParams:
             has_bom=None,
             limit=50,
             offset=0,
-            db=db_session
+            categories=CategoryService(SQLAlchemyCategoryRepository(db_session))
         )
 
         assert result.error is None, "Should not have error for valid params"
@@ -300,9 +314,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_text_search(self, db_session, seed_products):
         """Test that query filter applies text search."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query="laptop",
             category_id=None,
             industry=None,
@@ -312,7 +328,6 @@ class TestBuildSearchQuery:
             has_bom=None,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -325,9 +340,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_category_filter(self, db_session, seed_products):
         """Test that category_id filter works."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query=None,
             category_id="cat-apparel",
             industry=None,
@@ -337,7 +354,6 @@ class TestBuildSearchQuery:
             has_bom=None,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -348,9 +364,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_industry_filter(self, db_session, seed_products):
         """Test that industry filter works via category relationship."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query=None,
             category_id=None,
             industry="electronics",
@@ -360,7 +378,6 @@ class TestBuildSearchQuery:
             has_bom=None,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -370,9 +387,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_manufacturer_filter(self, db_session, seed_products):
         """Test that manufacturer filter applies partial match."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query=None,
             category_id=None,
             industry=None,
@@ -382,7 +401,6 @@ class TestBuildSearchQuery:
             has_bom=None,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -393,9 +411,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_country_filter(self, db_session, seed_products):
         """Test that country_of_origin filter works."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query=None,
             category_id=None,
             industry=None,
@@ -405,7 +425,6 @@ class TestBuildSearchQuery:
             has_bom=None,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -416,9 +435,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_is_finished_product_filter(self, db_session, seed_products):
         """Test that is_finished_product filter works."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query=None,
             category_id=None,
             industry=None,
@@ -428,7 +449,6 @@ class TestBuildSearchQuery:
             has_bom=None,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -439,9 +459,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_has_bom_true(self, db_session, seed_products, seed_bom):
         """Test that has_bom=true filter returns only products with BOM."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query=None,
             category_id=None,
             industry=None,
@@ -451,7 +473,6 @@ class TestBuildSearchQuery:
             has_bom=True,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -463,9 +484,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_with_has_bom_false(self, db_session, seed_products, seed_bom):
         """Test that has_bom=false filter returns only products without BOM."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query=None,
             category_id=None,
             industry=None,
@@ -475,7 +498,6 @@ class TestBuildSearchQuery:
             has_bom=False,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -488,9 +510,11 @@ class TestBuildSearchQuery:
 
     def test_build_query_combined_filters(self, db_session, seed_products):
         """Test query with multiple combined filters."""
-        from backend.api.routes.product_search import _build_search_query, ValidatedParams
+        from backend.infrastructure.repositories.sqlalchemy_product_repository import (
+            build_search_query as _build_search_query,
+        )
 
-        params = ValidatedParams(
+        params = ProductSearchCriteria(
             query="laptop",
             category_id=None,
             industry="electronics",
@@ -500,7 +524,6 @@ class TestBuildSearchQuery:
             has_bom=None,
             limit=50,
             offset=0,
-            error=None
         )
 
         query = _build_search_query(db_session, params)
@@ -521,7 +544,7 @@ class TestApplyRelevanceScoring:
 
     def test_relevance_scoring_with_query(self, db_session, seed_products):
         """Test that relevance scores are calculated when query is provided."""
-        from backend.api.routes.product_search import _apply_relevance_scoring
+        from backend.domain.services.product_service import score_relevance as _apply_relevance_scoring
 
         # Simulate products from query
         products = db_session.query(Product).filter(
@@ -536,7 +559,7 @@ class TestApplyRelevanceScoring:
 
     def test_relevance_scoring_without_query(self, db_session, seed_products):
         """Test that relevance scores are None when no query provided."""
-        from backend.api.routes.product_search import _apply_relevance_scoring
+        from backend.domain.services.product_service import score_relevance as _apply_relevance_scoring
 
         products = db_session.query(Product).all()
 
@@ -547,7 +570,7 @@ class TestApplyRelevanceScoring:
 
     def test_relevance_scoring_name_match_higher_than_description(self, db_session, seed_products):
         """Test that name matches get higher scores than description matches."""
-        from backend.api.routes.product_search import _apply_relevance_scoring
+        from backend.domain.services.product_service import score_relevance as _apply_relevance_scoring
 
         # Product with "laptop" in name vs product with only in description
         products = db_session.query(Product).all()
@@ -562,7 +585,7 @@ class TestApplyRelevanceScoring:
 
     def test_relevance_scoring_exact_prefix_match_highest(self, db_session, seed_products):
         """Test that products starting with query get highest scores."""
-        from backend.api.routes.product_search import _apply_relevance_scoring
+        from backend.domain.services.product_service import score_relevance as _apply_relevance_scoring
 
         products = db_session.query(Product).all()
 
@@ -585,8 +608,8 @@ class TestFormatSearchResults:
         """Test that response has correct structure."""
         from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
-        products = db_session.query(Product).limit(2).all()
-        scored = [(p, None) for p in products]
+        products = _domain_products(db_session)[:2]
+        scored = [ScoredProduct(product=p, relevance_score=None) for p in products]
         total = 4
 
         params = ValidatedParams(
@@ -616,8 +639,8 @@ class TestFormatSearchResults:
         """Test that items are correctly typed as ProductSearchItem."""
         from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
-        products = db_session.query(Product).limit(2).all()
-        scored = [(p, 0.5) for p in products]
+        products = _domain_products(db_session)[:2]
+        scored = [ScoredProduct(product=p, relevance_score=0.5) for p in products]
 
         params = ValidatedParams(
             query="test",
@@ -645,8 +668,8 @@ class TestFormatSearchResults:
         """Test that has_more is true when more results exist."""
         from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
-        products = db_session.query(Product).limit(2).all()
-        scored = [(p, None) for p in products]
+        products = _domain_products(db_session)[:2]
+        scored = [ScoredProduct(product=p, relevance_score=None) for p in products]
         total = 10  # More than returned
 
         params = ValidatedParams(
@@ -670,8 +693,8 @@ class TestFormatSearchResults:
         """Test that has_more is false on last page."""
         from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
-        products = db_session.query(Product).limit(2).all()
-        scored = [(p, None) for p in products]
+        products = _domain_products(db_session)[:2]
+        scored = [ScoredProduct(product=p, relevance_score=None) for p in products]
         total = 2  # Same as returned
 
         params = ValidatedParams(
@@ -696,10 +719,8 @@ class TestFormatSearchResults:
         from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
         # Get product with category eagerly loaded
-        product = db_session.query(Product).filter(
-            Product.id == "prod-laptop-1"
-        ).first()
-        scored = [(product, 0.5)]
+        product = next(p for p in _domain_products(db_session) if p.id == "prod-laptop-1")
+        scored = [ScoredProduct(product=product, relevance_score=0.5)]
 
         params = ValidatedParams(
             query="laptop",
@@ -728,8 +749,11 @@ class TestFormatSearchResults:
         """Test that relevance scores are included in items."""
         from backend.api.routes.product_search import _format_search_results, ValidatedParams
 
-        products = db_session.query(Product).limit(2).all()
-        scored = [(products[0], 0.8), (products[1], 0.5)]
+        products = _domain_products(db_session)[:2]
+        scored = [
+            ScoredProduct(product=products[0], relevance_score=0.8),
+            ScoredProduct(product=products[1], relevance_score=0.5),
+        ]
 
         params = ValidatedParams(
             query="test",

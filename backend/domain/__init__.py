@@ -20,13 +20,11 @@ from backend.domain.entities.calculation import (
 from backend.domain.entities.errors import (
     DomainValidationError,
     ProductNotFoundError,
-    DuplicateProductError,
     CalculationNotFoundError,
 )
 from backend.domain.repositories.interfaces import (
     ProductRepository,
     CalculationRepository,
-    BOMRepository,
 )
 from backend.domain.services.product_service import ProductService
 from backend.domain.services.calculation_service import CalculationService
@@ -42,12 +40,10 @@ __all__ = [
     # Errors
     "DomainValidationError",
     "ProductNotFoundError",
-    "DuplicateProductError",
     "CalculationNotFoundError",
     # Repository Interfaces
     "ProductRepository",
     "CalculationRepository",
-    "BOMRepository",
     # Services
     "ProductService",
     "CalculationService",

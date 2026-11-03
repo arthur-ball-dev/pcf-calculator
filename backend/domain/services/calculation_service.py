@@ -9,8 +9,6 @@ Depends only on repository interfaces, not implementations.
 No SQLAlchemy or infrastructure imports allowed.
 """
 
-from typing import List
-
 from backend.domain.entities.calculation import (
     Calculation,
     CalculationResult,
@@ -19,16 +17,11 @@ from backend.domain.entities.calculation import (
 from backend.domain.entities.errors import (
     ProductNotFoundError,
     CalculationNotFoundError,
-    DomainValidationError,
 )
 from backend.domain.repositories.interfaces import (
     CalculationRepository,
     ProductRepository,
 )
-
-
-# Valid calculation methods
-VALID_CALCULATION_METHODS = {"attributional", "consequential"}
 
 
 class CalculationService:
@@ -54,14 +47,11 @@ class CalculationService:
         self._calculation_repo = calculation_repo
         self._product_repo = product_repo
 
-    async def create_calculation(
-        self, request: CreateCalculationRequest
-    ) -> CalculationResult:
+    def create_calculation(self, request: CreateCalculationRequest) -> CalculationResult:
         """
-        Create a new calculation request.
+        Create a pending calculation for an existing product.
 
-        Validates that the product exists and the calculation method is valid
-        before creating the calculation.
+        The calculation type is validated by the API schema.
 
         Args:
             request: CreateCalculationRequest with calculation parameters.
@@ -71,24 +61,14 @@ class CalculationService:
 
         Raises:
             ProductNotFoundError: If the product does not exist.
-            DomainValidationError: If the calculation method is invalid.
         """
-        # Validate calculation method
-        if request.calculation_method not in VALID_CALCULATION_METHODS:
-            raise DomainValidationError(
-                f"Invalid calculation_method: {request.calculation_method}. "
-                f"Must be one of: {', '.join(sorted(VALID_CALCULATION_METHODS))}"
-            )
-
-        # Validate product exists
-        product = await self._product_repo.get_by_id(request.product_id)
+        product = self._product_repo.get_by_id(request.product_id)
         if product is None:
             raise ProductNotFoundError(product_id=request.product_id)
 
-        # Create calculation
-        return await self._calculation_repo.create(request)
+        return self._calculation_repo.create(request)
 
-    async def get_calculation(self, calculation_id: str) -> Calculation:
+    def get_calculation(self, calculation_id: str) -> Calculation:
         """
         Get a calculation by ID.
 
@@ -101,29 +81,7 @@ class CalculationService:
         Raises:
             CalculationNotFoundError: If the calculation does not exist.
         """
-        calculation = await self._calculation_repo.get_by_id(calculation_id)
+        calculation = self._calculation_repo.get_by_id(calculation_id)
         if calculation is None:
             raise CalculationNotFoundError(calculation_id=calculation_id)
         return calculation
-
-    async def list_calculations_for_product(
-        self, product_id: str
-    ) -> List[Calculation]:
-        """
-        List all calculations for a specific product.
-
-        Args:
-            product_id: The unique identifier of the product.
-
-        Returns:
-            List of Calculation domain entities.
-
-        Raises:
-            ProductNotFoundError: If the product does not exist.
-        """
-        # Validate product exists
-        product = await self._product_repo.get_by_id(product_id)
-        if product is None:
-            raise ProductNotFoundError(product_id=product_id)
-
-        return await self._calculation_repo.list_for_product(product_id)

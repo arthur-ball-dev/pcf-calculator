@@ -7,10 +7,12 @@ TASK-DB-P9-001: Database connection pool health check
 This module provides health check endpoints for monitoring:
 - celery_health: Check Celery worker health and broker connectivity
 - database_health: Check database connection pool status
+- readiness: Run a real query, so a database the app cannot reach returns 503
 
 Usage:
     GET /api/v1/health/celery
     GET /api/v1/health/db
+    GET /health/ready
 
     Response (healthy):
     {
@@ -26,15 +28,47 @@ Usage:
     }
 """
 
+import asyncio
+import logging
 from typing import Dict, Any
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from backend.core.celery_app import celery_app
-from backend.database.connection import get_pool_status, POOL_CONFIG
+from backend.database.connection import get_async_session, get_pool_status, POOL_CONFIG
 
+logger = logging.getLogger(__name__)
+
+READINESS_TIMEOUT_SECONDS = 5.0
 
 router = APIRouter(prefix="/health", tags=["health"])
+
+
+async def _check_database() -> None:
+    async with get_async_session() as session:
+        await session.execute(text("SELECT 1"))
+
+
+@router.get("/ready")
+async def readiness() -> JSONResponse:
+    """
+    Check that the app can run a query against the database.
+
+    Unlike /health and /health/db, this opens a connection, so it fails on bad
+    credentials or an unreachable database. The endpoint is public, so failure
+    detail goes to the server log only.
+
+    Returns:
+        JSONResponse: 200 with status "ready", or 503 with status "unavailable"
+    """
+    try:
+        await asyncio.wait_for(_check_database(), READINESS_TIMEOUT_SECONDS)
+    except Exception:
+        logger.exception("Readiness check failed")
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
+    return JSONResponse(content={"status": "ready"})
 
 
 @router.get("/celery")

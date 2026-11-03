@@ -10,9 +10,22 @@ No SQLAlchemy or other infrastructure imports allowed here.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 
-from backend.domain.entities.product import Product, ProductWithBOM, BOMItem
+from backend.domain.entities.category import Category
+from backend.domain.entities.emission_factor import (
+    DataSourceLicense,
+    EmissionFactor,
+    EmissionFactorFilters,
+    EmissionFactorPage,
+    NewEmissionFactor,
+)
+from backend.domain.entities.product import (
+    Product,
+    ProductPage,
+    ProductSearchCriteria,
+    ProductWithBOM,
+)
 from backend.domain.entities.calculation import (
     Calculation,
     CalculationResult,
@@ -28,7 +41,7 @@ class ProductRepository(ABC):
     """
 
     @abstractmethod
-    async def get_by_id(self, product_id: str) -> Optional[Product]:
+    def get_by_id(self, product_id: str) -> Optional[Product]:
         """
         Get product by ID.
 
@@ -41,37 +54,40 @@ class ProductRepository(ABC):
         pass
 
     @abstractmethod
-    async def list_all(self, limit: int = 100, offset: int = 0) -> List[Product]:
+    def list_all(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        is_finished_product: Optional[bool] = None,
+    ) -> ProductPage:
         """
-        List all products with pagination.
+        List products by name, with pagination.
 
         Args:
             limit: Maximum number of products to return.
             offset: Number of products to skip.
+            is_finished_product: Only finished products, or only components.
 
         Returns:
-            List of Product domain entities.
+            One page of products and the total matching count.
         """
         pass
 
     @abstractmethod
-    async def create(self, product: Product) -> Product:
+    def search(self, criteria: ProductSearchCriteria) -> ProductPage:
         """
-        Create a new product.
+        Search products.
 
         Args:
-            product: Product domain entity to create.
+            criteria: Filters and pagination.
 
         Returns:
-            Created Product domain entity.
-
-        Raises:
-            DuplicateProductError: If a product with the same code exists.
+            One page of products, with their categories, and the total matching count.
         """
         pass
 
     @abstractmethod
-    async def get_with_bom(self, product_id: str) -> Optional[ProductWithBOM]:
+    def get_with_bom(self, product_id: str) -> Optional[ProductWithBOM]:
         """
         Get product with its Bill of Materials.
 
@@ -84,6 +100,75 @@ class ProductRepository(ABC):
         pass
 
 
+class CategoryRepository(ABC):
+    """
+    Abstract interface for product category data access.
+
+    Implementations must handle ORM-to-domain entity mapping.
+    """
+
+    @abstractmethod
+    def get_by_id(self, category_id: str) -> Optional[Category]:
+        """Get a category by ID, or None if not found."""
+        pass
+
+    @abstractmethod
+    def list_all(self, industry: Optional[str] = None) -> List[Category]:
+        """List categories, optionally only those in one industry sector."""
+        pass
+
+    @abstractmethod
+    def count_products(self, category_id: str) -> int:
+        """Count the products directly in a category."""
+        pass
+
+
+class EmissionFactorRepository(ABC):
+    """
+    Abstract interface for emission factor data access.
+
+    Implementations must handle ORM-to-domain entity mapping.
+    """
+
+    @abstractmethod
+    def list_all(
+        self, filters: EmissionFactorFilters, limit: int = 100, offset: int = 0
+    ) -> EmissionFactorPage:
+        """List emission factors, with the total matching count."""
+        pass
+
+    @abstractmethod
+    def exists(
+        self,
+        activity_name: str,
+        data_source: str,
+        geography: str,
+        reference_year: Optional[int],
+    ) -> bool:
+        """Check whether an emission factor with this composite key exists."""
+        pass
+
+    @abstractmethod
+    def create(self, factor: NewEmissionFactor) -> EmissionFactor:
+        """Create an emission factor."""
+        pass
+
+    @abstractmethod
+    def update(self, factor_id: str, changes: Dict[str, Any]) -> Optional[EmissionFactor]:
+        """Update the given fields, skipping None values. Returns None if not found."""
+        pass
+
+    @abstractmethod
+    def delete(self, factor_id: str) -> bool:
+        """Delete an emission factor. Returns False if not found."""
+        pass
+
+    @abstractmethod
+    def list_active_licenses(self) -> List[DataSourceLicense]:
+        """List licence and attribution details of the active data sources."""
+        pass
+
+
 class CalculationRepository(ABC):
     """
     Abstract interface for calculation data access.
@@ -92,7 +177,7 @@ class CalculationRepository(ABC):
     """
 
     @abstractmethod
-    async def get_by_id(self, calculation_id: str) -> Optional[Calculation]:
+    def get_by_id(self, calculation_id: str) -> Optional[Calculation]:
         """
         Get calculation by ID.
 
@@ -105,7 +190,7 @@ class CalculationRepository(ABC):
         pass
 
     @abstractmethod
-    async def create(self, request: CreateCalculationRequest) -> CalculationResult:
+    def create(self, request: CreateCalculationRequest) -> CalculationResult:
         """
         Create a new calculation request.
 
@@ -114,37 +199,5 @@ class CalculationRepository(ABC):
 
         Returns:
             CalculationResult with pending status.
-        """
-        pass
-
-    @abstractmethod
-    async def list_for_product(self, product_id: str) -> List[Calculation]:
-        """
-        List all calculations for a specific product.
-
-        Args:
-            product_id: The unique identifier of the product.
-
-        Returns:
-            List of Calculation domain entities.
-        """
-        pass
-
-
-class BOMRepository(ABC):
-    """
-    Abstract interface for Bill of Materials data access.
-    """
-
-    @abstractmethod
-    async def get_for_product(self, product_id: str) -> List[BOMItem]:
-        """
-        Get BOM items for a product.
-
-        Args:
-            product_id: The unique identifier of the parent product.
-
-        Returns:
-            List of BOMItem domain entities.
         """
         pass

@@ -11,8 +11,12 @@ No infrastructure dependencies (SQLAlchemy, FastAPI) allowed here.
 
 from backend.domain.services.product_service import ProductService
 from backend.domain.services.calculation_service import CalculationService
+from backend.domain.services.category_service import CategoryService
+from backend.domain.services.emission_factor_service import EmissionFactorService
 
 __all__ = [
     "ProductService",
     "CalculationService",
+    "CategoryService",
+    "EmissionFactorService",
 ]

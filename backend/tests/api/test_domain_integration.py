@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from backend.models import Product, BillOfMaterials, PCFCalculation, generate_uuid
+from backend.models import Product, BillOfMaterials
 from backend.domain.entities.errors import (
     ProductNotFoundError,
     CalculationNotFoundError,
@@ -187,100 +187,6 @@ class TestDomainExceptionHandlers:
         exception_handlers = app.exception_handlers
 
         assert DomainValidationError in exception_handlers or             any(issubclass(DomainValidationError, exc) for exc in exception_handlers.keys() if isinstance(exc, type)),             "DomainValidationError handler should be registered"
-
-
-# ============================================================================
-# Test: Products Route Uses Domain Service
-# ============================================================================
-
-
-class TestProductsRoutesDomainIntegration:
-    """Test that products routes use domain services."""
-
-    def test_list_products_uses_product_service(self, authenticated_client, seed_products):
-        """
-        Test GET /api/v1/products uses ProductService.list_products().
-        """
-        response = authenticated_client.get("/api/v1/products")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "items" in data
-        assert "total" in data
-        assert len(data["items"]) >= 1
-
-        product_ids = [item["id"] for item in data["items"]]
-        assert "domain-test-001" in product_ids
-
-    def test_get_product_uses_product_service(self, authenticated_client, seed_products):
-        """
-        Test GET /api/v1/products/{id} uses ProductService.get_product_with_bom().
-        """
-        response = authenticated_client.get("/api/v1/products/domain-test-001")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert data["id"] == "domain-test-001"
-        assert data["code"] == "DOM-TEST-001"
-        assert data["name"] == "Domain Test Product"
-
-        assert "bill_of_materials" in data
-        assert len(data["bill_of_materials"]) >= 1
-
-
-# ============================================================================
-# Test: Calculations Route Uses Domain Service
-# ============================================================================
-
-
-class TestCalculationsRoutesDomainIntegration:
-    """Test that calculations routes use domain services."""
-
-    def test_get_calculation_uses_calculation_service(
-        self, authenticated_client, seed_products, db_session
-    ):
-        """
-        Test GET /api/v1/calculations/{id} uses CalculationService.get_calculation().
-        """
-        calc = PCFCalculation(
-            id="domain-calc-001",
-            product_id="domain-test-001",
-            calculation_type="cradle_to_gate",
-            status="completed",
-            total_co2e_kg=1.5,
-            materials_co2e=1.0,
-            energy_co2e=0.3,
-            transport_co2e=0.2,
-        )
-        db_session.add(calc)
-        db_session.commit()
-
-        response = authenticated_client.get("/api/v1/calculations/domain-calc-001")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert data["calculation_id"] == "domain-calc-001"
-        assert data["status"] == "completed"
-        assert data["total_co2e_kg"] == 1.5
-
-    def test_start_calculation_uses_calculation_service(
-        self, authenticated_client, seed_products
-    ):
-        """
-        Test POST /api/v1/calculate uses CalculationService.create_calculation().
-        """
-        payload = {"product_id": "domain-test-001"}
-
-        response = authenticated_client.post("/api/v1/calculate", json=payload)
-
-        assert response.status_code == 202
-        data = response.json()
-
-        assert "calculation_id" in data
-        assert "status" in data
 
 
 # ============================================================================

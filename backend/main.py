@@ -225,7 +225,7 @@ app.include_router(products_router)
 app.include_router(calculations_router)
 app.include_router(emission_factors_router)
 app.include_router(admin_router)
-app.include_router(health_router)  # /health/db and /health/celery (pool and worker checks)
+app.include_router(health_router)  # /health/db, /health/celery, /health/ready
 
 
 @app.get("/health")

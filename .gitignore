@@ -21,6 +21,8 @@ logs/
 !/logs/
 !/logs/**
 
+# Re-apply after the re-includes above, which would otherwise undo them
+
 # Database files (runtime data)
 *.db
 *.sqlite
@@ -65,3 +67,6 @@ frontend/tests/e2e/.auth-state.json
 e2e-screenshots/
 output/
 
+# Hook logs and session transcripts hold full tool input and output, including secrets.
+# Must stay below the !/logs/** re-include, which would otherwise undo it.
+/logs/*

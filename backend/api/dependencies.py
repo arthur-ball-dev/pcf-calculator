@@ -21,13 +21,23 @@ from backend.calculator.sqlalchemy_provider import SQLAlchemyEmissionFactorProvi
 # Domain layer imports
 from backend.domain.services.product_service import ProductService
 from backend.domain.services.calculation_service import CalculationService
+from backend.domain.services.category_service import CategoryService
+from backend.domain.services.emission_factor_service import EmissionFactorService
 from backend.domain.repositories.interfaces import (
     ProductRepository,
     CalculationRepository,
+    CategoryRepository,
+    EmissionFactorRepository,
 )
 # Infrastructure layer imports
 from backend.infrastructure.repositories.sqlalchemy_product_repository import (
     SQLAlchemyProductRepository,
+)
+from backend.infrastructure.repositories.sqlalchemy_category_repository import (
+    SQLAlchemyCategoryRepository,
+)
+from backend.infrastructure.repositories.sqlalchemy_emission_factor_repository import (
+    SQLAlchemyEmissionFactorRepository,
 )
 from backend.infrastructure.repositories.sqlalchemy_calculation_repository import (
     SQLAlchemyCalculationRepository,
@@ -53,7 +63,7 @@ def get_calculator(
 
 
 # ============================================================================
-# Repository Dependencies (TASK-BE-P7-050 - Async)
+# Repository Dependencies
 # ============================================================================
 
 
@@ -69,8 +79,20 @@ def get_calculation_repository(
     return SQLAlchemyCalculationRepository(session)
 
 
+def get_category_repository(
+    session: Session = Depends(get_db),
+) -> CategoryRepository:
+    return SQLAlchemyCategoryRepository(session)
+
+
+def get_emission_factor_repository(
+    session: Session = Depends(get_db),
+) -> EmissionFactorRepository:
+    return SQLAlchemyEmissionFactorRepository(session)
+
+
 # ============================================================================
-# Domain Service Dependencies (TASK-BE-P7-050 - Async)
+# Domain Service Dependencies
 # ============================================================================
 
 
@@ -85,3 +107,15 @@ def get_calculation_service(
     product_repo: ProductRepository = Depends(get_product_repository),
 ) -> CalculationService:
     return CalculationService(calculation_repo, product_repo)
+
+
+def get_category_service(
+    category_repo: CategoryRepository = Depends(get_category_repository),
+) -> CategoryService:
+    return CategoryService(category_repo)
+
+
+def get_emission_factor_service(
+    emission_factor_repo: EmissionFactorRepository = Depends(get_emission_factor_repository),
+) -> EmissionFactorService:
+    return EmissionFactorService(emission_factor_repo)

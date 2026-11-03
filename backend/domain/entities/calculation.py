@@ -8,7 +8,8 @@ No SQLAlchemy or infrastructure dependencies allowed.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 from backend.domain.entities.errors import DomainValidationError
 
@@ -30,6 +31,10 @@ class Calculation:
         energy_co2e: Optional emissions from energy.
         transport_co2e: Optional emissions from transport.
         waste_co2e: Optional emissions from waste.
+        created_at: When the calculation was requested.
+        calculation_time_ms: How long the calculation took.
+        breakdown: Emissions per component.
+        error_message: Why the calculation failed, if it did.
     """
 
     id: str
@@ -41,6 +46,10 @@ class Calculation:
     energy_co2e: Optional[float] = None
     transport_co2e: Optional[float] = None
     waste_co2e: Optional[float] = None
+    created_at: Optional[datetime] = None
+    calculation_time_ms: Optional[int] = None
+    breakdown: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
 
     def __post_init__(self):
         """Validate entity on construction."""
@@ -50,6 +59,13 @@ class Calculation:
             raise DomainValidationError(
                 f"CO2e value cannot be negative, got {self.total_co2e_kg}"
             )
+
+    @property
+    def public_status(self) -> str:
+        """The status clients see: the runner's working states are all in_progress."""
+        if self.status in ("running", "processing"):
+            return "in_progress"
+        return self.status
 
 
 @dataclass(frozen=True)
@@ -77,10 +93,8 @@ class CreateCalculationRequest:
 
     Attributes:
         product_id: ID of the product to calculate.
-        calculation_method: Method to use (attributional, consequential).
-        include_transport: Whether to include transport emissions.
+        calculation_type: Boundary to calculate (cradle_to_gate, etc.).
     """
 
     product_id: str
-    calculation_method: str
-    include_transport: bool = False
+    calculation_type: str

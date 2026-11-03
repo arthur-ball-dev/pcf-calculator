@@ -18,25 +18,24 @@ This module implements the async calculation pattern:
 """
 
 import logging
-from typing import Callable, Optional
-from datetime import datetime, UTC
+from typing import Any, Callable, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from backend.database.connection import get_db
-from backend.models import Product, PCFCalculation, generate_uuid
+from backend.api.dependencies import get_calculation_service
 from backend.models.user import User
 from backend.auth.dependencies import get_optional_user
-from backend.domain.entities.errors import CalculationNotFoundError, ProductNotFoundError
+from backend.domain.entities.calculation import Calculation, CreateCalculationRequest
+from backend.domain.entities.errors import ProductNotFoundError
+from backend.domain.services.calculation_service import CalculationService
 from backend.schemas import (
     CalculationRequest,
     CalculationStartResponse,
     CalculationStatusResponse,
 )
-# The background task lives in the service layer (issue #34); it is re-exported here
-# because tests patch it through this module.
-from backend.services.calculation_runner import execute_calculation  # noqa: F401
+# The background task lives in the service layer (issue #34); tests patch it through this module.
+from backend.services.calculation_runner import execute_calculation
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -64,6 +63,32 @@ def get_background_session_factory() -> Callable[[], Session]:
     return SessionLocal
 
 
+def _status_response(calculation: Calculation) -> CalculationStatusResponse:
+    """Build the polling response: result fields only once completed, the error once failed."""
+    response_data: Dict[str, Any] = {
+        "calculation_id": calculation.id,
+        "status": calculation.public_status,
+        "product_id": calculation.product_id,
+        "created_at": calculation.created_at.isoformat() if calculation.created_at else None,
+    }
+
+    if calculation.status == "completed":
+        response_data.update({
+            "total_co2e_kg": calculation.total_co2e_kg,
+            "materials_co2e": calculation.materials_co2e,
+            "energy_co2e": calculation.energy_co2e,
+            "transport_co2e": calculation.transport_co2e,
+            "calculation_time_ms": calculation.calculation_time_ms,
+            # TASK-FE-P8-003: Include breakdown for expandable items in frontend
+            "breakdown": calculation.breakdown if calculation.breakdown else None,
+        })
+
+    if calculation.status == "failed":
+        response_data["error_message"] = calculation.error_message or "Calculation failed"
+
+    return CalculationStatusResponse(**response_data)
+
+
 # ============================================================================
 # API Endpoints
 # ============================================================================
@@ -78,7 +103,7 @@ def get_background_session_factory() -> Callable[[], Session]:
 def start_calculation(
     request: CalculationRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    service: CalculationService = Depends(get_calculation_service),
     current_user: Optional[User] = Depends(get_optional_user),
     session_factory: Callable[[], Session] = Depends(get_background_session_factory),
 ) -> CalculationStartResponse:
@@ -107,35 +132,21 @@ def start_calculation(
 
     - 422 Unprocessable Entity: Invalid request (missing product_id or invalid calculation_type)
     """
-    # Generate calculation ID
-    calc_id = generate_uuid()
-
     logger.info(
-        f"Received calculation request: calc_id={calc_id}, "
-        f"product_id={request.product_id}, type={request.calculation_type}"
+        f"Received calculation request: product_id={request.product_id}, "
+        f"type={request.calculation_type}"
     )
 
-    # TASK-BE-P9-001: Validate product exists before creating calculation record
-    # This prevents FK violation and returns proper 404 for nonexistent products
-    product = db.query(Product).filter(Product.id == request.product_id).first()
-    if not product:
-        # Handled by backend/api/error_handlers.py as 404 PRODUCT_NOT_FOUND
-        raise ProductNotFoundError(request.product_id)
-
-    # Create initial calculation record
     try:
-        calculation = PCFCalculation(
-            id=calc_id,
-            product_id=request.product_id,
-            calculation_type=request.calculation_type,  # Use enum value
-            status="pending",
-            total_co2e_kg=0.0,  # Placeholder until calculation completes
-            created_at=datetime.now(UTC)
+        calculation = service.create_calculation(
+            CreateCalculationRequest(
+                product_id=request.product_id,
+                calculation_type=request.calculation_type,
+            )
         )
-
-        db.add(calculation)
-        db.commit()
-
+    except ProductNotFoundError:
+        # Handled by backend/api/error_handlers.py as 404 PRODUCT_NOT_FOUND
+        raise
     except Exception as e:
         logger.error(f"Failed to create calculation record: {e}")
         raise HTTPException(
@@ -143,13 +154,15 @@ def start_calculation(
             detail="Failed to start calculation"
         )
 
+    calc_id = calculation.id
+
     # Queue background task
     # Background task creates its own session (request session may close)
     background_tasks.add_task(
         execute_calculation,
         calc_id,
         request.product_id,
-        request.calculation_type,  # Use enum value
+        request.calculation_type,
         session_factory,
     )
 
@@ -170,7 +183,7 @@ def start_calculation(
 )
 def get_calculation_status(
     calculation_id: str,
-    db: Session = Depends(get_db),
+    service: CalculationService = Depends(get_calculation_service),
     current_user: Optional[User] = Depends(get_optional_user),
 ) -> CalculationStatusResponse:
     """
@@ -214,50 +227,11 @@ def get_calculation_status(
         }
     }
     """
-    # Query calculation record
-    calculation = db.query(PCFCalculation).filter_by(id=calculation_id).first()
+    # Raises CalculationNotFoundError, handled by backend/api/error_handlers.py as 404
+    calculation = service.get_calculation(calculation_id)
 
-    if not calculation:
-        # Handled by backend/api/error_handlers.py as 404 CALCULATION_NOT_FOUND
-        raise CalculationNotFoundError(calculation_id)
+    logger.debug(
+        f"Returning status for calculation {calculation_id}: {calculation.public_status}"
+    )
 
-    # Map internal status values to frontend-compatible values
-    # TASK-API-P7-027: Ensure 'running' and 'processing' are mapped to 'in_progress'
-    status_value = calculation.status
-    if status_value in ("running", "processing"):
-        status_value = "in_progress"
-
-    # Build response based on status
-    response_data = {
-        "calculation_id": calculation.id,
-        "status": status_value,
-        "product_id": calculation.product_id,
-        "created_at": calculation.created_at.isoformat() if calculation.created_at else None
-    }
-
-    # Add result fields if completed
-    if calculation.status == "completed":
-        response_data.update({
-            # `is not None`, not truthiness: a stored 0 is a result, not a missing value
-            "total_co2e_kg": float(calculation.total_co2e_kg) if calculation.total_co2e_kg is not None else 0.0,
-            "materials_co2e": float(calculation.materials_co2e) if calculation.materials_co2e is not None else None,
-            "energy_co2e": float(calculation.energy_co2e) if calculation.energy_co2e is not None else None,
-            "transport_co2e": float(calculation.transport_co2e) if calculation.transport_co2e is not None else None,
-            "calculation_time_ms": calculation.calculation_time_ms,
-            # TASK-FE-P8-003: Include breakdown for expandable items in frontend
-            "breakdown": calculation.breakdown if calculation.breakdown else None
-        })
-
-    # Add error message if failed
-    if calculation.status == "failed":
-        error_msg = None
-        if calculation.calculation_metadata:
-            error_msg = calculation.calculation_metadata.get("error_message")
-        if not error_msg and calculation.input_data:
-            error_msg = calculation.input_data.get("error_message")
-
-        response_data["error_message"] = error_msg or "Calculation failed"
-
-    logger.debug(f"Returning status for calculation {calculation_id}: {status_value}")
-
-    return CalculationStatusResponse(**response_data)
+    return _status_response(calculation)

@@ -9,12 +9,14 @@ No infrastructure dependencies (SQLAlchemy) allowed in this module.
 
 from backend.domain.repositories.interfaces import (
     ProductRepository,
+    CategoryRepository,
+    EmissionFactorRepository,
     CalculationRepository,
-    BOMRepository,
 )
 
 __all__ = [
     "ProductRepository",
+    "CategoryRepository",
+    "EmissionFactorRepository",
     "CalculationRepository",
-    "BOMRepository",
 ]

@@ -5,18 +5,18 @@ Endpoints:
 - GET /api/v1/products/categories - Hierarchical category tree
 """
 
-from typing import List, Optional
+from typing import Optional
 import logging
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from backend.database.connection import get_db
-from backend.models import Product, ProductCategory
+from backend.api.dependencies import get_category_service
 from backend.models.user import User
 from backend.auth.dependencies import get_optional_user
 from backend.api.utils.error_responses import create_error_response
+from backend.domain.entities.category import CategoryNode
+from backend.domain.entities.errors import CategoryNotFoundError
+from backend.domain.services.category_service import CategoryService
 from backend.schemas.products import (
     IndustrySector,
     CategoryTreeNode,
@@ -38,80 +38,17 @@ router = APIRouter(prefix="/api/v1", tags=["products"])
 # Helper Functions
 # ============================================================================
 
-def build_category_tree(
-    categories: List[ProductCategory],
-    parent_id: Optional[str],
-    current_depth: int,
-    max_depth: int,
-    include_product_count: bool,
-    db: Session
-) -> List[CategoryTreeNode]:
-    """Recursively build category tree structure."""
-    level_cats = [c for c in categories if c.parent_id == parent_id]
-
-    result = []
-    for cat in level_cats:
-        product_count = None
-        if include_product_count:
-            product_count = _count_products_recursive(cat.id, categories, db)
-
-        children = []
-        if current_depth < max_depth - 1:
-            children = build_category_tree(
-                categories, cat.id, current_depth + 1, max_depth,
-                include_product_count, db
-            )
-
-        node = CategoryTreeNode(
-            id=cat.id,
-            code=cat.code,
-            name=cat.name,
-            level=cat.level,
-            industry_sector=cat.industry_sector,
-            product_count=product_count,
-            children=children
-        )
-        result.append(node)
-
-    return result
-
-
-def _count_products_recursive(
-    category_id: str,
-    all_categories: List[ProductCategory],
-    db: Session
-) -> int:
-    """Count products in category and all its descendants."""
-    count = db.query(func.count(Product.id)).filter(
-        Product.category_id == category_id
-    ).scalar() or 0
-
-    children = [c for c in all_categories if c.parent_id == category_id]
-    for child in children:
-        count += _count_products_recursive(child.id, all_categories, db)
-
-    return count
-
-
-def find_max_depth(categories: List[CategoryTreeNode], current: int = 0) -> int:
-    """Find maximum depth in category tree."""
-    if not categories:
-        return current
-    max_child_depth = current
-    for cat in categories:
-        if cat.children:
-            child_depth = find_max_depth(cat.children, current + 1)
-            max_child_depth = max(max_child_depth, child_depth)
-    return max_child_depth
-
-
-def count_tree_categories(categories: List[CategoryTreeNode]) -> int:
-    """Count total number of categories in tree."""
-    count = len(categories)
-    for cat in categories:
-        if cat.children:
-            count += count_tree_categories(cat.children)
-    return count
+def _to_response_node(node: CategoryNode) -> CategoryTreeNode:
+    """Convert a domain tree node, with its children, to the response schema."""
+    return CategoryTreeNode(
+        id=node.id,
+        code=node.code,
+        name=node.name,
+        level=node.level,
+        industry_sector=node.industry_sector,
+        product_count=node.product_count,
+        children=[_to_response_node(child) for child in node.children],
+    )
 
 
 # ============================================================================
@@ -134,7 +71,7 @@ def get_categories(
     ),
     parent_id: Optional[str] = Query(None, description="Return only the subtree under this category"),
     industry: Optional[str] = Query(None, description="Filter categories by industry sector"),
-    db: Session = Depends(get_db),
+    service: CategoryService = Depends(get_category_service),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     """Retrieve hierarchical category tree, optionally rooted at parent_id."""
@@ -142,17 +79,15 @@ def get_categories(
 
     root_parent_id: Optional[str] = None
     if parent_id is not None:
-        parent = db.query(ProductCategory).filter(ProductCategory.id == parent_id).first()
-        if parent is None:
+        try:
+            root_parent_id = service.get_category(parent_id).id
+        except CategoryNotFoundError:
             return create_error_response(
                 status_code=404,
                 code="NOT_FOUND",
                 message="Category not found",
                 details=[{"field": "parent_id", "message": f"No category with id '{parent_id}'"}]
             )
-        root_parent_id = parent.id
-
-    query = db.query(ProductCategory)
 
     if industry is not None:
         valid_industries = [e.value for e in IndustrySector]
@@ -166,16 +101,16 @@ def get_categories(
                     "message": f"Must be one of: {', '.join(valid_industries)}"
                 }]
             )
-        query = query.filter(ProductCategory.industry_sector == industry)
 
-    all_categories = query.all()
-
-    tree = build_category_tree(
-        all_categories, root_parent_id, 0, effective_depth, include_product_count, db
+    tree = service.get_tree(
+        root_parent_id=root_parent_id,
+        max_depth=effective_depth,
+        include_product_count=include_product_count,
+        industry=industry,
     )
 
     return ProductCategoriesResponse(
-        categories=tree,
-        total_categories=count_tree_categories(tree),
-        max_depth=find_max_depth(tree)
+        categories=[_to_response_node(node) for node in tree.categories],
+        total_categories=tree.total_categories,
+        max_depth=tree.max_depth,
     )

@@ -371,17 +371,6 @@ class TestDomainErrors:
         assert hasattr(error, 'product_id')
         assert error.product_id == "prod-999"
 
-    def test_duplicate_product_error_exists(self):
-        """DuplicateProductError should be defined."""
-        from backend.domain.entities.errors import DuplicateProductError
-        assert DuplicateProductError is not None
-
-    def test_duplicate_product_error_contains_code(self):
-        """DuplicateProductError should contain the product code."""
-        from backend.domain.entities.errors import DuplicateProductError
-
-        error = DuplicateProductError(code="DUPLICATE-001")
-        assert "DUPLICATE-001" in str(error)
 
 
 class TestCreateCalculationRequest:
@@ -398,10 +387,8 @@ class TestCreateCalculationRequest:
 
         request = CreateCalculationRequest(
             product_id="prod-123",
-            calculation_method="attributional",
-            include_transport=True
+            calculation_type="cradle_to_gate"
         )
 
         assert request.product_id == "prod-123"
-        assert request.calculation_method == "attributional"
-        assert request.include_transport is True
+        assert request.calculation_type == "cradle_to_gate"

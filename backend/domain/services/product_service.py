@@ -9,12 +9,49 @@ Depends only on repository interfaces, not implementations.
 No SQLAlchemy or infrastructure imports allowed.
 """
 
-import uuid
-from typing import List, Optional
+from typing import Any, List, Optional, Sequence, Tuple, TypeVar
 
-from backend.domain.entities.product import Product, ProductWithBOM
+from backend.domain.entities.product import (
+    Product,
+    ProductPage,
+    ProductSearchCriteria,
+    ProductSearchResult,
+    ProductWithBOM,
+    ScoredProduct,
+)
 from backend.domain.entities.errors import ProductNotFoundError
 from backend.domain.repositories.interfaces import ProductRepository
+
+
+T = TypeVar("T", bound=Any)
+
+
+def score_relevance(products: Sequence[T], query: Optional[str]) -> List[Tuple[T, Optional[float]]]:
+    """
+    Score search results against the search text, from 0 to 1.
+
+    A name match counts most, more when the name starts with the text; description
+    and code matches add a little. Without search text every score is None.
+    """
+    if not query:
+        return [(p, None) for p in products]
+
+    query_lower = query.lower()
+    scored: List[Tuple[T, Optional[float]]] = []
+
+    for p in products:
+        score = 0.0
+        if p.name and query_lower in p.name.lower():
+            score += 0.5
+            if p.name.lower().startswith(query_lower):
+                score += 0.3
+        if p.description and query_lower in p.description.lower():
+            score += 0.1
+        if p.code and query_lower in p.code.lower():
+            score += 0.1
+        scored.append((p, min(score, 1.0)))
+
+    return scored
 
 
 class ProductService:
@@ -34,7 +71,7 @@ class ProductService:
         """
         self._product_repo = product_repo
 
-    async def get_product(self, product_id: str) -> Product:
+    def get_product(self, product_id: str) -> Product:
         """
         Get a product by ID.
 
@@ -47,12 +84,12 @@ class ProductService:
         Raises:
             ProductNotFoundError: If the product does not exist.
         """
-        product = await self._product_repo.get_by_id(product_id)
+        product = self._product_repo.get_by_id(product_id)
         if product is None:
             raise ProductNotFoundError(product_id=product_id)
         return product
 
-    async def get_product_with_bom(self, product_id: str) -> ProductWithBOM:
+    def get_product_with_bom(self, product_id: str) -> ProductWithBOM:
         """
         Get a product with its Bill of Materials.
 
@@ -65,62 +102,47 @@ class ProductService:
         Raises:
             ProductNotFoundError: If the product does not exist.
         """
-        result = await self._product_repo.get_with_bom(product_id)
+        result = self._product_repo.get_with_bom(product_id)
         if result is None:
             raise ProductNotFoundError(product_id=product_id)
         return result
 
-    async def list_products(
-        self, limit: int = 100, offset: int = 0
-    ) -> List[Product]:
+    def list_products(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        is_finished_product: Optional[bool] = None,
+    ) -> ProductPage:
         """
         List products with pagination.
 
         Args:
             limit: Maximum number of products to return.
             offset: Number of products to skip.
+            is_finished_product: Only finished products, or only components.
 
         Returns:
-            List of Product domain entities.
+            One page of products and the total matching count.
         """
-        return await self._product_repo.list_all(limit=limit, offset=offset)
-
-    async def create_product(
-        self,
-        code: str,
-        name: str,
-        unit: str,
-        category: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Product:
-        """
-        Create a new product.
-
-        Generates a UUID for the product and delegates to repository.
-
-        Args:
-            code: Unique product code.
-            name: Display name of the product.
-            unit: Unit of measure.
-            category: Optional product category.
-            description: Optional description.
-
-        Returns:
-            Created Product domain entity.
-
-        Raises:
-            DuplicateProductError: If a product with the same code exists.
-        """
-        # Generate UUID for new product
-        product_id = uuid.uuid4().hex
-
-        product = Product(
-            id=product_id,
-            code=code,
-            name=name,
-            unit=unit,
-            category=category,
-            description=description,
+        return self._product_repo.list_all(
+            limit=limit, offset=offset, is_finished_product=is_finished_product
         )
 
-        return await self._product_repo.create(product)
+    def search_products(self, criteria: ProductSearchCriteria) -> ProductSearchResult:
+        """
+        Search products and score the results against the search text.
+
+        Args:
+            criteria: Validated filters and pagination.
+
+        Returns:
+            One page of scored results and the total matching count.
+        """
+        page = self._product_repo.search(criteria)
+        return ProductSearchResult(
+            items=[
+                ScoredProduct(product=product, relevance_score=score)
+                for product, score in score_relevance(page.items, criteria.query)
+            ],
+            total=page.total,
+        )

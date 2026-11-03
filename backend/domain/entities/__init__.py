@@ -8,6 +8,7 @@ These entities are free from any infrastructure dependencies (no SQLAlchemy).
 """
 
 from backend.domain.entities.product import Product, BOMItem, ProductWithBOM
+from backend.domain.entities.category import Category, CategoryNode, CategoryTree
 from backend.domain.entities.calculation import (
     Calculation,
     CalculationResult,
@@ -16,7 +17,9 @@ from backend.domain.entities.calculation import (
 from backend.domain.entities.errors import (
     DomainValidationError,
     ProductNotFoundError,
-    DuplicateProductError,
+    CategoryNotFoundError,
+    EmissionFactorNotFoundError,
+    DuplicateEmissionFactorError,
     CalculationNotFoundError,
 )
 
@@ -24,11 +27,16 @@ __all__ = [
     "Product",
     "BOMItem",
     "ProductWithBOM",
+    "Category",
+    "CategoryNode",
+    "CategoryTree",
     "Calculation",
     "CalculationResult",
     "CreateCalculationRequest",
     "DomainValidationError",
     "ProductNotFoundError",
-    "DuplicateProductError",
+    "CategoryNotFoundError",
+    "EmissionFactorNotFoundError",
+    "DuplicateEmissionFactorError",
     "CalculationNotFoundError",
 ]
