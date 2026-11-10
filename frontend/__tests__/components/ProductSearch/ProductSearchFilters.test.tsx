@@ -73,7 +73,7 @@ describe('ProductSearchFilters Component', () => {
     it('should render industry select', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      expect(screen.getByTestId('industry-select')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Industry' })).toBeInTheDocument();
     });
 
     it('should show industry label', () => {
@@ -85,7 +85,7 @@ describe('ProductSearchFilters Component', () => {
     it('should show all industry options when opened', async () => {
       const { user } = renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -100,7 +100,7 @@ describe('ProductSearchFilters Component', () => {
     it('should show "All industries" option', async () => {
       const { user } = renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -114,7 +114,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} onIndustryChange={onIndustryChange} />
       );
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -136,7 +136,7 @@ describe('ProductSearchFilters Component', () => {
         />
       );
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -153,14 +153,14 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} selectedIndustry="electronics" />
       );
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       expect(industrySelect.textContent).toMatch(/electronics/i);
     });
 
     it('should show placeholder when no industry selected', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} selectedIndustry={null} />);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       expect(industrySelect.textContent).toMatch(/all industries/i);
     });
   });
@@ -173,7 +173,7 @@ describe('ProductSearchFilters Component', () => {
     it('should render category select', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      expect(screen.getByTestId('category-select')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Category' })).toBeInTheDocument();
     });
 
     it('should show category label', () => {
@@ -185,7 +185,7 @@ describe('ProductSearchFilters Component', () => {
     it('should show "All categories" option', async () => {
       const { user } = renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const categorySelect = screen.getByTestId('category-select');
+      const categorySelect = screen.getByRole('combobox', { name: 'Category' });
       await user.click(categorySelect);
 
       await waitFor(() => {
@@ -199,7 +199,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} onCategoryChange={onCategoryChange} />
       );
 
-      const categorySelect = screen.getByTestId('category-select');
+      const categorySelect = screen.getByRole('combobox', { name: 'Category' });
       await user.click(categorySelect);
 
       // Wait for categories to load from MSW
@@ -219,7 +219,7 @@ describe('ProductSearchFilters Component', () => {
         />
       );
 
-      const categorySelect = screen.getByTestId('category-select');
+      const categorySelect = screen.getByRole('combobox', { name: 'Category' });
       // Should show the category name or ID
       expect(categorySelect).toBeInTheDocument();
     });
@@ -227,14 +227,14 @@ describe('ProductSearchFilters Component', () => {
     it('should show placeholder when no category selected', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} selectedCategory={null} />);
 
-      const categorySelect = screen.getByTestId('category-select');
+      const categorySelect = screen.getByRole('combobox', { name: 'Category' });
       expect(categorySelect.textContent).toMatch(/all categories/i);
     });
 
     it('should support hierarchical category display', async () => {
       const { user } = renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const categorySelect = screen.getByTestId('category-select');
+      const categorySelect = screen.getByRole('combobox', { name: 'Category' });
       await user.click(categorySelect);
 
       // Categories should be organized hierarchically
@@ -252,7 +252,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} showManufacturerFilter={true} />
       );
 
-      expect(screen.getByTestId('manufacturer-select')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Manufacturer' })).toBeInTheDocument();
     });
 
     it('should not render manufacturer select when disabled', () => {
@@ -260,7 +260,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} showManufacturerFilter={false} />
       );
 
-      expect(screen.queryByTestId('manufacturer-select')).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Manufacturer' })).not.toBeInTheDocument();
     });
 
     it('should show manufacturer label', () => {
@@ -281,7 +281,7 @@ describe('ProductSearchFilters Component', () => {
         />
       );
 
-      const manufacturerInput = screen.getByTestId('manufacturer-select');
+      const manufacturerInput = screen.getByRole('combobox', { name: 'Manufacturer' });
       await user.click(manufacturerInput);
 
       // If it's a combobox or input, type a value
@@ -300,7 +300,7 @@ describe('ProductSearchFilters Component', () => {
         />
       );
 
-      const manufacturerSelect = screen.getByTestId('manufacturer-select');
+      const manufacturerSelect = screen.getByRole('combobox', { name: 'Manufacturer' });
       expect(manufacturerSelect).toBeInTheDocument();
     });
   });
@@ -313,7 +313,7 @@ describe('ProductSearchFilters Component', () => {
     it('should NOT show clear filters button when no filters active', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      expect(screen.queryByTestId('clear-filters')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Clear all filters' })).not.toBeInTheDocument();
     });
 
     it('should show clear filters button when industry filter is active', () => {
@@ -321,7 +321,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} selectedIndustry="electronics" />
       );
 
-      expect(screen.getByTestId('clear-filters')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Clear all filters' })).toBeInTheDocument();
     });
 
     it('should show clear filters button when category filter is active', () => {
@@ -332,7 +332,7 @@ describe('ProductSearchFilters Component', () => {
         />
       );
 
-      expect(screen.getByTestId('clear-filters')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Clear all filters' })).toBeInTheDocument();
     });
 
     it('should show clear filters button when manufacturer filter is active', () => {
@@ -344,7 +344,7 @@ describe('ProductSearchFilters Component', () => {
         />
       );
 
-      expect(screen.getByTestId('clear-filters')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Clear all filters' })).toBeInTheDocument();
     });
 
     it('should call onClearFilters when clear button is clicked', async () => {
@@ -357,7 +357,7 @@ describe('ProductSearchFilters Component', () => {
         />
       );
 
-      const clearButton = screen.getByTestId('clear-filters');
+      const clearButton = screen.getByRole('button', { name: 'Clear all filters' });
       await user.click(clearButton);
 
       expect(onClearFilters).toHaveBeenCalledTimes(1);
@@ -368,7 +368,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} selectedIndustry="electronics" />
       );
 
-      expect(screen.getByTestId('clear-filters').textContent).toMatch(/clear/i);
+      expect(screen.getByRole('button', { name: 'Clear all filters' }).textContent).toMatch(/clear/i);
     });
   });
 
@@ -437,7 +437,7 @@ describe('ProductSearchFilters Component', () => {
       );
 
       // Select industry
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -449,7 +449,7 @@ describe('ProductSearchFilters Component', () => {
       expect(onIndustryChange).toHaveBeenCalledWith('electronics');
 
       // Select category
-      const categorySelect = screen.getByTestId('category-select');
+      const categorySelect = screen.getByRole('combobox', { name: 'Category' });
       await user.click(categorySelect);
 
       // Category selection depends on available options
@@ -461,7 +461,7 @@ describe('ProductSearchFilters Component', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByTestId('industry-select').textContent).toMatch(/electronics/i);
+      expect(screen.getByRole('combobox', { name: 'Industry' }).textContent).toMatch(/electronics/i);
 
       // Re-render with same props
       rerender(
@@ -470,7 +470,7 @@ describe('ProductSearchFilters Component', () => {
         </QueryClientProvider>
       );
 
-      expect(screen.getByTestId('industry-select').textContent).toMatch(/electronics/i);
+      expect(screen.getByRole('combobox', { name: 'Industry' }).textContent).toMatch(/electronics/i);
     });
 
     it('should update display when selectedIndustry prop changes', () => {
@@ -479,7 +479,7 @@ describe('ProductSearchFilters Component', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByTestId('industry-select').textContent).toMatch(/electronics/i);
+      expect(screen.getByRole('combobox', { name: 'Industry' }).textContent).toMatch(/electronics/i);
 
       rerender(
         <QueryClientProvider client={new QueryClient()}>
@@ -487,7 +487,7 @@ describe('ProductSearchFilters Component', () => {
         </QueryClientProvider>
       );
 
-      expect(screen.getByTestId('industry-select').textContent).toMatch(/automotive/i);
+      expect(screen.getByRole('combobox', { name: 'Industry' }).textContent).toMatch(/automotive/i);
     });
   });
 
@@ -499,7 +499,7 @@ describe('ProductSearchFilters Component', () => {
     it('should have accessible labels for industry select', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      screen.getByTestId('industry-select');
+      screen.getByRole('combobox', { name: 'Industry' });
 
       // Should have label association
       expect(screen.getByText(/industry/i)).toBeInTheDocument();
@@ -508,7 +508,7 @@ describe('ProductSearchFilters Component', () => {
     it('should have accessible labels for category select', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      screen.getByTestId('category-select');
+      screen.getByRole('combobox', { name: 'Category' });
 
       // Should have label association
       expect(screen.getByText(/category/i)).toBeInTheDocument();
@@ -517,7 +517,7 @@ describe('ProductSearchFilters Component', () => {
     it('should be keyboard navigable', async () => {
       const { user } = renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      screen.getByTestId('industry-select');
+      screen.getByRole('combobox', { name: 'Industry' });
 
       // Tab to industry select
       await user.tab();
@@ -533,7 +533,7 @@ describe('ProductSearchFilters Component', () => {
     it('should have proper ARIA attributes on selects', () => {
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
 
       // Select should have proper ARIA role
       expect(industrySelect).toHaveAttribute('role', 'combobox');
@@ -542,7 +542,7 @@ describe('ProductSearchFilters Component', () => {
     it('should announce filter changes to screen readers', async () => {
       const { user } = renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -557,7 +557,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} selectedIndustry="electronics" />
       );
 
-      const clearButton = screen.getByTestId('clear-filters');
+      const clearButton = screen.getByRole('button', { name: 'Clear all filters' });
 
       // Should have accessible name
       expect(clearButton).toHaveAccessibleName();
@@ -575,7 +575,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} onIndustryChange={onIndustryChange} />
       );
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
 
       // Rapid changes
       await user.click(industrySelect);
@@ -598,7 +598,7 @@ describe('ProductSearchFilters Component', () => {
       // When no categories are available, should show empty or disabled state
       renderWithProviders(<ProductSearchFilters {...defaultProps} />);
 
-      const categorySelect = screen.getByTestId('category-select');
+      const categorySelect = screen.getByRole('combobox', { name: 'Category' });
       expect(categorySelect).toBeInTheDocument();
     });
 
@@ -612,7 +612,7 @@ describe('ProductSearchFilters Component', () => {
       );
 
       // Should not crash
-      expect(screen.getByTestId('industry-select')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Industry' })).toBeInTheDocument();
     });
   });
 
@@ -627,7 +627,7 @@ describe('ProductSearchFilters Component', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByTestId('industry-select').textContent).toMatch(/electronics/i);
+      expect(screen.getByRole('combobox', { name: 'Industry' }).textContent).toMatch(/electronics/i);
 
       // Update prop externally
       rerender(
@@ -636,7 +636,7 @@ describe('ProductSearchFilters Component', () => {
         </QueryClientProvider>
       );
 
-      expect(screen.getByTestId('industry-select').textContent).toMatch(/automotive/i);
+      expect(screen.getByRole('combobox', { name: 'Industry' }).textContent).toMatch(/automotive/i);
     });
 
     it('should be a controlled component for category', () => {
@@ -656,7 +656,7 @@ describe('ProductSearchFilters Component', () => {
       );
 
       // Component should reflect new value
-      expect(screen.getByTestId('category-select')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Category' })).toBeInTheDocument();
     });
 
     it('should not update internal state without callback', async () => {
@@ -664,7 +664,7 @@ describe('ProductSearchFilters Component', () => {
         <ProductSearchFilters {...defaultProps} selectedIndustry={null} />
       );
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {

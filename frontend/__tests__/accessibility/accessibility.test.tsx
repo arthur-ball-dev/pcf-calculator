@@ -112,7 +112,7 @@ vi.mock('@/hooks/useEmissionFactors', () => ({
  */
 async function waitForBOMEditorReady() {
   await waitFor(() => {
-    expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
   }, { timeout: 5000 });
 }
 
@@ -208,7 +208,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
 
       // Wait for initial loading to complete
       await waitFor(() => {
-        expect(screen.queryByTestId('product-selector-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading products' })).not.toBeInTheDocument();
       });
 
       // Tab to first interactive element
@@ -334,7 +334,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
 
       // Wait for loading to complete
       await waitFor(() => {
-        expect(screen.queryByTestId('product-selector-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading products' })).not.toBeInTheDocument();
       });
 
       // Tab through elements and verify they receive focus
@@ -372,7 +372,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
 
       // Wait for loading
       await waitFor(() => {
-        expect(screen.queryByTestId('product-selector-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading products' })).not.toBeInTheDocument();
       });
 
       // Tab through all elements (should not get stuck)
@@ -479,7 +479,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
 
       // Wait for loading
       await waitFor(() => {
-        expect(screen.queryByTestId('product-selector-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading products' })).not.toBeInTheDocument();
       });
 
       // All buttons should have accessible text or aria-label
@@ -602,7 +602,7 @@ describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
       });
 
       // TDD-EX-P5-002: The button is named "Start Over" in WizardNavigation
-      // Look for the start over button using data-testid if available, or by text
+      // Look for the start over button by its accessible name
       const startOverButton = await waitFor(() => {
         return screen.getByRole('button', { name: /start over/i });
       });

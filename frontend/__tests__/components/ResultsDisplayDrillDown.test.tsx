@@ -35,7 +35,7 @@ vi.mock('../../src/components/visualizations/SankeyDiagram', async () => {
       _capturedSankeyProps = { calculation };
 
       if (!calculation || calculation.status !== 'completed') {
-        return <div data-testid="sankey-container">No data</div>;
+        return <div>No data</div>;
       }
 
       const categories = [
@@ -60,14 +60,13 @@ vi.mock('../../src/components/visualizations/SankeyDiagram', async () => {
         }
 
         return (
-          <div data-testid="sankey-container" role="img" aria-label={`${title} showing breakdown`}>
+          <div role="img" aria-label={`${title} showing breakdown`}>
             <button
-              data-testid="sankey-back-button"
               onClick={() => setExpandedCategory(null)}
             >
               Back to Overview
             </button>
-            <span data-testid="sankey-expanded-title">{title}</span>
+            <h4>{title}</h4>
             {breakdownItems.map(item => (
               <span key={item}>{item}</span>
             ))}
@@ -77,20 +76,18 @@ vi.mock('../../src/components/visualizations/SankeyDiagram', async () => {
 
       // Overview mode - show clickable category nodes and hint text
       return (
-        <div data-testid="sankey-container" role="img" aria-label={`Carbon flow diagram showing emissions breakdown with ${categories.length + 1} categories. Click on a category to see detailed breakdown.`}>
-          <div data-testid="sankey-chart">
+        <div role="img" aria-label={`Carbon flow diagram showing emissions breakdown with ${categories.length + 1} categories. Click on a category to see detailed breakdown.`}>
+          <div role="group" aria-label="Sankey chart">
             <p>Click on a category to drill down</p>
             {categories.map(cat => (
               <button
                 key={cat.id}
-                data-testid={`sankey-node-${cat.id}`}
                 onClick={() => setExpandedCategory(cat.id)}
               >
                 {cat.label}
               </button>
             ))}
             <button
-              data-testid="sankey-node-total"
               onClick={() => {/* total is not drillable */}}
             >
               Total
@@ -104,19 +101,19 @@ vi.mock('../../src/components/visualizations/SankeyDiagram', async () => {
 
 // Mock ExportButton to simplify testing
 vi.mock('../../src/components/ExportButton', () => ({
-  ExportButton: () => <button data-testid="mock-export-button">Export</button>,
+  ExportButton: () => <button>Export</button>,
 }));
 
 // Mock ResultsHero to simplify testing
 vi.mock('../../src/components/calculator/ResultsHero', () => ({
   default: ({ totalCO2e }: { totalCO2e: number }) => (
-    <div data-testid="mock-results-hero">Total: {totalCO2e} kg CO2e</div>
+    <div>Total: {totalCO2e} kg CO2e</div>
   ),
 }));
 
 // Mock BreakdownTable to simplify testing
 vi.mock('../../src/components/calculator/BreakdownTable', () => ({
-  default: () => <div data-testid="mock-breakdown-table">Breakdown Table</div>,
+  default: () => <div>Breakdown Table</div>,
 }));
 
 describe('ResultsDisplay Category Drill-Down Integration', () => {
@@ -186,20 +183,20 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
   it('should render ResultsDisplay with Sankey diagram', () => {
     render(<ResultsDisplay />);
 
-    expect(screen.getByTestId('results-display')).toBeInTheDocument();
-    expect(screen.getByTestId('sankey-chart')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Calculation results' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Sankey chart' })).toBeInTheDocument();
   });
 
   it('should expand to category breakdown when category node is clicked', async () => {
     render(<ResultsDisplay />);
 
     // Click on materials node
-    const materialsNode = screen.getByTestId('sankey-node-materials');
+    const materialsNode = screen.getByRole('button', { name: 'Materials' });
     fireEvent.click(materialsNode);
 
     // SankeyDiagram internally switches to expanded view with title
     await waitFor(() => {
-      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent('Materials Breakdown');
+      expect(screen.getByRole('heading', { level: 4 })).toHaveTextContent('Materials Breakdown');
     });
   });
 
@@ -207,12 +204,12 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     render(<ResultsDisplay />);
 
     // Click on materials node
-    const materialsNode = screen.getByTestId('sankey-node-materials');
+    const materialsNode = screen.getByRole('button', { name: 'Materials' });
     fireEvent.click(materialsNode);
 
     // Check expanded header shows materials breakdown title
     await waitFor(() => {
-      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent(/materials breakdown/i);
+      expect(screen.getByRole('heading', { level: 4 })).toHaveTextContent(/materials breakdown/i);
     });
   });
 
@@ -220,16 +217,16 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     render(<ResultsDisplay />);
 
     // Click on materials node to expand
-    const materialsNode = screen.getByTestId('sankey-node-materials');
+    const materialsNode = screen.getByRole('button', { name: 'Materials' });
     fireEvent.click(materialsNode);
 
     // Wait for expanded view
     await waitFor(() => {
-      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent('Materials Breakdown');
+      expect(screen.getByRole('heading', { level: 4 })).toHaveTextContent('Materials Breakdown');
     });
 
     // Click back button
-    const backButton = screen.getByTestId('sankey-back-button');
+    const backButton = screen.getByRole('button', { name: 'Back to Overview' });
     fireEvent.click(backButton);
 
     // Wait for overview to return (drill-down hint reappears)
@@ -242,7 +239,7 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     render(<ResultsDisplay />);
 
     // Click on total node
-    const totalNode = screen.getByTestId('sankey-node-total');
+    const totalNode = screen.getByRole('button', { name: 'Total' });
     fireEvent.click(totalNode);
 
     // Wait a bit and verify no expansion occurs (hint text still visible)
@@ -250,19 +247,19 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     expect(screen.getByText(/click on a category to drill down/i)).toBeInTheDocument();
 
     // No expanded title should appear in the Sankey area
-    expect(screen.queryByTestId('sankey-expanded-title')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 4 })).not.toBeInTheDocument();
   });
 
   it('should expand to energy breakdown when energy node is clicked', async () => {
     render(<ResultsDisplay />);
 
     // Click on energy node
-    const energyNode = screen.getByTestId('sankey-node-energy');
+    const energyNode = screen.getByRole('button', { name: 'Energy' });
     fireEvent.click(energyNode);
 
     // Check expanded header
     await waitFor(() => {
-      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent(/energy breakdown/i);
+      expect(screen.getByRole('heading', { level: 4 })).toHaveTextContent(/energy breakdown/i);
     });
   });
 
@@ -270,12 +267,12 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     render(<ResultsDisplay />);
 
     // Click on transport node
-    const transportNode = screen.getByTestId('sankey-node-transport');
+    const transportNode = screen.getByRole('button', { name: 'Transport' });
     fireEvent.click(transportNode);
 
     // Check expanded header
     await waitFor(() => {
-      expect(screen.getByTestId('sankey-expanded-title')).toHaveTextContent(/transport breakdown/i);
+      expect(screen.getByRole('heading', { level: 4 })).toHaveTextContent(/transport breakdown/i);
     });
   });
 
@@ -283,7 +280,7 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     render(<ResultsDisplay />);
 
     // Click on materials node
-    const materialsNode = screen.getByTestId('sankey-node-materials');
+    const materialsNode = screen.getByRole('button', { name: 'Materials' });
     fireEvent.click(materialsNode);
 
     // Check that breakdown items from calculation.breakdown are displayed
@@ -297,7 +294,7 @@ describe('ResultsDisplay Category Drill-Down Integration', () => {
     render(<ResultsDisplay />);
 
     // Click on energy node
-    const energyNode = screen.getByTestId('sankey-node-energy');
+    const energyNode = screen.getByRole('button', { name: 'Energy' });
     fireEvent.click(energyNode);
 
     // Check that energy BOM item is displayed

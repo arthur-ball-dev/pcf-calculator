@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, userEvent } from '../testUtils';
+import { render, screen, fireEvent, waitFor, userEvent, within } from '../testUtils';
 import ResultsDisplay from '../../src/components/calculator/ResultsDisplay';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { useWizardStore } from '../../src/store/wizardStore';
@@ -19,7 +19,7 @@ import type { Calculation } from '../../src/types/store.types';
 
 // Mock Nivo Sankey component
 vi.mock('@nivo/sankey', () => ({
-  ResponsiveSankey: () => <div data-testid="sankey-chart">Sankey Chart</div>,
+  ResponsiveSankey: () => <div role="figure" aria-label="Sankey chart">Sankey Chart</div>,
 }));
 
 // Mock stores
@@ -107,19 +107,18 @@ describe('ResultsDisplay', () => {
     it('should display total CO2e with correct formatting', () => {
       render(<ResultsDisplay />);
 
-      // Use testid to get the specific total element (avoid duplicate match with table total row)
-      expect(screen.getByTestId('total-co2e')).toHaveTextContent('12.50');
+      // Look inside the hero to avoid a duplicate match with the table's total row
+      expect(within(screen.getByRole('group', { name: 'Results summary' })).getByText(/^[\d,]+\.\d+$/)).toHaveTextContent('12.50');
       // The unit text is split across elements due to <sub> tag: "kg CO" + "2" + "e"
       // Check the unit text exists within the results hero
-      const hero = screen.getByTestId('results-hero');
+      const hero = screen.getByRole('group', { name: 'Results summary' });
       expect(hero).toHaveTextContent(/kg CO/);
     });
 
     it('should display total CO2e with large font size', () => {
       render(<ResultsDisplay />);
 
-      // Use testid to get the specific total element
-      const totalElement = screen.getByTestId('total-co2e');
+      const totalElement = within(screen.getByRole('group', { name: 'Results summary' })).getByText(/^[\d,]+\.\d+$/);
       // Emerald Night 5B uses text-[2.5rem] instead of text-5xl
       expect(totalElement).toHaveClass('text-[2.5rem]');
     });
@@ -128,9 +127,9 @@ describe('ResultsDisplay', () => {
       render(<ResultsDisplay />);
 
       // Emerald Night 5B uses ResultsHero with badges instead of timestamp
-      expect(screen.getByTestId('results-hero')).toBeInTheDocument();
-      expect(screen.getByTestId('quality-badge')).toBeInTheDocument();
-      expect(screen.getByTestId('iso-badge')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Results summary' })).toBeInTheDocument();
+      expect(within(screen.getByRole('group', { name: 'Results summary' })).getByText(/ Rating$/)).toBeInTheDocument();
+      expect(within(screen.getByRole('group', { name: 'Results summary' })).getByText('ISO 14067')).toBeInTheDocument();
     });
   });
 
@@ -177,7 +176,7 @@ describe('ResultsDisplay', () => {
     it('should have categories collapsed by default', () => {
       render(<ResultsDisplay />);
 
-      const materialsExpander = screen.getByTestId('expand-materials');
+      const materialsExpander = screen.getByRole('button', { name: 'Materials' });
       expect(materialsExpander).toHaveAttribute('aria-expanded', 'false');
     });
 
@@ -185,11 +184,11 @@ describe('ResultsDisplay', () => {
       const user = userEvent.setup();
       render(<ResultsDisplay />);
 
-      const materialsExpander = screen.getByTestId('expand-materials');
+      const materialsExpander = screen.getByRole('button', { name: 'Materials' });
       await user.click(materialsExpander);
 
       await waitFor(() => {
-        expect(screen.getByTestId('expand-materials')).toHaveAttribute('aria-expanded', 'true');
+        expect(screen.getByRole('button', { name: 'Materials' })).toHaveAttribute('aria-expanded', 'true');
       });
     });
 
@@ -198,15 +197,15 @@ describe('ResultsDisplay', () => {
       render(<ResultsDisplay />);
 
       // Expand
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
       await waitFor(() => {
-        expect(screen.getByTestId('expand-materials')).toHaveAttribute('aria-expanded', 'true');
+        expect(screen.getByRole('button', { name: 'Materials' })).toHaveAttribute('aria-expanded', 'true');
       });
 
       // Collapse
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
       await waitFor(() => {
-        expect(screen.getByTestId('expand-materials')).toHaveAttribute('aria-expanded', 'false');
+        expect(screen.getByRole('button', { name: 'Materials' })).toHaveAttribute('aria-expanded', 'false');
       });
     });
   });
@@ -216,9 +215,9 @@ describe('ResultsDisplay', () => {
       render(<ResultsDisplay />);
 
       // All category rows should be present (sorted by value in BreakdownTable)
-      const materialsRow = screen.getByTestId('category-row-materials');
-      const energyRow = screen.getByTestId('category-row-energy');
-      const transportRow = screen.getByTestId('category-row-transport');
+      const materialsRow = screen.getByRole('button', { name: 'Materials' }).closest('tr');
+      const energyRow = screen.getByRole('button', { name: 'Energy' }).closest('tr');
+      const transportRow = screen.getByRole('button', { name: 'Transport' }).closest('tr');
 
       expect(materialsRow).toBeInTheDocument();
       expect(energyRow).toBeInTheDocument();
@@ -230,13 +229,13 @@ describe('ResultsDisplay', () => {
     it('should render Sankey diagram', () => {
       render(<ResultsDisplay />);
 
-      expect(screen.getByTestId('sankey-chart')).toBeInTheDocument();
+      expect(screen.getByRole('figure', { name: 'Sankey chart' })).toBeInTheDocument();
     });
 
     it('should pass calculation data to Sankey diagram', () => {
       render(<ResultsDisplay />);
 
-      const diagram = screen.getByTestId('sankey-chart');
+      const diagram = screen.getByRole('figure', { name: 'Sankey chart' });
       expect(diagram).toBeInTheDocument();
     });
   });
@@ -276,15 +275,15 @@ describe('ResultsDisplay', () => {
     it('should render ExportButton component', () => {
       render(<ResultsDisplay />);
 
-      // ExportButton renders a container with data-testid="export-buttons"
-      expect(screen.getByTestId('export-buttons')).toBeInTheDocument();
+      // ExportButton renders a group labelled "Export results"
+      expect(screen.getByRole('group', { name: 'Export results' })).toBeInTheDocument();
     });
 
     it('should render CSV and Excel export buttons', () => {
       render(<ResultsDisplay />);
 
-      expect(screen.getByTestId('export-csv-button')).toBeInTheDocument();
-      expect(screen.getByTestId('export-excel-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toBeInTheDocument();
     });
 
     it('should display CSV and Excel button labels', () => {
@@ -299,7 +298,7 @@ describe('ResultsDisplay', () => {
       render(<ResultsDisplay />);
 
       // Click CSV button directly
-      await user.click(screen.getByTestId('export-csv-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as CSV' }));
 
       expect(mockExportToCSV).toHaveBeenCalled();
     });
@@ -309,7 +308,7 @@ describe('ResultsDisplay', () => {
       render(<ResultsDisplay />);
 
       // Click Excel button directly
-      await user.click(screen.getByTestId('export-excel-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as Excel' }));
 
       expect(mockExportToExcel).toHaveBeenCalled();
     });
@@ -326,8 +325,8 @@ describe('ResultsDisplay', () => {
       render(<ResultsDisplay />);
 
       // Export buttons should be disabled during export
-      const csvButton = screen.getByTestId('export-csv-button');
-      const excelButton = screen.getByTestId('export-excel-button');
+      const csvButton = screen.getByRole('button', { name: 'Download as CSV' });
+      const excelButton = screen.getByRole('button', { name: 'Download as Excel' });
       expect(csvButton).toBeDisabled();
       expect(excelButton).toBeDisabled();
     });
@@ -383,7 +382,7 @@ describe('ResultsDisplay', () => {
     it('should have accessible category toggle buttons', () => {
       render(<ResultsDisplay />);
 
-      const materialsExpander = screen.getByTestId('expand-materials');
+      const materialsExpander = screen.getByRole('button', { name: 'Materials' });
       expect(materialsExpander).toHaveAttribute('aria-expanded');
     });
 
@@ -413,7 +412,7 @@ describe('ResultsDisplay', () => {
       render(<ResultsDisplay />);
 
       // Use testid for total to avoid duplicate match with table total row
-      expect(screen.getByTestId('total-co2e')).toHaveTextContent('12.50');
+      expect(within(screen.getByRole('group', { name: 'Results summary' })).getByText(/^[\d,]+\.\d+$/)).toHaveTextContent('12.50');
       expect(screen.getByText('7.30')).toBeInTheDocument();
       expect(screen.getByText('3.80')).toBeInTheDocument();
       expect(screen.getByText('1.40')).toBeInTheDocument();

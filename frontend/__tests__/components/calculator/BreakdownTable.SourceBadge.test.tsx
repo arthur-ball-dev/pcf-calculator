@@ -82,10 +82,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Expand materials category to see cotton item
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         expect(within(cottonRow).getByText('[DEF]')).toBeInTheDocument();
       });
     });
@@ -102,10 +102,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Expand materials category to see polyester item
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const polyesterRow = screen.getByTestId('item-row-polyester');
+        const polyesterRow = screen.getByRole('row', { name: /^Polyester\b/ });
         expect(within(polyesterRow).getByText('[EPA]')).toBeInTheDocument();
       });
     });
@@ -122,10 +122,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         const defraBadge = within(cottonRow).getByText('[DEF]');
 
         // Should be an anchor element
@@ -147,19 +147,19 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Expand both materials and energy categories
-      await user.click(screen.getByTestId('expand-materials'));
-      await user.click(screen.getByTestId('expand-energy'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
+      await user.click(screen.getByRole('button', { name: 'Energy' }));
 
       await waitFor(() => {
         // Materials items
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         expect(within(cottonRow).getByText('[DEF]')).toBeInTheDocument();
 
-        const polyesterRow = screen.getByTestId('item-row-polyester');
+        const polyesterRow = screen.getByRole('row', { name: /^Polyester\b/ });
         expect(within(polyesterRow).getByText('[EPA]')).toBeInTheDocument();
 
         // Energy items
-        const electricityRow = screen.getByTestId('item-row-electricity_us');
+        const electricityRow = screen.getByRole('row', { name: /^Electricity Us\b/ });
         expect(within(electricityRow).getByText('[EPA]')).toBeInTheDocument();
       });
     });
@@ -181,10 +181,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         const defraBadge = within(cottonRow).getByText('[DEF]');
         expect(defraBadge.className).toMatch(/blue/i);
       });
@@ -201,10 +201,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const polyesterRow = screen.getByTestId('item-row-polyester');
+        const polyesterRow = screen.getByRole('row', { name: /^Polyester\b/ });
         const epaBadge = within(polyesterRow).getByText('[EPA]');
         expect(epaBadge.className).toMatch(/green/i);
       });
@@ -241,11 +241,11 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
         // polyester has no source - should not have badge
-        const polyesterRow = screen.getByTestId('item-row-polyester');
+        const polyesterRow = screen.getByRole('row', { name: /^Polyester\b/ });
         expect(within(polyesterRow).queryByText(/\[.*\]/)).not.toBeInTheDocument();
       });
     });
@@ -261,11 +261,11 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
         // polyester row should still render with name and values
-        const polyesterRow = screen.getByTestId('item-row-polyester');
+        const polyesterRow = screen.getByRole('row', { name: /^Polyester\b/ });
         expect(polyesterRow).toBeInTheDocument();
         // The formatted name "Polyester" should be visible
         expect(within(polyesterRow).getByText(/polyester/i)).toBeInTheDocument();
@@ -283,15 +283,15 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
         // Cotton should have badge (has source)
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         expect(within(cottonRow).getByText('[DEF]')).toBeInTheDocument();
 
         // Polyester should not have badge (no source)
-        const polyesterRow = screen.getByTestId('item-row-polyester');
+        const polyesterRow = screen.getByRole('row', { name: /^Polyester\b/ });
         expect(within(polyesterRow).queryByText(/\[.*\]/)).not.toBeInTheDocument();
       });
     });
@@ -307,11 +307,11 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
         // Items should render without any source badges
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         expect(cottonRow).toBeInTheDocument();
         expect(within(cottonRow).queryByText(/\[.*\]/)).not.toBeInTheDocument();
       });
@@ -328,11 +328,11 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
         // Items should render without any source badges
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         expect(cottonRow).toBeInTheDocument();
         expect(within(cottonRow).queryByText(/\[.*\]/)).not.toBeInTheDocument();
       });
@@ -355,10 +355,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const polyesterRow = screen.getByTestId('item-row-polyester');
+        const polyesterRow = screen.getByRole('row', { name: /^Polyester\b/ });
         const epaBadge = within(polyesterRow).getByText('[EPA]');
         expect(epaBadge).toHaveAttribute('href', '#epa-attribution');
       });
@@ -375,10 +375,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         const defraBadge = within(cottonRow).getByText('[DEF]');
         expect(defraBadge).toHaveAttribute('href', '#defra-attribution');
       });
@@ -402,10 +402,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         const defraBadge = within(cottonRow).getByText('[DEF]');
 
         expect(defraBadge).toHaveAttribute('title');
@@ -424,10 +424,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         const defraBadge = within(cottonRow).getByText('[DEF]');
 
         // Should be an anchor (inherently focusable)
@@ -452,10 +452,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
 
         // Both the item name and badge should be in the same cell
         const firstCell = cottonRow.querySelector('td');
@@ -475,10 +475,10 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
 
         // The cell content should have both name and badge
         cottonRow.querySelector('td');
@@ -509,15 +509,15 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Expand
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
       await waitFor(() => {
-        expect(screen.getByTestId('item-row-cotton')).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Cotton\b/ })).toBeInTheDocument();
       });
 
       // Collapse
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
       await waitFor(() => {
-        expect(screen.queryByTestId('item-row-cotton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('row', { name: /^Cotton\b/ })).not.toBeInTheDocument();
         // Badge should also be gone
         expect(screen.queryByText('[DEF]')).not.toBeInTheDocument();
       });
@@ -535,12 +535,12 @@ describe('BreakdownTable SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Expand -> Collapse -> Expand again
-      await user.click(screen.getByTestId('expand-materials'));
-      await user.click(screen.getByTestId('expand-materials'));
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const cottonRow = screen.getByTestId('item-row-cotton');
+        const cottonRow = screen.getByRole('row', { name: /^Cotton\b/ });
         expect(within(cottonRow).getByText('[DEF]')).toBeInTheDocument();
       });
     });

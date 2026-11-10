@@ -49,7 +49,11 @@ export function ScenarioPanel({
   comparisonDelta,
 }: ScenarioPanelProps) {
   return (
-    <Card data-testid={`scenario-panel-${scenario.id}`}>
+    <Card
+      data-testid={`scenario-panel-${scenario.id}`}
+      role="group"
+      aria-label={scenario.name || 'Untitled scenario'}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle>
@@ -69,6 +73,8 @@ export function ScenarioPanel({
         {comparisonDelta && (
           <div
             data-testid="delta-display"
+            role="group"
+            aria-label="Change from baseline"
             className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium ${getDeltaColor(comparisonDelta.direction)}`}
             data-direction={comparisonDelta.direction}
           >
@@ -92,6 +98,8 @@ export function ScenarioPanel({
         <div
           className="mb-4 p-4 bg-gray-50 rounded-lg"
           data-testid="total-emissions"
+          role="group"
+          aria-label="Total emissions"
         >
           <div className="text-sm text-gray-500">Total Emissions</div>
           <div className="text-2xl font-bold">
@@ -105,7 +113,7 @@ export function ScenarioPanel({
         </div>
 
         {/* BOM Breakdown */}
-        <div className="space-y-2" data-testid="bom-entries">
+        <div className="space-y-2" data-testid="bom-entries" role="group" aria-label="Component breakdown">
           <h4 className="text-sm font-medium text-gray-700">
             Component Breakdown
           </h4>
@@ -114,6 +122,8 @@ export function ScenarioPanel({
               key={entry.id || index}
               className="flex justify-between items-center py-2 border-b last:border-0"
               data-testid={`bom-entry-${index}`}
+              role="group"
+              aria-label={entry.component_name}
             >
               <div>
                 <div className="font-medium text-sm">{entry.component_name}</div>

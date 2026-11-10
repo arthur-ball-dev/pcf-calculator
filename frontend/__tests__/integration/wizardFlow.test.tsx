@@ -13,13 +13,13 @@
  * UPDATED for Emerald Night UI rebuild:
  * - ProductSelector replaced by ProductList (full-page list, no combobox/dropdown)
  * - ProductList uses productsAPI.search (not productsAPI.list)
- * - Products are rendered as clickable rows with data-testid="product-row-{id}"
- * - BOM filter is a toggle switch with data-testid="bom-toggle-switch"
- * - Search input has data-testid="product-search-input"
- * - Loading skeleton has data-testid="product-list-skeleton"
+ * - Products are rendered as clickable rows
+ * - BOM filter is a toggle switch
+ * - Search input is labelled "Search products"
+ * - Loading skeleton is a status labelled "Loading products"
  * - StepProgress buttons have aria-label="Step N of 3: Label (current/completed)"
  * - ResultsHero replaces ResultsSummary
- * - WizardNavigation buttons: data-testid="next-button" and "previous-button"
+ * - WizardNavigation buttons: aria-label "Next step" and "Previous step"
  * - On edit step, Next button text is "Calculate" (aria-label="Calculate carbon footprint")
  *
  * NOTE: Uses fireEvent instead of userEvent to avoid JSDOM event loop
@@ -93,17 +93,19 @@ describe('Integration: Complete Wizard Workflow', { timeout: 30000 }, () => {
   });
 
   /**
-   * Helper: Get Next button via data-testid (reliable across all steps).
+   * Helper: Get Next button by its accessible name, which changes per step.
    */
   function getNextButton() {
-    return screen.getByTestId('next-button');
+    return screen.getByRole('button', {
+      name: /^(Next step|Calculate carbon footprint|Loading\.\.\.)$/,
+    });
   }
 
   /**
-   * Helper: Get Previous button via data-testid.
+   * Helper: Get Previous button by its accessible name.
    */
   function getPreviousButton() {
-    return screen.getByTestId('previous-button');
+    return screen.getByRole('button', { name: 'Previous step' });
   }
 
   /**

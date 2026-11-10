@@ -106,12 +106,9 @@ const CalculationWizard: React.FC = () => {
     startCalculation();
   }, [startCalculation]);
 
-  // Close overlay when calculation completes
-  useEffect(() => {
-    if (calculation?.status === 'completed' && showOverlay && !isCalculating) {
-      setShowOverlay(false);
-    }
-  }, [calculation?.status, showOverlay, isCalculating]);
+  // The overlay closes once the calculation has completed. Derived during render rather than reset
+  // in an effect, which rendered once more with the overlay still open (#162).
+  const isOverlayOpen = showOverlay && !(calculation?.status === 'completed' && !isCalculating);
 
   // Find current step configuration
   const currentStepConfig = WIZARD_STEPS.find((s) => s.id === currentStep);
@@ -185,8 +182,13 @@ const CalculationWizard: React.FC = () => {
     hasValidatedRef.current = false;
 
     const validateStep = async () => {
-      // Skip validation if already validated or if step is already complete
-      if (hasValidatedRef.current || completedSteps.includes(currentStep)) {
+      // Skip validation if already validated or if step is already complete. Read the store now
+      // rather than this render's completedSteps, so the effect runs on step changes only (#162).
+      if (hasValidatedRef.current || useWizardStore.getState().completedSteps.includes(currentStep)) {
+        return;
+      }
+      // The step's component owns its completion (BOMEditor for the edit step)
+      if (currentStepConfig?.completedByComponent) {
         return;
       }
 
@@ -206,7 +208,7 @@ const CalculationWizard: React.FC = () => {
     };
 
     validateStep();
-  }, [currentStep, currentStepConfig]); // markStepComplete/markStepIncomplete removed from deps to prevent infinite loop
+  }, [currentStep, currentStepConfig, markStepComplete, markStepIncomplete]); // store actions: stable
 
   /**
    * Keyboard shortcuts for navigation
@@ -416,7 +418,7 @@ const CalculationWizard: React.FC = () => {
 
         {/* Calculation overlay - managed at wizard level for both buttons */}
         <CalculationOverlay
-          isOpen={showOverlay}
+          isOpen={isOverlayOpen}
           isCalculating={isCalculating}
           elapsedSeconds={elapsedSeconds}
           error={error}

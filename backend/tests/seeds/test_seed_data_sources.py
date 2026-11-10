@@ -17,89 +17,56 @@ Test-Driven Development Protocol:
 """
 
 import pytest
-from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import StaticPool
 
 from backend.models import Base, DataSource
+from backend.tests.pg_isolation import empty_all_tables
 
 
 @pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    return engine
+def empty_db_session(db_session):
+    """
+    PostgreSQL session with every table empty, including data_sources.
+
+    Represents a fresh database with no data sources seeded. Rolled back after
+    the test.
+    """
+    empty_all_tables(db_session)
+    return db_session
 
 
 @pytest.fixture(scope="function")
-def empty_db_session(db_engine):
+def db_engine(empty_db_session):
     """
-    Create database session with empty data_sources table.
+    The connection behind empty_db_session, for tests that open their own sessions.
 
-    This fixture represents a fresh database with no data sources seeded.
-    Used for testing initial seeding behavior.
+    Sessions bound to it join its transaction, so they see each other's commits
+    and everything is rolled back after the test.
     """
-    Base.metadata.create_all(db_engine)
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
+    return empty_db_session.get_bind()
 
 
 @pytest.fixture(scope="function")
-def seeded_db_session(db_engine):
+def seeded_db_session(empty_db_session):
     """
-    Create database session with data_sources already seeded.
+    Session with data_sources already seeded.
 
-    This fixture represents a database where seed_data_sources has
-    already been called. Used for testing idempotency.
+    Represents a database where seed_data_sources has already been called.
+    Used for testing idempotency.
     """
-    Base.metadata.create_all(db_engine)
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    # Pre-seed with both data sources (EPA, DEFRA)
     from backend.database.seeds.data_sources import seed_data_sources
-    seed_data_sources(session, skip_existing=False)
-
-    yield session
-
-    session.close()
+    seed_data_sources(empty_db_session, skip_existing=False)
+    return empty_db_session
 
 
 @pytest.fixture(scope="function")
-def partial_db_session(db_engine):
+def partial_db_session(empty_db_session):
     """
-    Create database session with only EPA data source seeded.
+    Session with only the EPA data source seeded.
 
-    This fixture represents a partial seeding state where only
-    one of the three expected data sources exists. Used for testing
-    incremental seeding behavior.
+    Represents a partial seeding state. Used for testing incremental seeding
+    behavior.
     """
-    Base.metadata.create_all(db_engine)
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    # Pre-seed with only EPA
     epa_source = DataSource(
         name="EPA GHG Emission Factors Hub",
         source_type="file",
@@ -108,12 +75,9 @@ def partial_db_session(db_engine):
         sync_frequency="biweekly",
         is_active=True,
     )
-    session.add(epa_source)
-    session.commit()
-
-    yield session
-
-    session.close()
+    empty_db_session.add(epa_source)
+    empty_db_session.commit()
+    return empty_db_session
 
 
 # ============================================================================

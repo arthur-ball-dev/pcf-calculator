@@ -108,7 +108,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
           </Button>
         );
 
-        const button = screen.getByTestId(`button-${variant}`);
+        const button = screen.getByRole('button', { name: `${variant} Button` });
         const classes = button.className;
 
         // All variants should have minimum height
@@ -133,8 +133,8 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </div>
       );
 
-      const button1 = screen.getByTestId('button-1');
-      const button2 = screen.getByTestId('button-2');
+      const button1 = screen.getByRole('button', { name: 'Button 1' });
+      const button2 = screen.getByRole('button', { name: 'Button 2' });
 
       expect(button1).toBeInTheDocument();
       expect(button2).toBeInTheDocument();
@@ -218,14 +218,14 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
   describe('Form Control Touch Targets', () => {
     it('should render form with touch-friendly inputs', () => {
       render(
-        <form data-testid="touch-form">
+        <form data-testid="touch-form" aria-label="Touch form">
           <Input aria-label="Product name" placeholder="Enter product name" />
           <Input type="number" aria-label="Quantity" placeholder="Enter quantity" />
           <Button type="submit">Submit</Button>
         </form>
       );
 
-      const form = screen.getByTestId('touch-form');
+      const form = screen.getByRole('form', { name: 'Touch form' });
       const inputs = form.querySelectorAll('input');
       const button = screen.getByRole('button', { name: /submit/i });
 
@@ -261,7 +261,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </Button>
       );
 
-      const button = screen.getByTestId('icon-button');
+      const button = screen.getByRole('button', { name: 'Close' });
       expect(button).toBeInTheDocument();
 
       // Should have touch-area-expanded class for pseudo-element expansion
@@ -276,7 +276,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </Button>
       );
 
-      const button = screen.getByTestId('small-icon-button');
+      const button = screen.getByRole('button', { name: 'Menu' });
       const classes = button.className;
 
       // Icon button should have 44x44 dimensions
@@ -295,7 +295,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </Button>
       );
 
-      const button = screen.getByTestId('icon-sm-button');
+      const button = screen.getByRole('button', { name: 'Edit' });
       const classes = button.className;
 
       // Even small icon buttons should meet minimum touch target
@@ -322,7 +322,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </button>
       );
 
-      const element = screen.getByTestId('touch-target-element');
+      const element = screen.getByRole('button', { name: 'Touch Me' });
       expect(element.className).toContain('touch-target');
     });
 
@@ -333,7 +333,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </button>
       );
 
-      const element = screen.getByTestId('responsive-touch-target');
+      const element = screen.getByRole('button', { name: 'Responsive' });
       expect(element.className).toContain('touch-target-sm');
     });
 
@@ -344,7 +344,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </button>
       );
 
-      const element = screen.getByTestId('expanded-touch-area');
+      const element = screen.getByRole('button', { name: 'Icon' });
       expect(element.className).toContain('touch-area-expanded');
     });
   });
@@ -362,8 +362,8 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </div>
       );
 
-      const prevButton = screen.getByTestId('wizard-prev');
-      const nextButton = screen.getByTestId('wizard-next');
+      const prevButton = screen.getByRole('button', { name: 'Previous' });
+      const nextButton = screen.getByRole('button', { name: 'Next' });
 
       // Both wizard navigation buttons should meet touch target requirements
       [prevButton, nextButton].forEach((button) => {
@@ -407,7 +407,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </p>
       );
 
-      const link = screen.getByTestId('inline-link');
+      const link = screen.getByRole('link', { name: 'here' });
       expect(link).toBeInTheDocument();
 
       // Inline text links are exempt from 44px requirement per WCAG 2.5.5
@@ -421,7 +421,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </Button>
       );
 
-      const linkButton = screen.getByTestId('link-button');
+      const linkButton = screen.getByRole('link', { name: 'Learn More' });
       expect(linkButton).toBeInTheDocument();
 
       // Link buttons (not inline) should meet touch target requirements
@@ -500,7 +500,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </div>
       );
 
-      const button = screen.getByTestId('responsive-button');
+      const button = screen.getByRole('button', { name: 'Mobile Friendly' });
       expect(button.className).toContain('touch-target-sm');
 
       // touch-target-sm should apply 44px min on mobile, remove on larger screens
@@ -513,7 +513,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </Button>
       );
 
-      const button = screen.getByTestId('small-button-test');
+      const button = screen.getByRole('button', { name: 'Small' });
       const classes = button.className;
 
       // Even on desktop, interactive elements should remain touchable
@@ -543,7 +543,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         />
       );
 
-      const input = screen.getByTestId('bom-quantity-input');
+      const input = screen.getByRole('spinbutton', { name: 'Component quantity' });
       const classes = input.className;
 
       const hasTouchTargetHeight =
@@ -560,7 +560,7 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </Button>
       );
 
-      const button = screen.getByTestId('calculate-button');
+      const button = screen.getByRole('button', { name: 'Calculate Carbon Footprint' });
       const classes = button.className;
 
       // Calculate button should be large and touch-friendly
@@ -583,8 +583,8 @@ describe('Touch Target Accessibility - WCAG 2.5.5 Compliance', () => {
         </div>
       );
 
-      const input = screen.getByTestId('product-search-input');
-      const button = screen.getByTestId('product-search-button');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
+      const button = screen.getByRole('button', { name: 'Search' });
 
       // Both should have touch-friendly dimensions
       const inputClasses = input.className;

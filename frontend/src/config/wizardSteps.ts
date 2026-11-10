@@ -15,6 +15,7 @@
  * - description: Help text shown below heading
  * - component: React component to render for this step
  * - validate: Optional async function to check step completion
+ * - completedByComponent: The step's component marks completion itself; the wizard skips it
  *
  * Updated Phase 9: Replaced ProductSelector with ProductList (Emerald Night 5B)
  */
@@ -44,14 +45,10 @@ export const WIZARD_STEPS: StepConfig[] = [
     progressLabel: 'Edit BOM',
     description: 'Review and modify the Bill of Materials',
     component: BOMEditor,
-    validate: async () => {
-      // Check if BOM has at least one valid item
-      const bomItems = useCalculatorStore.getState().bomItems;
-      return (
-        bomItems.length > 0 &&
-        bomItems.every((item) => item.name && item.quantity > 0)
-      );
-    },
+    // BOMEditor completes the step from its form validation (the full BOM schema, including
+    // unique names). A separate wizard check here accepted BOMs the form rejects and raced the
+    // editor on entry, so the Calculate button flickered enabled -> disabled -> enabled (#133).
+    completedByComponent: true,
   },
   {
     id: 'results',

@@ -71,6 +71,8 @@ export default function ResultsHero({
     <div
       data-tour="results-summary"
       data-testid="results-hero"
+      role="group"
+      aria-label="Results summary"
       className="relative text-center py-4 pb-10 animate-fadeInUp"
     >
       {/* Radial emerald glow behind the value */}
@@ -89,7 +91,7 @@ export default function ResultsHero({
       </p>
 
       {/* Hero PCF value */}
-      <div className="relative">
+      <div className="relative" role="group" aria-label="Total emissions">
         <span
           className="font-heading text-[2.5rem] sm:text-[3.5rem] font-bold text-[var(--text-primary)] leading-none tabular-nums tracking-[-0.03em]"
           data-testid="total-co2e"

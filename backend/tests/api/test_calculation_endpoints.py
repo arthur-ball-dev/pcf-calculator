@@ -13,7 +13,6 @@ TASK-QA-P7-031: Updated to use root conftest.py auth fixtures
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import StaticPool
 import time
 
 from backend.main import app
@@ -24,28 +23,6 @@ from backend.database.connection import get_db
 # ============================================================================
 # Test Database Setup
 # ============================================================================
-
-@pytest.fixture(scope="function")
-def test_db():
-    """Create test database with in-memory SQLite"""
-    # Use StaticPool to enable threading for TestClient
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool
-    )
-
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
-
-    # Create session factory
-    TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    yield TestSessionLocal
-
-    # Cleanup
-    Base.metadata.drop_all(bind=engine)
-
 
 @pytest.fixture
 def sample_product(db_session):

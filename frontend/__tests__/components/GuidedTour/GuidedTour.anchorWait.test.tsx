@@ -16,8 +16,8 @@ import { TOUR_STEPS } from '@/config/tourSteps';
 
 // Replace react-joyride with a stub that exposes which steps it was given
 vi.mock('react-joyride', () => ({
-  default: ({ steps }: { steps: Array<{ target: string }> }) => (
-    <div data-testid="joyride-stub">{steps.map((s) => s.target).join(',')}</div>
+  Joyride: ({ steps }: { steps: Array<{ target: string }> }) => (
+    <div role="region" aria-label="Joyride stub">{steps.map((s) => s.target).join(',')}</div>
   ),
 }));
 
@@ -31,7 +31,7 @@ function LateAnchors({ delayMs }: { delayMs: number }) {
   return loaded ? (
     <div data-tour="product-select">Product search</div>
   ) : (
-    <div data-testid="skeleton">Loading...</div>
+    <div>Loading...</div>
   );
 }
 
@@ -52,16 +52,16 @@ describe('TASK-FE-FIX-001: GuidedTour waits for data-tour anchors', () => {
   test('starts the tour when anchors are already rendered', async () => {
     renderTour(<div data-tour="product-select">Product search</div>);
 
-    const stub = await screen.findByTestId('joyride-stub');
+    const stub = await screen.findByRole('region', { name: 'Joyride stub' });
     expect(stub).toHaveTextContent('[data-tour="product-select"]');
   });
 
   test('starts the tour when anchors appear after a loading state', async () => {
     renderTour(<LateAnchors delayMs={1500} />);
 
-    expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
     await waitFor(
-      () => expect(screen.getByTestId('joyride-stub')).toHaveTextContent('[data-tour="product-select"]'),
+      () => expect(screen.getByRole('region', { name: 'Joyride stub' })).toHaveTextContent('[data-tour="product-select"]'),
       { timeout: 4000 }
     );
   });
@@ -72,14 +72,14 @@ describe('TASK-FE-FIX-001: GuidedTour waits for data-tour anchors', () => {
 
     await screen.findByText('Product search');
     await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(screen.queryByTestId('joyride-stub')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Joyride stub' })).not.toBeInTheDocument();
   });
 
   test('renders nothing when no anchors ever appear', async () => {
     renderTour(<div>No tour targets here</div>);
 
     await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(screen.queryByTestId('joyride-stub')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Joyride stub' })).not.toBeInTheDocument();
   });
 });
 

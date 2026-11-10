@@ -75,18 +75,15 @@ export function ProductSearch({ onProductSelect, className }: ProductSearchProps
     offset: currentPage * PAGE_SIZE,
   });
 
-  // Update accumulated items when data changes
-  React.useEffect(() => {
+  // Accumulate items when a new page of data arrives. Adjusted during render when `data` changes
+  // rather than in an effect (#162): page 0 replaces the list, later pages (Load More) append.
+  const [lastData, setLastData] = useState<typeof data | undefined>(undefined);
+  if (data !== lastData) {
+    setLastData(data);
     if (data?.items) {
-      if (currentPage === 0) {
-        // Reset items on new search
-        setAllItems(data.items);
-      } else {
-        // Append items for Load More
-        setAllItems((prev) => [...prev, ...data.items]);
-      }
+      setAllItems(currentPage === 0 ? data.items : [...allItems, ...data.items]);
     }
-  }, [data, currentPage]);
+  }
 
   // Count active filters
   const activeFilterCount = [selectedIndustry, selectedCategory, selectedManufacturer].filter(
@@ -153,7 +150,12 @@ export function ProductSearch({ onProductSelect, className }: ProductSearchProps
   const displayItems = currentPage === 0 ? (data?.items || []) : allItems;
 
   return (
-    <div className={`space-y-4 ${className || ''}`} data-testid="product-search">
+    <div
+      className={`space-y-4 ${className || ''}`}
+      data-testid="product-search"
+      role="region"
+      aria-label="Product search"
+    >
       {/* Search Header */}
       <div className="flex gap-2">
         {/* Search Input */}
@@ -242,6 +244,8 @@ export function ProductSearch({ onProductSelect, className }: ProductSearchProps
         <div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           data-testid="loading-skeletons"
+          role="status"
+          aria-label="Loading products"
         >
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="p-4 border rounded-lg">
@@ -272,7 +276,12 @@ export function ProductSearch({ onProductSelect, className }: ProductSearchProps
 
               {/* Pagination */}
               {(data.has_more || totalPages > 1) && (
-                <div className="flex justify-center mt-6" data-testid="pagination">
+                <div
+                  className="flex justify-center mt-6"
+                  data-testid="pagination"
+                  role="group"
+                  aria-label="Pagination controls"
+                >
                   <ProductSearchPagination
                     currentPage={currentPage}
                     totalPages={totalPages}

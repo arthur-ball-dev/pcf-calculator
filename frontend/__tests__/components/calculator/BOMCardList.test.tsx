@@ -67,9 +67,9 @@ describe('BOMCardList Component', () => {
       );
 
       // Should have 3 card elements
-      const card1 = screen.getByTestId('bom-card-1');
-      const card2 = screen.getByTestId('bom-card-2');
-      const card3 = screen.getByTestId('bom-card-3');
+      const card1 = screen.getByRole('article', { name: 'Steel' });
+      const card2 = screen.getByRole('article', { name: 'Electricity' });
+      const card3 = screen.getByRole('article', { name: 'Truck Transport' });
 
       expect(card1).toBeInTheDocument();
       expect(card2).toBeInTheDocument();
@@ -121,8 +121,8 @@ describe('BOMCardList Component', () => {
       );
 
       // Each card should have edit and remove buttons
-      const editButtons = screen.getAllByTestId(/^edit-btn-/);
-      const removeButtons = screen.getAllByTestId(/^remove-btn-/);
+      const editButtons = screen.getAllByRole('button', { name: /^Edit .+ quantity$/ });
+      const removeButtons = screen.getAllByRole('button', { name: /^Remove ./ });
 
       expect(editButtons).toHaveLength(3);
       expect(removeButtons).toHaveLength(3);
@@ -145,10 +145,10 @@ describe('BOMCardList Component', () => {
       );
 
       // Click edit button on first item
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
       // Quantity input field should become editable
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       expect(quantityInput).toBeInTheDocument();
       expect(quantityInput).toHaveAttribute('type', 'number');
     });
@@ -163,11 +163,11 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
       // Save and cancel buttons should appear
-      expect(screen.getByTestId('save-btn-1')).toBeInTheDocument();
-      expect(screen.getByTestId('cancel-btn-1')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save quantity' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel edit' })).toBeInTheDocument();
     });
 
     it('should focus the input field when entering edit mode', async () => {
@@ -180,9 +180,9 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       expect(quantityInput).toHaveFocus();
     });
 
@@ -196,10 +196,10 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
       // Edit button (pill quantity display) should be replaced by input + save/cancel
-      expect(screen.queryByTestId('edit-btn-1')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit Steel quantity' })).not.toBeInTheDocument();
     });
 
     it('should populate input with current quantity value', async () => {
@@ -212,9 +212,9 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       expect(quantityInput).toHaveValue(100);
     });
   });
@@ -235,15 +235,15 @@ describe('BOMCardList Component', () => {
       );
 
       // Enter edit mode
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
       // Clear and enter new quantity
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       await user.clear(quantityInput);
       await user.type(quantityInput, '200');
 
       // Save changes
-      await user.click(screen.getByTestId('save-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Save quantity' }));
 
       // Verify onUpdate was called with correct arguments
       expect(mockUpdate).toHaveBeenCalledWith('1', { quantity: 200 });
@@ -259,12 +259,14 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
-      await user.click(screen.getByTestId('save-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
+      await user.click(screen.getByRole('button', { name: 'Save quantity' }));
 
       // Should return to normal view
-      expect(screen.queryByTestId('quantity-input-1')).not.toBeInTheDocument();
-      expect(screen.getByTestId('edit-btn-1')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('article', { name: 'Steel' })).queryByRole('spinbutton')
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Edit Steel quantity' })).toBeInTheDocument();
     });
 
     it('should handle decimal quantity values', async () => {
@@ -277,12 +279,12 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       await user.clear(quantityInput);
       await user.type(quantityInput, '150.75');
-      await user.click(screen.getByTestId('save-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Save quantity' }));
 
       expect(mockUpdate).toHaveBeenCalledWith('1', { quantity: 150.75 });
     });
@@ -297,12 +299,12 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       await user.clear(quantityInput);
       await user.type(quantityInput, '0');
-      await user.click(screen.getByTestId('save-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Save quantity' }));
 
       expect(mockUpdate).not.toHaveBeenCalled();
     });
@@ -317,12 +319,12 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       await user.clear(quantityInput);
       await user.type(quantityInput, '-10');
-      await user.click(screen.getByTestId('save-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Save quantity' }));
 
       expect(mockUpdate).not.toHaveBeenCalled();
     });
@@ -343,12 +345,14 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
-      await user.click(screen.getByTestId('cancel-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
+      await user.click(screen.getByRole('button', { name: 'Cancel edit' }));
 
       // Should return to normal view
-      expect(screen.queryByTestId('quantity-input-1')).not.toBeInTheDocument();
-      expect(screen.getByTestId('edit-btn-1')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('article', { name: 'Steel' })).queryByRole('spinbutton')
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Edit Steel quantity' })).toBeInTheDocument();
     });
 
     it('should not call onUpdate when cancel is clicked', async () => {
@@ -361,15 +365,15 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
       // Change the value
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       await user.clear(quantityInput);
       await user.type(quantityInput, '999');
 
       // Cancel
-      await user.click(screen.getByTestId('cancel-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Cancel edit' }));
 
       expect(mockUpdate).not.toHaveBeenCalled();
     });
@@ -384,15 +388,15 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
       // Change the value
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       await user.clear(quantityInput);
       await user.type(quantityInput, '999');
 
       // Cancel
-      await user.click(screen.getByTestId('cancel-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Cancel edit' }));
 
       // Original value should still be displayed
       expect(screen.getByText('100')).toBeInTheDocument();
@@ -414,7 +418,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('remove-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Remove Steel' }));
 
       // Confirmation dialog should appear
       await waitFor(() => {
@@ -433,7 +437,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('remove-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Remove Steel' }));
 
       await waitFor(() => {
         // Wait for dialog to appear
@@ -455,13 +459,13 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('remove-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Remove Steel' }));
 
       await waitFor(() => {
-        expect(screen.getByTestId('confirm-remove-btn')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
       });
 
-      await user.click(screen.getByTestId('confirm-remove-btn'));
+      await user.click(screen.getByRole('button', { name: 'Remove' }));
 
       expect(mockRemove).toHaveBeenCalledWith('1');
     });
@@ -476,7 +480,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('remove-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Remove Steel' }));
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
@@ -497,7 +501,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('remove-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Remove Steel' }));
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
@@ -525,7 +529,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      const editButton = screen.getByTestId('edit-btn-1');
+      const editButton = screen.getByRole('button', { name: 'Edit Steel quantity' });
       // Pill quantity display button: min-w-[56px] h-[34px] - adequate for touch
       expect(editButton.className).toMatch(/min-w-\[56px\]|h-\[34px\]/);
     });
@@ -539,7 +543,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      const removeButton = screen.getByTestId('remove-btn-1');
+      const removeButton = screen.getByRole('button', { name: 'Remove Steel' });
 
       // Button should have sufficient height (44px = 2.75rem = h-11)
       expect(removeButton.className).toMatch(/h-11|min-h-\[44px\]|min-h-11/);
@@ -555,9 +559,9 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const saveButton = screen.getByTestId('save-btn-1');
+      const saveButton = screen.getByRole('button', { name: 'Save quantity' });
       // Save button uses h-9 w-9 class
       expect(saveButton.className).toMatch(/h-9|h-11|min-h-\[44px\]/);
     });
@@ -572,9 +576,9 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const cancelButton = screen.getByTestId('cancel-btn-1');
+      const cancelButton = screen.getByRole('button', { name: 'Cancel edit' });
       // Cancel button uses h-9 w-9 class
       expect(cancelButton.className).toMatch(/h-9|h-11|min-h-\[44px\]/);
     });
@@ -588,7 +592,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      const removeButton = screen.getByTestId('remove-btn-1');
+      const removeButton = screen.getByRole('button', { name: 'Remove Steel' });
 
       // Remove button should have sufficient width (w-11 = 44px)
       expect(removeButton.className).toMatch(/w-11|min-w-\[44px\]|min-w-11/);
@@ -633,7 +637,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      expect(screen.queryByTestId(/^bom-card-/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('article')).not.toBeInTheDocument();
     });
   });
 
@@ -652,8 +656,8 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      expect(screen.queryByTestId('edit-btn-1')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('edit-btn-2')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit Steel quantity' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit Electricity quantity' })).not.toBeInTheDocument();
     });
 
     it('should hide remove buttons when isReadOnly is true', () => {
@@ -666,8 +670,8 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      expect(screen.queryByTestId('remove-btn-1')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('remove-btn-2')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Remove Steel' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Remove Electricity' })).not.toBeInTheDocument();
     });
 
     it('should still display card content when isReadOnly is true', () => {
@@ -702,7 +706,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      const editButton = screen.getByTestId('edit-btn-1');
+      const editButton = screen.getByRole('button', { name: 'Edit Steel quantity' });
       expect(editButton).toHaveAttribute('aria-label');
       expect(editButton.getAttribute('aria-label')).toContain('Steel');
     });
@@ -716,7 +720,7 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      const removeButton = screen.getByTestId('remove-btn-1');
+      const removeButton = screen.getByRole('button', { name: 'Remove Steel' });
       expect(removeButton).toHaveAttribute('aria-label');
       expect(removeButton.getAttribute('aria-label')).toContain('Steel');
     });
@@ -731,9 +735,9 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const quantityInput = screen.getByTestId('quantity-input-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       expect(quantityInput).toHaveAttribute('aria-label');
     });
 
@@ -747,10 +751,10 @@ describe('BOMCardList Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('edit-btn-1'));
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
 
-      const saveButton = screen.getByTestId('save-btn-1');
-      const cancelButton = screen.getByTestId('cancel-btn-1');
+      const saveButton = screen.getByRole('button', { name: 'Save quantity' });
+      const cancelButton = screen.getByRole('button', { name: 'Cancel edit' });
 
       expect(saveButton).toHaveAttribute('aria-label');
       expect(cancelButton).toHaveAttribute('aria-label');
@@ -822,16 +826,20 @@ describe('BOMCardList Component', () => {
       );
 
       // Edit first item
-      await user.click(screen.getByTestId('edit-btn-1'));
-      expect(screen.getByTestId('quantity-input-1')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Edit Steel quantity' }));
+      expect(screen.getByRole('spinbutton', { name: 'Quantity' })).toBeInTheDocument();
 
       // Edit second item
-      await user.click(screen.getByTestId('edit-btn-2'));
+      await user.click(screen.getByRole('button', { name: 'Edit Electricity quantity' }));
 
       // First item should exit edit mode
-      expect(screen.queryByTestId('quantity-input-1')).not.toBeInTheDocument();
+      expect(
+        within(screen.getByRole('article', { name: 'Steel' })).queryByRole('spinbutton')
+      ).not.toBeInTheDocument();
       // Second item should be in edit mode
-      expect(screen.getByTestId('quantity-input-2')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('article', { name: 'Electricity' })).getByRole('spinbutton', { name: 'Quantity' })
+      ).toBeInTheDocument();
     });
   });
 

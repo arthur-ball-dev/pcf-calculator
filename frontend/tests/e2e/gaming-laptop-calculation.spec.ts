@@ -34,9 +34,9 @@ test.beforeAll(async () => {
 async function dismissJoyride(page: Page) {
   try {
     const joyridePortal = page.locator('#react-joyride-portal');
-    if (await joyridePortal.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await joyridePortal.waitFor({ state: 'visible', timeout: 1000 }).then(() => true, () => false)) {
       const skipButton = page.getByRole('button', { name: /skip|close|done|finish/i });
-      if (await skipButton.isVisible({ timeout: 500 }).catch(() => false)) {
+      if (await skipButton.waitFor({ state: 'visible', timeout: 500 }).then(() => true, () => false)) {
         await skipButton.click();
         await page.waitForFunction(() => !document.getElementById('react-joyride-portal'), {}, { timeout: 3000 }).catch(() => {});
       } else {
@@ -101,7 +101,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     // Step 2: Search for Gaming Laptop using the ProductList search input
     console.log('Step 2: Search for Gaming Laptop in product list');
 
-    const searchInput = page.getByTestId('product-search-input');
+    const searchInput = page.getByRole('textbox', { name: 'Search products' });
     await expect(searchInput).toBeVisible({ timeout: 10000 });
     await searchInput.fill('Gaming');
     await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
@@ -119,7 +119,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     let selectedProductName = '';
     let selectedProductCode = '';
 
-    if (await gamingLaptopRow.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await gamingLaptopRow.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) {
       const rowText = await gamingLaptopRow.textContent();
       console.log(`Found product row: ${rowText}`);
       selectedProductName = rowText?.split(/ELE-LAPT/)[0]?.trim() || 'Gaming Laptop';
@@ -134,7 +134,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
       await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
       const laptopRow = page.locator('[role="option"]').first();
-      if (await laptopRow.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (await laptopRow.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false)) {
         const rowText = await laptopRow.textContent();
         console.log(`Selected fallback: ${rowText}`);
         selectedProductName = rowText || 'Laptop';
@@ -151,13 +151,13 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     // Step 4: Click Next to go to BOM Editor
     console.log('Step 4: Navigate to BOM Editor');
 
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
 
     // Wait for BOM skeleton to disappear (BOM loading)
-    const bomSkeleton = page.getByTestId('bom-editor-skeleton');
-    if (await bomSkeleton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    const bomSkeleton = page.getByRole('status', { name: 'Loading bill of materials' });
+    if (await bomSkeleton.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await expect(bomSkeleton).not.toBeVisible({ timeout: 15000 });
     }
 
@@ -168,7 +168,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     // Get BOM component count
     const componentsInfo = page.locator('text=/\\d+ components/').first();
     let componentCount = '0';
-    if (await componentsInfo.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await componentsInfo.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       const infoText = await componentsInfo.textContent();
       const countMatch = infoText?.match(/(\d+) components/);
       componentCount = countMatch ? countMatch[1] : '0';
@@ -245,7 +245,7 @@ test.describe('Gaming Laptop PCF Calculation', () => {
     if (pcfValue === null) {
       // Look for elements with large numbers that might be the PCF
       const totalLabel = page.locator('text=/Total|PCF|Carbon Footprint/i').first();
-      if (await totalLabel.isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await totalLabel.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
         const parent = totalLabel.locator('xpath=..');
         const parentText = await parent.textContent() || '';
         const numMatch = parentText.match(/(\d+(?:,\d{3})*\.?\d*)/);

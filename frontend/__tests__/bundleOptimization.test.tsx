@@ -47,8 +47,8 @@ describe('Lazy Loading Suspense Boundary', () => {
     );
 
     // Initially, the loading spinner should be shown
-    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
-    expect(screen.queryByTestId('lazy-content')).not.toBeInTheDocument();
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.queryByText('Lazy Content Loaded')).not.toBeInTheDocument();
 
     // Resolve the import
     await act(async () => {
@@ -57,9 +57,9 @@ describe('Lazy Loading Suspense Boundary', () => {
 
     // After resolution, the actual content should be shown
     await waitFor(() => {
-      expect(screen.getByTestId('lazy-content')).toBeInTheDocument();
+      expect(screen.getByText('Lazy Content Loaded')).toBeInTheDocument();
     });
-    expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
   });
 
   it('should render lazy-loaded chart component after dynamic import completes', async () => {
@@ -82,7 +82,7 @@ describe('Lazy Loading Suspense Boundary', () => {
     );
 
     // Loading state shown
-    expect(screen.getByTestId('chart-loading')).toBeInTheDocument();
+    expect(screen.getByText('Loading chart...')).toBeInTheDocument();
 
     // Resolve lazy import
     await act(async () => {
@@ -91,7 +91,7 @@ describe('Lazy Loading Suspense Boundary', () => {
 
     // Chart should render
     await waitFor(() => {
-      expect(screen.getByTestId('sankey-chart')).toBeInTheDocument();
+      expect(screen.getByText('Sankey Chart')).toBeInTheDocument();
     });
   });
 });
@@ -277,7 +277,12 @@ describe('Lazy Chart Components Load on Demand', () => {
 
     // LazyChart wrapper should provide a skeleton fallback
     const ChartSkeleton = () => (
-      <div data-testid="chart-skeleton" className="animate-pulse bg-gray-200 h-96" />
+      <div
+        data-testid="chart-skeleton"
+        role="status"
+        aria-label="Loading chart"
+        className="animate-pulse bg-gray-200 h-96"
+      />
     );
 
     render(
@@ -287,7 +292,7 @@ describe('Lazy Chart Components Load on Demand', () => {
     );
 
     // Skeleton should be visible while loading
-    expect(screen.getByTestId('chart-skeleton')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading chart' })).toBeInTheDocument();
 
     // Resolve the import
     const ChartContent = () => <div data-testid="chart-content">Chart loaded</div>;
@@ -296,8 +301,8 @@ describe('Lazy Chart Components Load on Demand', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('chart-content')).toBeInTheDocument();
-      expect(screen.queryByTestId('chart-skeleton')).not.toBeInTheDocument();
+      expect(screen.getByText('Chart loaded')).toBeInTheDocument();
+      expect(screen.queryByRole('status', { name: 'Loading chart' })).not.toBeInTheDocument();
     });
   });
 });
@@ -452,7 +457,7 @@ describe('Error Boundaries for Lazy Components', () => {
 
     // Wait for error boundary to catch the error
     await waitFor(() => {
-      expect(screen.getByTestId('error-fallback')).toBeInTheDocument();
+      expect(screen.getByText('Failed to load component')).toBeInTheDocument();
     });
   });
 
@@ -474,7 +479,7 @@ describe('Error Boundaries for Lazy Components', () => {
       render() {
         if (this.state.hasError) {
           return (
-            <div data-testid="chart-error-ui">
+            <div data-testid="chart-error-ui" role="alert">
               <p>Unable to load chart. Please try again.</p>
               <button data-testid="retry-button">Retry</button>
             </div>
@@ -493,9 +498,9 @@ describe('Error Boundaries for Lazy Components', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('chart-error-ui')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
       expect(screen.getByText('Unable to load chart. Please try again.')).toBeInTheDocument();
-      expect(screen.getByTestId('retry-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     });
   });
 
@@ -559,13 +564,13 @@ describe('Error Boundaries for Lazy Components', () => {
 
     // Wait for initial failure
     await waitFor(() => {
-      expect(screen.getByTestId('error-message')).toBeInTheDocument();
+      expect(screen.getByText('Loading failed')).toBeInTheDocument();
     });
     expect(loadAttempts).toBe(1);
 
     // Trigger retry (in real implementation, clicking retry would re-render with new lazy component)
     // For this test, we validate the retry pattern exists
-    expect(screen.getByTestId('retry-btn')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 });
 
@@ -600,6 +605,8 @@ describe('LazyChart Wrapper Component', () => {
         fallback={
           <div
             data-testid="chart-skeleton"
+            role="status"
+            aria-label="Loading chart"
             style={{ height }}
             className="animate-pulse bg-gray-200"
           />
@@ -616,7 +623,7 @@ describe('LazyChart Wrapper Component', () => {
     );
 
     // Skeleton should be visible
-    const skeleton = screen.getByTestId('chart-skeleton');
+    const skeleton = screen.getByRole('status', { name: 'Loading chart' });
     expect(skeleton).toBeInTheDocument();
     expect(skeleton).toHaveStyle({ height: '500px' });
 
@@ -626,7 +633,7 @@ describe('LazyChart Wrapper Component', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('chart-ready')).toBeInTheDocument();
+      expect(screen.getByText('Chart')).toBeInTheDocument();
     });
   });
 
@@ -651,7 +658,7 @@ describe('LazyChart Wrapper Component', () => {
       </Suspense>
     );
 
-    expect(screen.getByTestId('custom-fallback')).toBeInTheDocument();
+    expect(screen.getByText('Custom loading message')).toBeInTheDocument();
     expect(screen.getByText('Custom loading message')).toBeInTheDocument();
 
     await act(async () => {
@@ -659,7 +666,7 @@ describe('LazyChart Wrapper Component', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('content')).toBeInTheDocument();
+      expect(screen.getByText('Content')).toBeInTheDocument();
     });
   });
 });
@@ -687,7 +694,7 @@ describe('Preloading Critical Chunks', () => {
 
     render(<ResultsNavButton />);
 
-    const button = screen.getByTestId('results-link');
+    const button = screen.getByRole('button', { name: 'View Results' });
 
     // Use fireEvent.mouseEnter to trigger React's synthetic event handler
     fireEvent.mouseEnter(button);
@@ -724,7 +731,7 @@ describe('Preloading Critical Chunks', () => {
 
     render(<Button />);
 
-    const button = screen.getByTestId('nav-btn');
+    const button = screen.getByRole('button', { name: 'Navigate' });
 
     // Use fireEvent.mouseEnter to trigger React's synthetic event handler
     fireEvent.mouseEnter(button);

@@ -77,7 +77,7 @@ async function selectFirstProduct(page: Page) {
  */
 test('fetches products from API when page loads', async ({ authenticatedPage }) => {
   // Verify product list is visible (auto-loads products on mount)
-  await expect(authenticatedPage.getByTestId('product-list')).toBeVisible({ timeout: 10000 });
+  await expect(authenticatedPage.getByRole('region', { name: 'Product selection' })).toBeVisible({ timeout: 10000 });
 
   // Wait for product rows to appear (auto-fetched via search endpoint)
   await authenticatedPage.waitForSelector('[role="option"]', { timeout: 15000 });
@@ -120,7 +120,7 @@ test('fetches products from API when page loads', async ({ authenticatedPage }) 
  */
 test('selecting product loads BOM from API', async ({ authenticatedPage }) => {
   // Wait for product list to load
-  await expect(authenticatedPage.getByTestId('product-list')).toBeVisible({ timeout: 10000 });
+  await expect(authenticatedPage.getByRole('region', { name: 'Product selection' })).toBeVisible({ timeout: 10000 });
 
   // Select first product
   await selectFirstProduct(authenticatedPage);
@@ -131,7 +131,7 @@ test('selecting product loads BOM from API', async ({ authenticatedPage }) => {
   await expect(selectedRow).toBeVisible({ timeout: 5000 });
 
   // Verify Next button becomes enabled
-  const nextButton = authenticatedPage.getByTestId('next-button');
+  const nextButton = authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
   await expect(nextButton).toBeEnabled();
 
   // Screenshot proof
@@ -150,7 +150,7 @@ test('selecting product loads BOM from API', async ({ authenticatedPage }) => {
  */
 test('navigates to BOM editor after product selection', async ({ authenticatedPage }) => {
   // Select product
-  await expect(authenticatedPage.getByTestId('product-list')).toBeVisible({ timeout: 10000 });
+  await expect(authenticatedPage.getByRole('region', { name: 'Product selection' })).toBeVisible({ timeout: 10000 });
   await selectFirstProduct(authenticatedPage);
 
   // Wait for selected state
@@ -158,7 +158,7 @@ test('navigates to BOM editor after product selection', async ({ authenticatedPa
   await expect(selectedRow).toBeVisible({ timeout: 5000 });
 
   // Wait for Next button to be enabled
-  const nextButton = authenticatedPage.getByTestId('next-button');
+  const nextButton = authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
   await expect(nextButton).toBeEnabled();
 
   // Click Next button and wait for step heading change
@@ -194,19 +194,19 @@ test('navigates to BOM editor after product selection', async ({ authenticatedPa
  */
 test('submits calculation and receives calculation_id', async ({ authenticatedPage }) => {
   // Step 1: Select product
-  await expect(authenticatedPage.getByTestId('product-list')).toBeVisible({ timeout: 10000 });
+  await expect(authenticatedPage.getByRole('region', { name: 'Product selection' })).toBeVisible({ timeout: 10000 });
   await selectFirstProduct(authenticatedPage);
   const selectedRow = authenticatedPage.locator('[role="option"][aria-selected="true"]');
   await expect(selectedRow).toBeVisible({ timeout: 5000 });
 
   // Navigate to Step 2 (BOM Editor)
-  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled();
+  await expect(authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ })).toBeEnabled();
   await Promise.all([
     authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Edit');
     }),
-    authenticatedPage.getByTestId('next-button').click()
+    authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ }).click()
   ]);
   await expect(authenticatedPage.locator('h2').filter({ hasText: /Edit BOM/i })).toBeVisible();
   // Wait for BOM data to load and form validation to complete
@@ -226,7 +226,7 @@ test('submits calculation and receives calculation_id', async ({ authenticatedPa
   );
 
   // Click Calculate button (Next button on edit step shows "Calculate")
-  const calculateButton = authenticatedPage.getByTestId('next-button');
+  const calculateButton = authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
   await expect(calculateButton).toBeEnabled({ timeout: 5000 });
   await calculateButton.click();
 
@@ -243,7 +243,7 @@ test('submits calculation and receives calculation_id', async ({ authenticatedPa
   expect(responseBody.calculation_id.length).toBeGreaterThan(0);
 
   // Verify calculation overlay appears
-  await expect(authenticatedPage.getByTestId('calculation-overlay')).toBeVisible({ timeout: 5000 });
+  await expect(authenticatedPage.getByRole('dialog', { name: /^(Calculating Carbon Footprint|Calculation Failed)$/ })).toBeVisible({ timeout: 5000 });
 
   // Screenshot proof of loading state
   await authenticatedPage.screenshot({
@@ -273,40 +273,40 @@ test('polls for calculation results until complete', async ({ authenticatedPage 
   });
 
   // Navigate through wizard and submit calculation
-  await expect(authenticatedPage.getByTestId('product-list')).toBeVisible({ timeout: 10000 });
+  await expect(authenticatedPage.getByRole('region', { name: 'Product selection' })).toBeVisible({ timeout: 10000 });
   await selectFirstProduct(authenticatedPage);
 
   // Wait for selection and navigate
   const selectedRow = authenticatedPage.locator('[role="option"][aria-selected="true"]');
   await expect(selectedRow).toBeVisible({ timeout: 5000 });
-  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled();
+  await expect(authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ })).toBeEnabled();
   await Promise.all([
     authenticatedPage.waitForFunction(() => {
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Edit');
     }),
-    authenticatedPage.getByTestId('next-button').click()
+    authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ }).click()
   ]);
   await expect(authenticatedPage.locator('h2').filter({ hasText: /Edit BOM/i })).toBeVisible();
 
   // Wait for BOM data to load and form validation to complete
   await authenticatedPage.waitForLoadState('networkidle').catch(() => {});
-  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled({ timeout: 15000 });
+  await expect(authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ })).toBeEnabled({ timeout: 15000 });
 
   // Click Calculate (next-button on edit step)
-  await authenticatedPage.getByTestId('next-button').click();
+  await authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ }).click();
 
   // Wait for calculation overlay
-  await expect(authenticatedPage.getByTestId('calculation-overlay')).toBeVisible({ timeout: 5000 });
+  await expect(authenticatedPage.getByRole('dialog', { name: /^(Calculating Carbon Footprint|Calculation Failed)$/ })).toBeVisible({ timeout: 5000 });
 
   // Wait for results to appear (up to 30 seconds)
-  await expect(authenticatedPage.getByTestId('results-display')).toBeVisible({ timeout: 30000 });
+  await expect(authenticatedPage.getByRole('group', { name: 'Calculation results' })).toBeVisible({ timeout: 30000 });
 
   // Verify total CO2e is displayed
-  await expect(authenticatedPage.getByTestId('total-co2e')).toBeVisible();
+  await expect(authenticatedPage.getByRole('group', { name: 'Total emissions' })).toBeVisible();
 
   // Verify the value is a number
-  const totalCO2eText = await authenticatedPage.getByTestId('total-co2e').textContent();
+  const totalCO2eText = await authenticatedPage.getByRole('group', { name: 'Total emissions' }).textContent();
   expect(totalCO2eText).toBeTruthy();
   const numericValue = parseFloat(totalCO2eText || '0');
   expect(numericValue).toBeGreaterThan(0);
@@ -332,9 +332,9 @@ test('polls for calculation results until complete', async ({ authenticatedPage 
  */
 test('completes full calculation flow end-to-end', async ({ authenticatedPage }) => {
   // Step 1: Select Product
-  await expect(authenticatedPage.getByTestId('product-list')).toBeVisible({ timeout: 10000 });
+  await expect(authenticatedPage.getByRole('region', { name: 'Product selection' })).toBeVisible({ timeout: 10000 });
   await selectFirstProduct(authenticatedPage);
-  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled();
+  await expect(authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ })).toBeEnabled();
 
   // Step 2: BOM Editor
   await Promise.all([
@@ -342,20 +342,20 @@ test('completes full calculation flow end-to-end', async ({ authenticatedPage })
       const heading = document.querySelector('h2');
       return heading && heading.textContent && heading.textContent.includes('Edit');
     }),
-    authenticatedPage.getByTestId('next-button').click()
+    authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ }).click()
   ]);
   await expect(authenticatedPage.locator('h2').filter({ hasText: /Edit BOM/i })).toBeVisible();
-  await expect(authenticatedPage.getByTestId('next-button')).toBeEnabled({ timeout: 5000 });
+  await expect(authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ })).toBeEnabled({ timeout: 5000 });
 
   // Wait for BOM data to load and form validation to complete
   await authenticatedPage.waitForLoadState('networkidle').catch(() => {});
 
   // Click Calculate (next-button on edit step shows "Calculate")
-  await authenticatedPage.getByTestId('next-button').click();
+  await authenticatedPage.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ }).click();
 
   // Step 3: Results
-  await expect(authenticatedPage.getByTestId('results-display')).toBeVisible({ timeout: 30000 });
-  await expect(authenticatedPage.getByTestId('total-co2e')).toBeVisible();
+  await expect(authenticatedPage.getByRole('group', { name: 'Calculation results' })).toBeVisible({ timeout: 30000 });
+  await expect(authenticatedPage.getByRole('group', { name: 'Total emissions' })).toBeVisible();
 
   // Verify results contain CO2e text
   // Note: HTML uses <sub>2</sub> which renders as "CO2e" in textContent
@@ -364,7 +364,7 @@ test('completes full calculation flow end-to-end', async ({ authenticatedPage })
 
 
   // Verify New Calculation button exists
-  await expect(authenticatedPage.getByTestId('new-calculation-action-button')).toBeVisible();
+  await expect(authenticatedPage.getByRole('button', { name: 'New Calculation', exact: true })).toBeVisible();
 
   // Final screenshot
   await authenticatedPage.screenshot({
@@ -388,14 +388,14 @@ test.skip('handles API errors gracefully when backend is down', async ({ authent
   // NOTE: Backend must be manually stopped before running this test
 
   // Wait for error message to appear
-  await expect(authenticatedPage.getByTestId('error-message')).toBeVisible({ timeout: 10000 });
+  await expect(authenticatedPage.getByRole('alert').filter({ hasText: /Unable to load products|Failed to load BOM/ })).toBeVisible({ timeout: 10000 });
 
   // Verify error message contains expected text
-  const errorText = await authenticatedPage.getByTestId('error-message').textContent();
+  const errorText = await authenticatedPage.getByRole('alert').filter({ hasText: /Unable to load products|Failed to load BOM/ }).textContent();
   expect(errorText).toContain('Unable to load products');
 
   // Verify retry button is present
-  await expect(authenticatedPage.getByTestId('retry-button')).toBeVisible();
+  await expect(authenticatedPage.getByRole('button', { name: 'Retry' })).toBeVisible();
 
   // Screenshot proof
   await authenticatedPage.screenshot({

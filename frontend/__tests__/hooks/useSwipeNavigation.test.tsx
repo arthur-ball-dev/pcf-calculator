@@ -598,7 +598,7 @@ describe('useSwipeNavigation Hook', () => {
         });
 
         return (
-          <div {...handlers} data-testid="swipeable-div" data-swipe-active={isSwipeActive}>
+          <div {...handlers} role="region" aria-label="Swipeable content" data-swipe-active={isSwipeActive}>
             Swipeable Content
           </div>
         );
@@ -606,7 +606,7 @@ describe('useSwipeNavigation Hook', () => {
 
       render(<TestComponent />);
 
-      const div = screen.getByTestId('swipeable-div');
+      const div = screen.getByRole('region', { name: 'Swipeable content' });
       expect(div).toBeInTheDocument();
       expect(div.getAttribute('data-swipe-active')).toBe('true');
     });
@@ -622,7 +622,7 @@ describe('useSwipeNavigation Hook', () => {
 
         return (
           <div {...handlers} data-testid="swipeable-container">
-            <button onClick={mockButtonClick} data-testid="nested-button">
+            <button onClick={mockButtonClick}>
               Click Me
             </button>
           </div>
@@ -631,7 +631,7 @@ describe('useSwipeNavigation Hook', () => {
 
       render(<TestComponent />);
 
-      const button = screen.getByTestId('nested-button');
+      const button = screen.getByRole('button', { name: 'Click Me' });
       fireEvent.click(button);
 
       expect(mockButtonClick).toHaveBeenCalledTimes(1);
@@ -688,7 +688,8 @@ describe('Wizard Swipe Navigation Integration', () => {
         return (
           <div
             {...handlers}
-            data-testid="wizard-container"
+            role="region"
+            aria-label="Wizard"
             data-swipe-active={isSwipeActive}
           >
             <div data-testid="wizard-step">Step Content</div>
@@ -698,7 +699,7 @@ describe('Wizard Swipe Navigation Integration', () => {
 
       render(<WizardMock />);
 
-      const wizard = screen.getByTestId('wizard-container');
+      const wizard = screen.getByRole('region', { name: 'Wizard' });
       expect(wizard).toBeInTheDocument();
       expect(wizard.getAttribute('data-swipe-active')).toBe('true');
     });
@@ -750,7 +751,7 @@ describe('Wizard Swipe Navigation Integration', () => {
           <div {...handlers} data-testid="wizard-step">
             <input
               type="number"
-              data-testid="quantity-input"
+              aria-label="Quantity"
               defaultValue={0}
             />
           </div>
@@ -759,7 +760,7 @@ describe('Wizard Swipe Navigation Integration', () => {
 
       render(<WizardWithForm />);
 
-      const input = screen.getByTestId('quantity-input');
+      const input = screen.getByRole('spinbutton', { name: 'Quantity' });
       expect(input).toBeInTheDocument();
 
       // Input should be interactable
@@ -779,7 +780,7 @@ describe('Wizard Swipe Navigation Integration', () => {
           <div {...handlers} data-testid="wizard-step">
             <input
               type="text"
-              data-testid="search-input"
+              aria-label="Search products"
               placeholder="Search products..."
             />
           </div>
@@ -788,7 +789,7 @@ describe('Wizard Swipe Navigation Integration', () => {
 
       render(<WizardWithSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       expect(input).toBeInTheDocument();
 
       fireEvent.change(input, { target: { value: 'test product' } });

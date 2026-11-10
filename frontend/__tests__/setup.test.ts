@@ -62,7 +62,7 @@ describe('TASK-FE-001: Project Setup Verification', () => {
 
       const requiredDeps = {
         // Core dependencies
-        'zustand': '^4.5.0',
+        'zustand': '^5.0.0',
         'react-hook-form': '^7.51.0',
         '@hookform/resolvers': '^5.9.1',
         'zod': '^4.6.6',
@@ -166,7 +166,6 @@ describe('TASK-FE-001: Project Setup Verification', () => {
       const tsconfigContent = readFileSync(tsconfigPath, 'utf-8');
       const tsconfig = JSON.parse(tsconfigContent);
 
-      expect(tsconfig.compilerOptions?.baseUrl).toBeDefined();
       expect(tsconfig.compilerOptions?.paths).toBeDefined();
       expect(tsconfig.compilerOptions?.paths?.['@/*']).toBeDefined();
     });

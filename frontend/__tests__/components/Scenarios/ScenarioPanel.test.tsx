@@ -13,7 +13,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { render, screen } from '../../testUtils';
+import { render, screen, within } from '../../testUtils';
 // Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
 import { ScenarioPanel, type ComparisonDelta } from '../../../src/components/Scenarios/ScenarioPanel';
 import type { Scenario } from '../../../src/store/scenarioStore';
@@ -70,7 +70,7 @@ describe('ScenarioPanel Component', () => {
       render(<ScenarioPanel scenario={scenario} />);
 
       // Should render without error
-      expect(screen.getByTestId('scenario-panel-' + scenario.id)).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Untitled scenario' })).toBeInTheDocument();
     });
   });
 
@@ -80,7 +80,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} isBaseline={true} />);
 
-      expect(screen.getByTestId('baseline-badge')).toBeInTheDocument();
+      expect(screen.getByText('Baseline')).toBeInTheDocument();
       expect(screen.getByText('Baseline')).toBeInTheDocument();
     });
 
@@ -89,7 +89,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} isBaseline={false} />);
 
-      expect(screen.queryByTestId('baseline-badge')).not.toBeInTheDocument();
+      expect(screen.queryByText('Baseline')).not.toBeInTheDocument();
     });
 
     test('does not show badge when isBaseline prop omitted', () => {
@@ -97,7 +97,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.queryByTestId('baseline-badge')).not.toBeInTheDocument();
+      expect(screen.queryByText('Baseline')).not.toBeInTheDocument();
     });
 
     test('badge has appropriate styling', () => {
@@ -105,7 +105,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} isBaseline={true} />);
 
-      const badge = screen.getByTestId('baseline-badge');
+      const badge = screen.getByText('Baseline');
       // Badge should exist and be visible
       expect(badge).toBeVisible();
     });
@@ -119,7 +119,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('total-emissions')).toHaveTextContent('125.75');
+      expect(screen.getByRole('group', { name: 'Total emissions' })).toHaveTextContent('125.75');
     });
 
     test('formats emissions with 2 decimal places', () => {
@@ -129,7 +129,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('total-emissions')).toHaveTextContent('100.50');
+      expect(screen.getByRole('group', { name: 'Total emissions' })).toHaveTextContent('100.50');
     });
 
     test('displays unit "kg CO2e"', () => {
@@ -139,7 +139,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('total-emissions')).toHaveTextContent('kg CO2e');
+      expect(screen.getByRole('group', { name: 'Total emissions' })).toHaveTextContent('kg CO2e');
     });
 
     test('shows "N/A" when results is null', () => {
@@ -149,7 +149,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('total-emissions')).toHaveTextContent('N/A');
+      expect(screen.getByRole('group', { name: 'Total emissions' })).toHaveTextContent('N/A');
     });
 
     test('handles zero emissions', () => {
@@ -159,7 +159,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('total-emissions')).toHaveTextContent('0.00');
+      expect(screen.getByRole('group', { name: 'Total emissions' })).toHaveTextContent('0.00');
     });
 
     test('handles large emission values', () => {
@@ -169,7 +169,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('total-emissions')).toHaveTextContent('1234567.89');
+      expect(screen.getByRole('group', { name: 'Total emissions' })).toHaveTextContent('1234567.89');
     });
   });
 
@@ -186,7 +186,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      expect(screen.getByTestId('delta-display')).toHaveTextContent('+20.0%');
+      expect(screen.getByRole('group', { name: 'Change from baseline' })).toHaveTextContent('+20.0%');
     });
 
     test('displays red color for increase', () => {
@@ -199,7 +199,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      const deltaDisplay = screen.getByTestId('delta-display');
+      const deltaDisplay = screen.getByRole('group', { name: 'Change from baseline' });
       expect(deltaDisplay).toHaveClass('text-red-600');
     });
 
@@ -213,7 +213,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      const deltaDisplay = screen.getByTestId('delta-display');
+      const deltaDisplay = screen.getByRole('group', { name: 'Change from baseline' });
       expect(deltaDisplay).toHaveClass('bg-red-50');
     });
 
@@ -227,7 +227,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      expect(screen.getByTestId('absolute-delta')).toHaveTextContent('+25.50 kg CO2e');
+      expect(screen.getByText(/kg CO2e\)$/)).toHaveTextContent('+25.50 kg CO2e');
     });
   });
 
@@ -244,7 +244,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      expect(screen.getByTestId('delta-display')).toHaveTextContent('-20.0%');
+      expect(screen.getByRole('group', { name: 'Change from baseline' })).toHaveTextContent('-20.0%');
     });
 
     test('displays green color for decrease', () => {
@@ -257,7 +257,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      const deltaDisplay = screen.getByTestId('delta-display');
+      const deltaDisplay = screen.getByRole('group', { name: 'Change from baseline' });
       expect(deltaDisplay).toHaveClass('text-green-600');
     });
 
@@ -271,7 +271,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      const deltaDisplay = screen.getByTestId('delta-display');
+      const deltaDisplay = screen.getByRole('group', { name: 'Change from baseline' });
       expect(deltaDisplay).toHaveClass('bg-green-50');
     });
 
@@ -285,7 +285,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      expect(screen.getByTestId('absolute-delta')).toHaveTextContent('-12.75 kg CO2e');
+      expect(screen.getByText(/kg CO2e\)$/)).toHaveTextContent('-12.75 kg CO2e');
     });
   });
 
@@ -300,7 +300,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      expect(screen.getByTestId('delta-display')).toHaveTextContent('0.0%');
+      expect(screen.getByRole('group', { name: 'Change from baseline' })).toHaveTextContent('0.0%');
     });
 
     test('displays gray/neutral color for same', () => {
@@ -313,7 +313,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      const deltaDisplay = screen.getByTestId('delta-display');
+      const deltaDisplay = screen.getByRole('group', { name: 'Change from baseline' });
       expect(deltaDisplay).toHaveClass('text-gray-600');
     });
 
@@ -327,7 +327,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      const deltaDisplay = screen.getByTestId('delta-display');
+      const deltaDisplay = screen.getByRole('group', { name: 'Change from baseline' });
       expect(deltaDisplay).toHaveClass('bg-gray-50');
     });
   });
@@ -338,7 +338,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.queryByTestId('delta-display')).not.toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: 'Change from baseline' })).not.toBeInTheDocument();
     });
 
     test('baseline scenario typically has no delta display', () => {
@@ -346,7 +346,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} isBaseline={true} />);
 
-      expect(screen.queryByTestId('delta-display')).not.toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: 'Change from baseline' })).not.toBeInTheDocument();
     });
   });
 
@@ -361,7 +361,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('bom-entries')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Component breakdown' })).toBeInTheDocument();
     });
 
     test('displays correct number of BOM entries', () => {
@@ -375,9 +375,9 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('bom-entry-0')).toBeInTheDocument();
-      expect(screen.getByTestId('bom-entry-1')).toBeInTheDocument();
-      expect(screen.getByTestId('bom-entry-2')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Steel' })).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Plastic' })).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Copper' })).toBeInTheDocument();
     });
 
     test('displays component name for each entry', () => {
@@ -423,8 +423,8 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      const bomContainer = screen.getByTestId('bom-entries');
-      expect(bomContainer.querySelectorAll('[data-testid^="bom-entry-"]')).toHaveLength(0);
+      const bomContainer = screen.getByRole('group', { name: 'Component breakdown' });
+      expect(within(bomContainer).queryAllByRole('group')).toHaveLength(0);
     });
 
     test('handles BOM entry without emissions value', () => {
@@ -459,12 +459,12 @@ describe('ScenarioPanel Component', () => {
   });
 
   describe('Panel Identification', () => {
-    test('panel has testid based on scenario id', () => {
+    test('panel is labelled with the scenario name', () => {
       const scenario = createMockScenario({ id: 'unique-scenario-id' });
 
       render(<ScenarioPanel scenario={scenario} />);
 
-      expect(screen.getByTestId('scenario-panel-unique-scenario-id')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Test Scenario' })).toBeInTheDocument();
     });
   });
 
@@ -479,7 +479,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      expect(screen.getByTestId('delta-display')).toHaveTextContent('12.6%');
+      expect(screen.getByRole('group', { name: 'Change from baseline' })).toHaveTextContent('12.6%');
     });
 
     test('absolute delta formatted to 2 decimal places', () => {
@@ -492,7 +492,7 @@ describe('ScenarioPanel Component', () => {
 
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
-      expect(screen.getByTestId('absolute-delta')).toHaveTextContent('12.57');
+      expect(screen.getByText(/kg CO2e\)$/)).toHaveTextContent('12.57');
     });
   });
 
@@ -514,7 +514,7 @@ describe('ScenarioPanel Component', () => {
       render(<ScenarioPanel scenario={scenario} />);
 
       // Emissions should include unit for context
-      expect(screen.getByTestId('total-emissions')).toHaveTextContent('kg CO2e');
+      expect(screen.getByRole('group', { name: 'Total emissions' })).toHaveTextContent('kg CO2e');
     });
 
     test('delta direction is indicated beyond color', () => {
@@ -528,9 +528,9 @@ describe('ScenarioPanel Component', () => {
       render(<ScenarioPanel scenario={scenario} comparisonDelta={delta} />);
 
       // Has + sign for increase, not just color
-      expect(screen.getByTestId('delta-display')).toHaveTextContent('+');
+      expect(screen.getByRole('group', { name: 'Change from baseline' })).toHaveTextContent('+');
       // Or has data attribute for direction
-      expect(screen.getByTestId('delta-display')).toHaveAttribute('data-direction', 'increase');
+      expect(screen.getByRole('group', { name: 'Change from baseline' })).toHaveAttribute('data-direction', 'increase');
     });
   });
 });

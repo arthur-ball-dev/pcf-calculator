@@ -27,21 +27,21 @@ describe('Integration: fetchProducts Export Smoke Test', () => {
     render(<ProductList />);
 
     // Verify loading skeleton appears first
-    expect(screen.getByTestId('product-list-skeleton')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading products' })).toBeInTheDocument();
 
     // Wait for products to load from MSW (with reasonable timeout)
     await waitFor(
       () => {
-        expect(screen.queryByTestId('product-list-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading products' })).not.toBeInTheDocument();
       },
       { timeout: 5000 }
     );
 
-    // Verify the product list container is rendered
-    expect(screen.getByTestId('product-list')).toBeInTheDocument();
+    // Verify the product list page is rendered
+    expect(screen.getByRole('heading', { name: 'Select a Product' })).toBeInTheDocument();
 
     // Verify search input is present
-    expect(screen.getByTestId('product-search-input')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Search products' })).toBeInTheDocument();
 
     // Success! If we got here, ProductList renders and loads data
   }, 10000); // 10 second timeout for the entire test

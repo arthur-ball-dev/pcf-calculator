@@ -23,7 +23,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import Joyride, { type TooltipRenderProps, type Props as JoyrideProps } from 'react-joyride';
+import { Joyride, type TooltipRenderProps, type Props as JoyrideProps } from 'react-joyride';
 import { useTour } from '@/contexts/TourContext';
 import { TOUR_STEPS, TOUR_STEP_IDS } from '@/config/tourSteps';
 import { Button } from '@/components/ui/button';
@@ -128,10 +128,19 @@ export function GuidedTour() {
   // Filter steps to only include those with valid targets in the DOM.
   // Targets can render late (e.g. ProductList shows a skeleton while data loads),
   // so keep checking until at least one target exists or the wait times out.
-  useEffect(() => {
+  // Clear the previous run's steps when the tour stops. Adjusted during render when isTourActive
+  // changes rather than in the polling effect below (#162).
+  const [wasTourActive, setWasTourActive] = useState(isTourActive);
+  if (isTourActive !== wasTourActive) {
+    setWasTourActive(isTourActive);
     if (!isTourActive) {
       setValidSteps([]);
       setIsReady(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isTourActive) {
       return;
     }
 
@@ -159,19 +168,15 @@ export function GuidedTour() {
     return null;
   }
 
-  // Joyride props with disableBeacon (valid prop but not in older types)
-  const joyrideProps: JoyrideProps & { disableBeacon?: boolean } = {
+  // react-joyride 3.2 API (#144). The skip button and progress text come from CustomTooltip; each
+  // step sets its own placement. 3.2 no longer adjusts scroll parents, so the old
+  // disableScrollParentFix has no counterpart.
+  const joyrideProps: JoyrideProps = {
     steps: validSteps,
     run: isTourActive,
     continuous: true,
-    showProgress: true,
-    showSkipButton: true,
     scrollToFirstStep: true,
-    disableBeacon: true,
-    disableOverlayClose: false,
-    disableScrollParentFix: true,
-    spotlightClicks: false,
-    callback: handleJoyrideCallback,
+    onEvent: handleJoyrideCallback,
     tooltipComponent: CustomTooltip,
     locale: {
       back: 'Previous',
@@ -180,25 +185,20 @@ export function GuidedTour() {
       next: 'Next',
       skip: 'Skip tour',
     },
-    styles: {
-      options: {
-        zIndex: 10000,
-        arrowColor: 'white',
-      },
-      overlay: {
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      },
-      spotlight: {
-        backgroundColor: 'transparent',
-        borderRadius: 8,
-      },
+    options: {
+      zIndex: 10000,
+      arrowColor: 'white',
+      overlayColor: 'rgba(0, 0, 0, 0.5)',
+      spotlightRadius: 8,
+      showProgress: true,
+      skipBeacon: true,
+      overlayClickAction: 'close',
+      // The highlighted element is not clickable during the tour (spotlightClicks: false before)
+      blockTargetInteraction: true,
     },
-    floaterProps: {
-      placement: 'bottom',
-      styles: {
-        floater: {
-          filter: 'none',
-        },
+    styles: {
+      floater: {
+        filter: 'none',
       },
     },
   };

@@ -29,7 +29,6 @@ vi.mock('@nivo/sankey', () => ({
         {data.nodes.map((node) => (
           <button
             key={node.id}
-            data-testid={`sankey-node-${node.id}`}
             onClick={() => onClick?.({ id: node.id })}
           >
             {node.label}
@@ -57,7 +56,7 @@ describe('SankeyDiagram Node Click Handler', () => {
     render(<SankeyDiagram calculation={completedCalculation} onNodeClick={onNodeClick} />);
 
     // Click on materials node
-    const materialsNode = screen.getByTestId('sankey-node-materials');
+    const materialsNode = screen.getByRole('button', { name: 'Materials' });
     fireEvent.click(materialsNode);
 
     expect(onNodeClick).toHaveBeenCalled();
@@ -69,7 +68,7 @@ describe('SankeyDiagram Node Click Handler', () => {
     render(<SankeyDiagram calculation={completedCalculation} onNodeClick={onNodeClick} />);
 
     // Click on materials node
-    const materialsNode = screen.getByTestId('sankey-node-materials');
+    const materialsNode = screen.getByRole('button', { name: 'Materials' });
     fireEvent.click(materialsNode);
 
     expect(onNodeClick).toHaveBeenCalledWith(
@@ -85,7 +84,7 @@ describe('SankeyDiagram Node Click Handler', () => {
     render(<SankeyDiagram calculation={completedCalculation} onNodeClick={onNodeClick} />);
 
     // Click on energy node
-    const energyNode = screen.getByTestId('sankey-node-energy');
+    const energyNode = screen.getByRole('button', { name: 'Energy' });
     fireEvent.click(energyNode);
 
     expect(onNodeClick).toHaveBeenCalledWith(
@@ -101,7 +100,7 @@ describe('SankeyDiagram Node Click Handler', () => {
     render(<SankeyDiagram calculation={completedCalculation} onNodeClick={onNodeClick} />);
 
     // Click on transport node
-    const transportNode = screen.getByTestId('sankey-node-transport');
+    const transportNode = screen.getByRole('button', { name: 'Transport' });
     fireEvent.click(transportNode);
 
     expect(onNodeClick).toHaveBeenCalledWith(
@@ -117,7 +116,7 @@ describe('SankeyDiagram Node Click Handler', () => {
     render(<SankeyDiagram calculation={completedCalculation} onNodeClick={onNodeClick} />);
 
     // Click on total node
-    const totalNode = screen.getByTestId('sankey-node-total');
+    const totalNode = screen.getByRole('button', { name: 'Total PCF' });
     fireEvent.click(totalNode);
 
     // Total node should not trigger callback (it's not a drillable category)
@@ -128,7 +127,7 @@ describe('SankeyDiagram Node Click Handler', () => {
     // Should not throw when clicking without handler
     render(<SankeyDiagram calculation={completedCalculation} />);
 
-    const materialsNode = screen.getByTestId('sankey-node-materials');
+    const materialsNode = screen.getByRole('button', { name: 'Materials' });
     expect(() => fireEvent.click(materialsNode)).not.toThrow();
   });
 
@@ -137,7 +136,7 @@ describe('SankeyDiagram Node Click Handler', () => {
 
     render(<SankeyDiagram calculation={completedCalculation} onNodeClick={onNodeClick} />);
 
-    const container = screen.getByTestId('sankey-container');
+    const container = screen.getByRole('button', { name: 'Materials' }).closest('[role="img"]');
     // Container should have cursor pointer class when onNodeClick is provided
     expect(container).toHaveClass('cursor-pointer');
   });
@@ -145,7 +144,7 @@ describe('SankeyDiagram Node Click Handler', () => {
   it('should not have clickable cursor when no onNodeClick prop', () => {
     render(<SankeyDiagram calculation={completedCalculation} />);
 
-    const container = screen.getByTestId('sankey-container');
+    const container = screen.getByRole('button', { name: 'Materials' }).closest('[role="img"]');
     // Container should not have cursor pointer when no handler
     expect(container).not.toHaveClass('cursor-pointer');
   });

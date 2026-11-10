@@ -97,7 +97,7 @@ function generateBOMItems(count: number): BOMItem[] {
  */
 async function waitForEditorReady() {
   await waitFor(() => {
-    expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
   }, { timeout: 5000 });
 }
 
@@ -164,7 +164,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should use virtualized container
       await waitFor(() => {
-        expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Bill of materials rows' })).toBeInTheDocument();
       });
     });
 
@@ -186,7 +186,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       // Instead, only visible rows + overscan buffer should be rendered
       // Our mock renders 11 items (6 visible + 5 overscan)
       await waitFor(() => {
-        const virtualRows = screen.getAllByTestId('bom-virtual-row');
+        const virtualRows = within(screen.getByRole('region', { name: 'Bill of materials rows' })).getAllByRole('row');
         // Should have significantly fewer than 100
         expect(virtualRows.length).toBeLessThan(30);
         expect(virtualRows.length).toBeGreaterThan(0);
@@ -211,7 +211,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitFor(() => {
         expect(screen.getByText(/50 components/i)).toBeInTheDocument();
         // Should be using virtualization
-        expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Bill of materials rows' })).toBeInTheDocument();
       });
     });
   });
@@ -236,7 +236,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitForEditorReady();
 
       // Find the virtualized scroll container
-      const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
+      const scrollContainer = screen.getByRole('region', { name: 'Bill of materials rows' });
       expect(scrollContainer).toBeInTheDocument();
 
       // Check for overflow-y-auto class (JSDOM doesn't compute CSS properly)
@@ -261,7 +261,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       // Wait for progressive rendering to complete
       await waitForEditorReady();
 
-      const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
+      const scrollContainer = screen.getByRole('region', { name: 'Bill of materials rows' });
 
       // Simulate scroll
       Object.defineProperty(scrollContainer, 'scrollTop', {
@@ -275,7 +275,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Scroll position should be maintained (or component should handle it)
       await waitFor(() => {
-        const container = screen.getByTestId('bom-virtual-scroll-container');
+        const container = screen.getByRole('region', { name: 'Bill of materials rows' });
         expect(container).toBeInTheDocument();
       });
     });
@@ -314,7 +314,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await user.type(firstInput, 'M');
 
       // Simulate scroll (scroll away and back)
-      const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
+      const scrollContainer = screen.getByRole('region', { name: 'Bill of materials rows' });
       Object.defineProperty(scrollContainer, 'scrollTop', { writable: true, value: 500 });
       scrollContainer.dispatchEvent(new Event('scroll'));
 
@@ -379,7 +379,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitForEditorReady();
 
       // Scroll down
-      const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
+      const scrollContainer = screen.getByRole('region', { name: 'Bill of materials rows' });
       Object.defineProperty(scrollContainer, 'scrollTop', { writable: true, value: 500 });
       scrollContainer.dispatchEvent(new Event('scroll'));
 
@@ -456,7 +456,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should NOT have virtualized container
       await waitFor(() => {
-        expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
+        expect(screen.queryByRole('region', { name: 'Bill of materials rows' })).not.toBeInTheDocument();
       });
 
       // Should still show correct count in footer
@@ -481,7 +481,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       });
 
       // Should NOT have virtualized container (only 1 item)
-      expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Bill of materials rows' })).not.toBeInTheDocument();
     });
 
     test('handles single item list without virtualization', async () => {
@@ -508,7 +508,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       expect(deleteButton).toBeDisabled();
 
       // Should NOT have virtualized container
-      expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Bill of materials rows' })).not.toBeInTheDocument();
     });
 
     test('total quantity updates correctly after adding item', async () => {
@@ -601,7 +601,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       await waitForEditorReady();
 
       // Should NOT be virtualized initially
-      expect(screen.queryByTestId('bom-virtual-scroll-container')).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Bill of materials rows' })).not.toBeInTheDocument();
 
       // Add one item to reach threshold
       const addButton = screen.getByRole('button', { name: /add component/i });
@@ -609,7 +609,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should now be virtualized (at threshold)
       await waitFor(() => {
-        expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Bill of materials rows' })).toBeInTheDocument();
       });
     });
 
@@ -624,7 +624,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       const { rerender } = render(<BOMEditor />);
 
       // Should show skeleton
-      expect(screen.getByTestId('bom-editor-skeleton')).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Loading bill of materials' })).toBeInTheDocument();
 
       // Transition to loaded state with many items
       const largeItemList = generateBOMItems(100);
@@ -638,9 +638,9 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
 
       // Should show virtualized list
       await waitFor(() => {
-        expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
         expect(screen.getByText(/100 components/i)).toBeInTheDocument();
-        expect(screen.getByTestId('bom-virtual-scroll-container')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Bill of materials rows' })).toBeInTheDocument();
       });
     });
   });
@@ -679,7 +679,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       });
 
       // More importantly, verify we're not rendering all 100 rows
-      const virtualRows = screen.getAllByTestId('bom-virtual-row');
+      const virtualRows = within(screen.getByRole('region', { name: 'Bill of materials rows' })).getAllByRole('row');
       expect(virtualRows.length).toBeLessThan(20);
     });
 
@@ -697,7 +697,7 @@ describe('BOMEditor Virtualization (TASK-FE-P8-007)', () => {
       // Wait for progressive rendering to complete
       await waitForEditorReady();
 
-      const scrollContainer = screen.getByTestId('bom-virtual-scroll-container');
+      const scrollContainer = screen.getByRole('region', { name: 'Bill of materials rows' });
 
       // Simulate multiple scroll events
       for (let i = 0; i < 10; i++) {

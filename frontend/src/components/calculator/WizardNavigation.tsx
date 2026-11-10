@@ -91,6 +91,21 @@ const WizardNavigation: React.FC<WizardNavigationProps> = ({
   const isNavigating = isNavigatingProp ?? false;
   const setIsNavigating = setIsNavigatingProp ?? (() => {});
 
+  // The deferred navigation started by handleNext. Cancelled on unmount, so neither
+  // goNext nor the parent's setter runs after the component is gone.
+  const pendingNavigation = React.useRef<{
+    frame: number | null;
+    timer: ReturnType<typeof setTimeout> | null;
+  }>({ frame: null, timer: null });
+
+  React.useEffect(() => {
+    const pending = pendingNavigation.current;
+    return () => {
+      if (pending.frame !== null) cancelAnimationFrame(pending.frame);
+      if (pending.timer !== null) clearTimeout(pending.timer);
+    };
+  }, []);
+
   /**
    * Handle reset action - resets both wizard and calculator stores
    */
@@ -113,11 +128,16 @@ const WizardNavigation: React.FC<WizardNavigationProps> = ({
       // Double rAF ensures the browser actually renders the loading state
       // before React starts the heavy BOMEditor render
       setIsNavigating(true);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+      const pending = pendingNavigation.current;
+      pending.frame = requestAnimationFrame(() => {
+        pending.frame = requestAnimationFrame(() => {
+          pending.frame = null;
           goNext();
           // Reset after navigation completes
-          setTimeout(() => setIsNavigating(false), 100);
+          pending.timer = setTimeout(() => {
+            pending.timer = null;
+            setIsNavigating(false);
+          }, 100);
         });
       });
     }

@@ -85,8 +85,11 @@ export function ExportDialog({
     };
   }, []);
 
-  // Reset form when dialog opens
-  useEffect(() => {
+  // Reset the form each time the dialog opens. Adjusted during render when `open` changes,
+  // so the dialog never renders a frame with the previous session's choices (#162).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setFormat('csv');
       setIncludeHeaders(true);
@@ -94,7 +97,7 @@ export function ExportDialog({
       setDelimiter(',');
       setError(null);
     }
-  }, [open]);
+  }
 
   // Generate filename preview
   const filename = generateFilename(productName);

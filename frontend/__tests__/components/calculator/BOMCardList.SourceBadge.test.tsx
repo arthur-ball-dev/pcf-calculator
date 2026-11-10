@@ -68,7 +68,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // SourceBadge for EPA should display [EPA] text
-      const card1 = screen.getByTestId('bom-card-1');
+      const card1 = screen.getAllByRole('article')[0];
       expect(within(card1).getByText('[EPA]')).toBeInTheDocument();
     });
 
@@ -82,7 +82,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // SourceBadge for DEFRA should display [DEF] text
-      const card2 = screen.getByTestId('bom-card-2');
+      const card2 = screen.getAllByRole('article')[1];
       expect(within(card2).getByText('[DEF]')).toBeInTheDocument();
     });
 
@@ -97,7 +97,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Find the EPA badge which should be a link
-      const card1 = screen.getByTestId('bom-card-1');
+      const card1 = screen.getAllByRole('article')[0];
       const epaLink = within(card1).getByText('[EPA]');
 
       // Should be an anchor element with href to attribution
@@ -115,7 +115,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // DEFRA link
-      const card2 = screen.getByTestId('bom-card-2');
+      const card2 = screen.getAllByRole('article')[1];
       const defraLink = within(card2).getByText('[DEF]');
       expect(defraLink).toHaveAttribute('href', '#defra-attribution');
     });
@@ -130,7 +130,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card1 = screen.getByTestId('bom-card-1');
+      const card1 = screen.getAllByRole('article')[0];
       const epaBadge = within(card1).getByText('[EPA]');
       expect(epaBadge.className).toMatch(/green/i);
     });
@@ -144,7 +144,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card2 = screen.getByTestId('bom-card-2');
+      const card2 = screen.getAllByRole('article')[1];
       const defraBadge = within(card2).getByText('[DEF]');
       expect(defraBadge.className).toMatch(/blue/i);
     });
@@ -165,7 +165,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card3 = screen.getByTestId('bom-card-3');
+      const card3 = screen.getAllByRole('article')[2];
       expect(within(card3).getByText('[DEF]')).toBeInTheDocument();
     });
 
@@ -178,7 +178,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card3 = screen.getByTestId('bom-card-3');
+      const card3 = screen.getAllByRole('article')[2];
       const defraBadge = within(card3).getByText('[DEF]');
       expect(defraBadge.className).toMatch(/blue/i);
     });
@@ -192,7 +192,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card3 = screen.getByTestId('bom-card-3');
+      const card3 = screen.getAllByRole('article')[2];
       const defraLink = within(card3).getByText('[DEF]');
       expect(defraLink).toHaveAttribute('href', '#defra-attribution');
     });
@@ -213,7 +213,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // The second item has no data_source
-      const card2 = screen.getByTestId('bom-card-2');
+      const card2 = screen.getAllByRole('article')[1];
 
       // Should not have any SourceBadge-like text (brackets)
       expect(within(card2).queryByText(/\[.*\]/)).not.toBeInTheDocument();
@@ -229,7 +229,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // The second item should still render its content
-      const card2 = screen.getByTestId('bom-card-2');
+      const card2 = screen.getAllByRole('article')[1];
       expect(within(card2).getByText('Unknown Material')).toBeInTheDocument();
       // Emerald Night 5B: category badges show config labels not raw values
       expect(within(card2).getByText('Materials')).toBeInTheDocument();
@@ -246,9 +246,9 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // All 3 cards should render
-      expect(screen.getByTestId('bom-card-1')).toBeInTheDocument();
-      expect(screen.getByTestId('bom-card-2')).toBeInTheDocument();
-      expect(screen.getByTestId('bom-card-3')).toBeInTheDocument();
+      expect(screen.getAllByRole('article')[0]).toBeInTheDocument();
+      expect(screen.getAllByRole('article')[1]).toBeInTheDocument();
+      expect(screen.getAllByRole('article')[2]).toBeInTheDocument();
     });
 
     it('should handle empty string data_source gracefully', () => {
@@ -265,7 +265,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Should render the card without crashing
-      const card1 = screen.getByTestId('bom-card-1');
+      const card1 = screen.getAllByRole('article')[0];
       expect(card1).toBeInTheDocument();
       expect(within(card1).getByText('Empty Source Item')).toBeInTheDocument();
 
@@ -287,7 +287,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Should render the card without crashing
-      const card1 = screen.getByTestId('bom-card-1');
+      const card1 = screen.getAllByRole('article')[0];
       expect(card1).toBeInTheDocument();
 
       // Unknown source should render as plain text without brackets
@@ -311,7 +311,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // Should render the card without crashing
-      const card1 = screen.getByTestId('bom-card-1');
+      const card1 = screen.getAllByRole('article')[0];
       expect(card1).toBeInTheDocument();
       expect(within(card1).getByText('Null Source Item')).toBeInTheDocument();
     });
@@ -331,7 +331,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card = screen.getByTestId('bom-card-1');
+      const card = screen.getAllByRole('article')[0];
 
       // Both badges should be present
       // Emerald Night 5B: category badges show config labels not raw values
@@ -351,7 +351,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card = screen.getByTestId('bom-card-1');
+      const card = screen.getAllByRole('article')[0];
       const sourceBadge = within(card).getByText('[EPA]');
 
       // SourceBadge should be a descendant of the card
@@ -373,7 +373,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card = screen.getByTestId('bom-card-1');
+      const card = screen.getAllByRole('article')[0];
       const sourceBadge = within(card).getByText('[EPA]');
 
       // Should have a title for tooltip on hover
@@ -390,7 +390,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
         />
       );
 
-      const card = screen.getByTestId('bom-card-1');
+      const card = screen.getAllByRole('article')[0];
       const sourceBadge = within(card).getByText('[EPA]');
 
       // Should be an anchor (focusable and clickable)
@@ -414,7 +414,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       );
 
       // SourceBadge should still be visible in read-only mode
-      const card1 = screen.getByTestId('bom-card-1');
+      const card1 = screen.getAllByRole('article')[0];
       expect(within(card1).getByText('[EPA]')).toBeInTheDocument();
     });
   });

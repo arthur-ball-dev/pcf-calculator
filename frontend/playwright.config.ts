@@ -33,10 +33,15 @@ import { defineConfig, devices } from '@playwright/test';
  * - test:e2e:setup    - Setup/reset test database only
  * - test:e2e:isolated - Setup test DB and run tests against it
  *
- * NOTE: Both servers must be running before tests:
+ * NOTE: The backend must be running before tests:
  * - Backend: DATABASE_URL=<test-db-url> uvicorn backend.main:app --reload --port 8000
- * - Frontend: npm run dev (http://localhost:5173)
+ * - Frontend: `test:e2e` uses whatever serves http://localhost:5173 (usually `npm run dev`).
+ *   `test:e2e:prod` builds the app and serves the build on :5173 itself (stop the dev server
+ *   first). Prefer it for full runs: the dev build's first render of the BOM editor is slow
+ *   enough under CPU load to push tests past their waits (#133).
  */
+const useProductionBuild = !!process.env.E2E_PROD_BUILD;
+
 export default defineConfig({
   testDir: './tests/e2e',
 
@@ -98,7 +103,20 @@ export default defineConfig({
     },
   ],
 
-  // NOTE: Servers must be manually started before running tests
+  // test:e2e:prod: build and serve the production bundle on :5173 for this run.
+  // Fails fast if :5173 is taken (the dev server must be stopped first).
+  webServer: useProductionBuild
+    ? {
+        command: 'npm run build && npx vite preview --port 5173 --strictPort',
+        url: 'http://localhost:5173',
+        reuseExistingServer: false,
+        timeout: 300 * 1000,
+        stdout: 'ignore',
+        stderr: 'pipe',
+      }
+    : undefined,
+
+  // NOTE: Without test:e2e:prod, servers must be manually started before running tests
   // This ensures we test against real production-like environment
   //
   // For isolated E2E testing with test database:

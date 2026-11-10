@@ -49,7 +49,7 @@ vi.mock('@/hooks/useEmissionFactors', () => ({
  */
 async function waitForEditorReady() {
   await waitFor(() => {
-    expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
   }, { timeout: 5000 });
 }
 

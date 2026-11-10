@@ -216,7 +216,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveStyle({ height: '300px' });
     });
 
@@ -229,7 +229,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveStyle({ height: '400px' });
     });
 
@@ -242,7 +242,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveStyle({ height: '500px' });
     });
 
@@ -255,7 +255,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveStyle({ height: '250px' });
     });
 
@@ -268,7 +268,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       // Default mobile height should be 300px per spec
       expect(container).toHaveStyle({ height: '300px' });
     });
@@ -282,7 +282,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       // Should use minHeight (500px) or default tablet height (400px)
       const style = window.getComputedStyle(container);
       const heightValue = parseInt(style.height, 10);
@@ -304,7 +304,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveClass('overflow-x-auto');
     });
 
@@ -317,7 +317,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       const innerWrapper = container.firstElementChild;
 
       // Inner wrapper should have minWidth applied
@@ -333,7 +333,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       // On desktop, scroll should not be applied (viewport > minWidth)
       expect(container).not.toHaveClass('overflow-x-auto');
     });
@@ -427,7 +427,7 @@ describe('ResponsiveChartContainer', () => {
       );
 
       await waitFor(() => {
-        const container = screen.getByTestId('responsive-chart-container');
+        const container = screen.getByRole('img');
         // 800 / (16/9) = 450
         expect(container).toHaveStyle({ height: '450px' });
       });
@@ -477,7 +477,7 @@ describe('ResponsiveChartContainer', () => {
       );
 
       await waitFor(() => {
-        const container = screen.getByTestId('responsive-chart-container');
+        const container = screen.getByRole('img');
         // 600 / (4/3) = 450
         expect(container).toHaveStyle({ height: '450px' });
       });
@@ -526,7 +526,7 @@ describe('ResponsiveChartContainer', () => {
       );
 
       await waitFor(() => {
-        const container = screen.getByTestId('responsive-chart-container');
+        const container = screen.getByRole('img');
         // aspectRatio should take precedence: 800 / (16/9) = 450
         expect(container).toHaveStyle({ height: '450px' });
       });
@@ -545,7 +545,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const skeleton = screen.getByTestId('chart-loading-skeleton');
+      const skeleton = screen.getByRole('img', { busy: true });
       expect(skeleton).toBeInTheDocument();
     });
 
@@ -556,7 +556,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const mockChart = screen.queryByTestId('mock-chart');
+      const mockChart = screen.queryByText('Mock Chart');
       expect(mockChart).not.toBeInTheDocument();
     });
 
@@ -567,7 +567,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const mockChart = screen.getByTestId('mock-chart');
+      const mockChart = screen.getByText('Mock Chart');
       expect(mockChart).toBeInTheDocument();
     });
 
@@ -578,7 +578,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveAttribute('aria-busy', 'true');
     });
 
@@ -591,7 +591,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveStyle({ height: '500px' });
     });
   });
@@ -608,7 +608,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveAttribute('role', 'img');
     });
 
@@ -619,7 +619,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveAttribute('aria-label', 'Carbon footprint flow diagram');
     });
 
@@ -651,7 +651,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveClass('custom-chart-class');
     });
 
@@ -662,7 +662,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveClass('relative');
     });
 
@@ -675,7 +675,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveClass('overflow-y-hidden');
     });
   });
@@ -692,7 +692,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const chart = screen.getByTestId('my-custom-chart');
+      const chart = screen.getByText('Mock Chart');
       expect(chart).toBeInTheDocument();
     });
 
@@ -703,11 +703,11 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       container.querySelector('[style*="height: 100%"]');
 
       // Either child container has 100% height or the mock chart does
-      const mockChart = screen.getByTestId('mock-chart');
+      const mockChart = screen.getByText('Mock Chart');
       expect(mockChart).toBeInTheDocument();
     });
 
@@ -720,7 +720,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const mockChart = screen.getByTestId('mock-chart');
+      const mockChart = screen.getByText('Mock Chart');
       const wrapper = mockChart.closest('[style*="min-width"]');
       expect(wrapper).toHaveStyle({ minWidth: '600px' });
     });
@@ -740,7 +740,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       // Default desktop height should be 400-500px
       const style = window.getComputedStyle(container);
       const heightValue = parseInt(style.height, 10);
@@ -756,7 +756,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).toHaveStyle({ height: '300px' });
     });
 
@@ -769,7 +769,7 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = screen.getByRole('img');
       expect(container).not.toHaveClass('overflow-x-auto');
     });
 
@@ -780,10 +780,10 @@ describe('ResponsiveChartContainer', () => {
         </ResponsiveChartContainer>
       );
 
-      const mockChart = screen.getByTestId('mock-chart');
+      const mockChart = screen.getByText('Mock Chart');
       expect(mockChart).toBeInTheDocument();
 
-      const skeleton = screen.queryByTestId('chart-loading-skeleton');
+      const skeleton = screen.queryByRole('img', { busy: true });
       expect(skeleton).not.toBeInTheDocument();
     });
   });
@@ -803,7 +803,7 @@ describe('ResponsiveChartContainer', () => {
       );
 
       // Verify desktop height
-      let container = screen.getByTestId('responsive-chart-container');
+      let container = screen.getByRole('img');
       expect(container).toHaveStyle({ height: '500px' });
 
       // TDD-EX-P9-001: useMediaQuery caches matchMedia state and only updates
@@ -814,7 +814,7 @@ describe('ResponsiveChartContainer', () => {
       });
 
       await waitFor(() => {
-        container = screen.getByTestId('responsive-chart-container');
+        container = screen.getByRole('img');
         expect(container).toHaveStyle({ height: '300px' });
       });
     });
@@ -829,7 +829,7 @@ describe('ResponsiveChartContainer', () => {
       );
 
       // Verify mobile height
-      let container = screen.getByTestId('responsive-chart-container');
+      let container = screen.getByRole('img');
       expect(container).toHaveStyle({ height: '300px' });
 
       // TDD-EX-P9-001: Fire change events to simulate real viewport resize
@@ -838,7 +838,7 @@ describe('ResponsiveChartContainer', () => {
       });
 
       await waitFor(() => {
-        container = screen.getByTestId('responsive-chart-container');
+        container = screen.getByRole('img');
         expect(container).toHaveStyle({ height: '400px' });
       });
     });

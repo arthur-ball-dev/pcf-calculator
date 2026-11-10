@@ -89,14 +89,14 @@ export function ProductSearchPagination({
 
     if (itemsShown !== undefined) {
       return (
-        <span data-testid="total-count">
+        <span data-testid="total-count" role="status">
           Showing {formatNumber(shown)} of {formatNumber(displayCount)} {getProductText(displayCount)}
         </span>
       );
     }
 
     return (
-      <span data-testid="total-count">
+      <span data-testid="total-count" role="status">
         {formatNumber(displayCount)} {getProductText(displayCount)}
       </span>
     );

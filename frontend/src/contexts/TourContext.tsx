@@ -77,6 +77,3 @@ export function useTour(): TourContextType {
 
   return context;
 }
-
-// Export context for testing purposes
-export { TourContext };

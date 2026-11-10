@@ -70,7 +70,7 @@ test.describe('Manual BOM Construction Flow', () => {
 
     // Step 3: Wait for product list to load, then select a product
     console.log('Step 3: Search for and select a product...');
-    const searchInput = page.getByTestId('product-search-input');
+    const searchInput = page.getByRole('textbox', { name: 'Search products' });
     await expect(searchInput).toBeVisible({ timeout: 10000 });
 
     // Wait for initial products to load (the list auto-loads on mount)
@@ -78,7 +78,7 @@ test.describe('Manual BOM Construction Flow', () => {
 
     // Select the first available product from the list
     const productRow = page.locator('[role="option"]').first();
-    if (await productRow.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await productRow.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) {
       const productText = await productRow.textContent();
       console.log(`Selecting product: ${productText?.substring(0, 80)}`);
       await productRow.click();
@@ -89,7 +89,7 @@ test.describe('Manual BOM Construction Flow', () => {
       await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
       const searchResult = page.locator('[role="option"]').first();
-      if (await searchResult.isVisible({ timeout: 5000 }).catch(() => false)) {
+      if (await searchResult.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) {
         await searchResult.click();
         await page.waitForLoadState('networkidle').catch(() => {});
       }
@@ -104,14 +104,14 @@ test.describe('Manual BOM Construction Flow', () => {
 
     // Step 4: Click "Next" to go to BOM Editor
     console.log('Step 4: Navigate to BOM Editor (Step 2)...');
-    const nextBtn = page.getByTestId('next-button');
+    const nextBtn = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextBtn).toBeEnabled({ timeout: 10000 });
     console.log('Clicking Next button...');
     await nextBtn.click();
 
     // Wait for BOM skeleton to disappear
-    const bomSkeleton = page.getByTestId('bom-editor-skeleton');
-    if (await bomSkeleton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    const bomSkeleton = page.getByRole('status', { name: 'Loading bill of materials' });
+    if (await bomSkeleton.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await expect(bomSkeleton).not.toBeVisible({ timeout: 15000 });
     }
 
@@ -126,7 +126,7 @@ test.describe('Manual BOM Construction Flow', () => {
     console.log('Step 5: Check for and fix validation errors...');
     const errorBox = page.locator('text=Please fix the following errors');
 
-    if (await errorBox.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await errorBox.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       console.log('Found validation errors - fixing empty rows...');
 
       // Find empty input fields (component name is required)

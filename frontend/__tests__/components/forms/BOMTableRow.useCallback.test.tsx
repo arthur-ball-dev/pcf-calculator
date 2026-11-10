@@ -194,7 +194,7 @@ describe('BOMTableRow useCallback Handler Extraction (TASK-FE-P8-006)', () => {
                 ))}
               </TableBody>
             </Table>
-            <div data-testid="render-count">{renderCount}</div>
+            <div role="status" aria-label="Render count">{renderCount}</div>
           </FormProvider>
         );
       }
@@ -203,7 +203,7 @@ describe('BOMTableRow useCallback Handler Extraction (TASK-FE-P8-006)', () => {
 
       await waitFor(() => {
         // Allow for React StrictMode double-renders
-        const count = Number(screen.getByTestId('render-count').textContent);
+        const count = Number(screen.getByRole('status', { name: 'Render count' }).textContent);
         expect(count).toBeGreaterThanOrEqual(1);
       }, { timeout: 500 });
 
@@ -232,12 +232,11 @@ describe('BOMTableRow useCallback Handler Extraction (TASK-FE-P8-006)', () => {
         return (
           <FormProvider {...form}>
             <button
-              data-testid="parent-update"
               onClick={() => setParentState(s => s + 1)}
             >
               Update Parent
             </button>
-            <div data-testid="parent-state">{parentState}</div>
+            <div role="status" aria-label="Parent state">{parentState}</div>
             <Table>
               <TableBody>
                 {fields.map((field, index) => (
@@ -262,10 +261,10 @@ describe('BOMTableRow useCallback Handler Extraction (TASK-FE-P8-006)', () => {
       expect(initialRenders).toBeGreaterThanOrEqual(1);
 
       // Trigger parent re-render (unrelated state change)
-      fireEvent.click(screen.getByTestId('parent-update'));
+      fireEvent.click(screen.getByRole('button', { name: 'Update Parent' }));
 
       await waitFor(() => {
-        expect(screen.getByTestId('parent-state').textContent).toBe('1');
+        expect(screen.getByRole('status', { name: 'Parent state' }).textContent).toBe('1');
       });
 
       // With useCallback, stable handler references should prevent
@@ -660,7 +659,7 @@ describe('BOMTableRow useCallback Handler Extraction (TASK-FE-P8-006)', () => {
 
         return (
           <FormProvider {...form}>
-            <div data-testid="watched-value">{watchedValue}</div>
+            <div role="status" aria-label="Watched value">{watchedValue}</div>
             <Table>
               <TableBody>
                 {fields.map((field, index) => (
@@ -681,13 +680,13 @@ describe('BOMTableRow useCallback Handler Extraction (TASK-FE-P8-006)', () => {
 
       render(<TestWrapperWithFormWatch />);
 
-      expect(screen.getByTestId('watched-value').textContent).toBe('Steel');
+      expect(screen.getByRole('status', { name: 'Watched value' }).textContent).toBe('Steel');
 
       const nameInput = screen.getByDisplayValue('Steel');
       fireEvent.change(nameInput, { target: { value: 'Updated Steel' } });
 
       await waitFor(() => {
-        expect(screen.getByTestId('watched-value').textContent).toBe('Updated Steel');
+        expect(screen.getByRole('status', { name: 'Watched value' }).textContent).toBe('Updated Steel');
       });
     });
   });

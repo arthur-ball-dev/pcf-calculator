@@ -94,7 +94,7 @@ test.describe('Bug Fix #2: BOM Table Columns Visibility', () => {
     await selectFirstProductFromList(page);
 
     // Click Next to go to BOM editor
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
 
@@ -151,7 +151,7 @@ test.describe('Bug Fix #3: Loading Indicator on Next Button', () => {
     await takeScreenshot(page, 'bugfix3-product-selected');
 
     // Check Next button state before clicking
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     const initialText = await nextButton.textContent();
     console.log('Next button text before click:', initialText);
 
@@ -180,14 +180,14 @@ test.describe('Bug Fix #1 & #4: Calculation Flow', () => {
     await selectFirstProductFromList(page);
 
     // Navigate to BOM editor
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
     await expect(page.locator('h2').filter({ hasText: /Edit BOM/i })).toBeVisible({ timeout: 15000 });
     await takeScreenshot(page, 'bugfix1-bom-ready');
 
     // Click Calculate (Next button on edit step shows "Calculate")
-    const calculateButton = page.getByTestId('next-button');
+    const calculateButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(calculateButton).toBeEnabled({ timeout: 5000 });
     await calculateButton.click();
     await takeScreenshot(page, 'bugfix1-calculation-started');
@@ -231,7 +231,7 @@ test.describe('Products WITHOUT BOMs', () => {
     await page.waitForSelector('[data-testid="product-list"]', { timeout: 10000 });
 
     // Turn off the "With BOMs" toggle to show all products
-    const bomToggle = page.getByTestId('bom-toggle-switch');
+    const bomToggle = page.getByRole('switch', { name: 'Show only products with BOMs' });
     await expect(bomToggle).toBeVisible({ timeout: 5000 });
     // Toggle is on by default (showOnlyWithBom=true), click to turn off
     await bomToggle.click();
@@ -239,7 +239,7 @@ test.describe('Products WITHOUT BOMs', () => {
     await takeScreenshot(page, 'without-bom-all-products');
 
     // Search for a component product
-    const searchInput = page.getByTestId('product-search-input');
+    const searchInput = page.getByRole('textbox', { name: 'Search products' });
     await searchInput.fill('cotton');
     await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
     await takeScreenshot(page, 'without-bom-search-results');
@@ -261,7 +261,7 @@ test.describe('Products WITHOUT BOMs', () => {
       await takeScreenshot(page, 'without-bom-product-selected');
 
       // Check Next button - should be enabled to allow adding manual BOM
-      const nextButton = page.getByTestId('next-button');
+      const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
       await expect(nextButton).toBeEnabled({ timeout: 5000 });
       await nextButton.click();
 

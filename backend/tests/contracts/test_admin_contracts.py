@@ -23,11 +23,10 @@ from decimal import Decimal
 from typing import Any, Generator
 
 import pytest
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import Session
 
 from backend.models import Base, DataSource, DataSyncLog, EmissionFactor, ProductCategory
+from backend.tests.pg_isolation import empty_all_tables
 
 
 # ============================================================================
@@ -51,35 +50,10 @@ GAP_STATUS_ENUM = ["full", "partial", "none"]
 
 
 @pytest.fixture(scope="function")
-def test_engine():
-    """Create an in-memory SQLite test engine."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    Base.metadata.create_all(bind=engine)
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(test_engine) -> Generator[Session, None, None]:
-    """Provide a database session for testing."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=test_engine
-    )
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+def db_session(db_session):
+    """PostgreSQL session from conftest, emptied for this test and rolled back after it."""
+    empty_all_tables(db_session)
+    return db_session
 
 
 @pytest.fixture

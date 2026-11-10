@@ -18,50 +18,21 @@ Test-Driven Development Protocol:
 """
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import Session
 from datetime import datetime, date, timezone
 from decimal import Decimal
 import uuid
 
 # Import models - compliance models will be implemented in Phase B
 from backend.models import Base
+from backend.tests.pg_isolation import empty_all_tables
 
 
 @pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing."""
-    from backend.models import Base
-    try:
-        from backend.models import DataSourceLicense, EmissionFactorProvenance
-    except ImportError:
-        pytest.skip("Compliance models not yet implemented")
-
-    Base.metadata.create_all(db_engine)
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
+def db_session(db_session):
+    """PostgreSQL session from conftest, emptied for this test and rolled back after it."""
+    empty_all_tables(db_session)
+    return db_session
 
 
 # ============================================================================

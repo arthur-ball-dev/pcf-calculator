@@ -23,9 +23,32 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '../../testUtils';
+import { render, screen, fireEvent, waitFor, within } from '../../testUtils';
 import SankeyDiagram from '../../../src/components/visualizations/SankeyDiagram';
 import type { Calculation } from '../../../src/types/store.types';
+
+/** The Sankey chart mock rendered by the @nivo/sankey stub below. */
+function getChart(): HTMLElement {
+  return screen.getByRole('figure', { name: 'Sankey chart' });
+}
+
+/** The chart nodes in the stub: one button per node, named by its label. */
+function getNodes(): HTMLElement[] {
+  return within(getChart()).getAllByRole('button');
+}
+
+/**
+ * Both containers have role img and the same name: the ResponsiveChartContainer
+ * comes first in the document, SankeyDiagram's own container (inside it) second.
+ * Found without the chart, which is absent in the empty and loading states.
+ */
+function getResponsiveContainer(): HTMLElement {
+  return screen.getAllByRole('img')[0];
+}
+
+function getSankeyContainer(): HTMLElement {
+  return screen.getAllByRole('img')[1];
+}
 
 // Mock Nivo Sankey component with responsive behavior tracking
 vi.mock('@nivo/sankey', () => ({
@@ -44,16 +67,17 @@ vi.mock('@nivo/sankey', () => ({
     tooltip?: React.FC<{ node: { id: string; value: number } }>;
     onClick?: (data: unknown) => void;
   }) => (
-    <div data-testid="sankey-chart">
+    <div data-testid="sankey-chart" role="figure" aria-label="Sankey chart">
       <div data-testid="sankey-nodes-count">{data.nodes.length}</div>
       <div data-testid="sankey-links-count">{data.links.length}</div>
-      <div data-testid="sankey-margin" data-margin={JSON.stringify(margin)} />
-      <div data-testid="sankey-node-thickness" data-thickness={nodeThickness} />
-      <div data-testid="sankey-node-spacing" data-spacing={nodeSpacing} />
+      <output aria-label="Margin" data-margin={JSON.stringify(margin)} />
+      <output aria-label="Node thickness" data-thickness={nodeThickness} />
+      <output aria-label="Node spacing" data-spacing={nodeSpacing} />
       {data.nodes.map((node, index) => (
         <div
           key={node.id}
           data-testid={`sankey-node-${index}`}
+          role="button"
           data-label={node.label}
           className="sankey-node"
           onClick={() => onClick?.({ id: node.id })}
@@ -246,7 +270,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
       render(<SankeyDiagram calculation={mockCalculation} />);
 
       // The container should have the responsive chart container test id
-      const responsiveContainer = screen.getByTestId('responsive-chart-container');
+      const responsiveContainer = getResponsiveContainer();
       expect(responsiveContainer).toBeInTheDocument();
     });
 
@@ -255,7 +279,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = getResponsiveContainer();
       expect(container).toHaveStyle({ height: '350px' });
     });
 
@@ -264,7 +288,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = getResponsiveContainer();
       expect(container).toHaveStyle({ height: '400px' });
     });
 
@@ -273,14 +297,14 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = getResponsiveContainer();
       expect(container).toHaveStyle({ height: '500px' });
     });
 
     it('should have aria-label for accessibility', () => {
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = getResponsiveContainer();
       expect(container).toHaveAttribute('aria-label');
       expect(container.getAttribute('aria-label')).toContain('Carbon');
     });
@@ -296,7 +320,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockComplexCalculation} />);
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = getResponsiveContainer();
       expect(container).toHaveClass('overflow-x-auto');
     });
 
@@ -305,7 +329,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockComplexCalculation} />);
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = getResponsiveContainer();
       const innerWrapper = container.querySelector('[style*="min-width"]');
 
       // Chart should have minimum width to ensure readability
@@ -335,7 +359,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockComplexCalculation} />);
 
-      const container = screen.getByTestId('responsive-chart-container');
+      const container = getResponsiveContainer();
       const innerWrapper = container.querySelector('[style*="min-width"]');
 
       if (innerWrapper) {
@@ -358,7 +382,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
       render(<SankeyDiagram calculation={mockCalculation} />);
 
       // Check that labels are truncated or abbreviated
-      const labels = screen.getAllByTestId(/sankey-label-/);
+      const labels = getNodes();
 
       labels.forEach((label) => {
         const labelText = label.textContent || '';
@@ -373,7 +397,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
       render(<SankeyDiagram calculation={mockCalculation} />);
 
       // Labels should not be truncated on desktop
-      const labels = screen.getAllByTestId(/sankey-label-/);
+      const labels = getNodes();
       expect(labels.length).toBeGreaterThan(0);
     });
 
@@ -382,7 +406,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const labels = screen.getAllByTestId(/sankey-label-/);
+      const labels = getNodes();
 
       // Each label should have adequate spacing
       labels.forEach((label) => {
@@ -401,7 +425,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const marginContainer = screen.getByTestId('sankey-margin');
+      const marginContainer = screen.getByRole('status', { name: 'Margin' });
       const marginData = JSON.parse(marginContainer.getAttribute('data-margin') || '{}');
 
       // TDD-EX-P9-001: Mobile margins are {top: 10, right: 50, bottom: 10, left: 90}.
@@ -420,7 +444,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const marginContainer = screen.getByTestId('sankey-margin');
+      const marginContainer = screen.getByRole('status', { name: 'Margin' });
       const marginData = JSON.parse(marginContainer.getAttribute('data-margin') || '{}');
 
       // Desktop margins should be larger (around 20px or more)
@@ -431,14 +455,14 @@ describe('SankeyDiagram Responsive Behavior', () => {
       // Render on mobile
       setViewport(375);
       const { unmount } = render(<SankeyDiagram calculation={mockCalculation} />);
-      const mobileMarginEl = screen.getByTestId('sankey-margin');
+      const mobileMarginEl = screen.getByRole('status', { name: 'Margin' });
       const mobileMargins = JSON.parse(mobileMarginEl.getAttribute('data-margin') || '{}');
       unmount();
 
       // Render on desktop
       setViewport(1280);
       render(<SankeyDiagram calculation={mockCalculation} />);
-      const desktopMarginEl = screen.getByTestId('sankey-margin');
+      const desktopMarginEl = screen.getByRole('status', { name: 'Margin' });
       const desktopMargins = JSON.parse(desktopMarginEl.getAttribute('data-margin') || '{}');
 
       // Mobile margins should be less than or equal to desktop margins
@@ -459,7 +483,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const node = screen.getByTestId('sankey-node-0');
+      const node = getNodes()[0];
 
       // Simulate touch
       fireEvent.touchStart(node);
@@ -476,7 +500,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const nodes = screen.getAllByTestId(/sankey-node-/);
+      const nodes = getNodes();
 
       nodes.forEach((node) => {
         // Nodes should have adequate touch target size (minimum 44px recommended)
@@ -492,7 +516,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
         <SankeyDiagram calculation={mockCalculation} onNodeClick={onNodeClick} />
       );
 
-      const node = screen.getByTestId('sankey-node-0');
+      const node = getNodes()[0];
       fireEvent.click(node);
 
       // Node should be clickable
@@ -504,12 +528,12 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const node = screen.getByTestId('sankey-node-0');
+      const node = getNodes()[0];
       fireEvent.touchStart(node);
 
       await waitFor(() => {
         // Tooltip should contain CO2e information
-        const container = screen.getByTestId('sankey-container');
+        const container = getSankeyContainer();
         expect(container).toBeInTheDocument();
       });
     });
@@ -525,7 +549,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const thicknessContainer = screen.getByTestId('sankey-node-thickness');
+      const thicknessContainer = screen.getByRole('status', { name: 'Node thickness' });
       const thickness = parseInt(thicknessContainer.getAttribute('data-thickness') || '0', 10);
 
       // Thickness should be reasonable for mobile (12-18px range)
@@ -538,7 +562,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const spacingContainer = screen.getByTestId('sankey-node-spacing');
+      const spacingContainer = screen.getByRole('status', { name: 'Node spacing' });
       const spacing = parseInt(spacingContainer.getAttribute('data-spacing') || '0', 10);
 
       // Spacing should be reasonable for mobile (8-24px range)
@@ -552,7 +576,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
       // Simple chart
       const { rerender } = render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const simpleSpacing = screen.getByTestId('sankey-node-spacing');
+      const simpleSpacing = screen.getByRole('status', { name: 'Node spacing' });
       const simpleSpacingValue = parseInt(
         simpleSpacing.getAttribute('data-spacing') || '0',
         10
@@ -561,7 +585,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
       // Complex chart with more nodes
       rerender(<SankeyDiagram calculation={mockComplexCalculation} />);
 
-      const complexSpacing = screen.getByTestId('sankey-node-spacing');
+      const complexSpacing = screen.getByRole('status', { name: 'Node spacing' });
       const complexSpacingValue = parseInt(
         complexSpacing.getAttribute('data-spacing') || '0',
         10
@@ -583,7 +607,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = getSankeyContainer();
 
       // Container should be constrained to viewport
       expect(container).toHaveStyle({ width: '100%' });
@@ -594,8 +618,8 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={mockCalculation} />);
 
-      const responsiveContainer = screen.getByTestId('responsive-chart-container');
-      const sankeyContainer = screen.getByTestId('sankey-container');
+      const responsiveContainer = getResponsiveContainer();
+      const sankeyContainer = getSankeyContainer();
 
       expect(responsiveContainer).toContainElement(sankeyContainer);
     });
@@ -611,7 +635,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={null} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = getSankeyContainer();
       const style = window.getComputedStyle(container);
       const heightValue = parseInt(style.height, 10);
 
@@ -630,7 +654,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
 
       render(<SankeyDiagram calculation={loadingCalculation} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = getSankeyContainer();
       expect(container).toBeInTheDocument();
     });
   });
@@ -646,11 +670,11 @@ describe('SankeyDiagram Responsive Behavior', () => {
       render(<SankeyDiagram calculation={mockComplexCalculation} />);
 
       // Click on a category node to drill down
-      const node = screen.getByTestId('sankey-node-0');
+      const node = getNodes()[0];
       fireEvent.click(node);
 
       await waitFor(() => {
-        const container = screen.getByTestId('responsive-chart-container');
+        const container = getResponsiveContainer();
         expect(container).toBeInTheDocument();
       });
     });
@@ -661,11 +685,11 @@ describe('SankeyDiagram Responsive Behavior', () => {
       render(<SankeyDiagram calculation={mockComplexCalculation} />);
 
       // Simulate drill-down
-      const node = screen.getByTestId('sankey-node-0');
+      const node = getNodes()[0];
       fireEvent.click(node);
 
       await waitFor(() => {
-        const backButton = screen.queryByTestId('sankey-back-button');
+        const backButton = screen.queryByRole('button', { name: /Back to Overview/ });
         // Back button should be accessible on mobile
         if (backButton) {
           expect(backButton).toBeInTheDocument();
@@ -698,7 +722,7 @@ describe('SankeyDiagram Responsive Behavior', () => {
       rerender(<SankeyDiagram calculation={mockCalculation} />);
 
       // Chart should still be functional
-      const chart = screen.getByTestId('sankey-chart');
+      const chart = getChart();
       expect(chart).toBeInTheDocument();
     });
 
@@ -709,11 +733,11 @@ describe('SankeyDiagram Responsive Behavior', () => {
         <SankeyDiagram calculation={mockCalculation} />
       );
 
-      const chart1 = screen.getByTestId('sankey-chart');
+      const chart1 = getChart();
 
       rerender(<SankeyDiagram calculation={mockCalculation} />);
 
-      const chart2 = screen.getByTestId('sankey-chart');
+      const chart2 = getChart();
 
       // Charts should both be present (memoization working)
       expect(chart1).toBeInTheDocument();

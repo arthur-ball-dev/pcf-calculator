@@ -43,19 +43,19 @@ describe('ProductSearchPagination Component', () => {
     it('should show "Load More" button when has_more is true', () => {
       render(<ProductSearchPagination {...defaultProps} hasMore={true} />);
 
-      expect(screen.getByTestId('load-more-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).toBeInTheDocument();
     });
 
     it('should hide "Load More" button when has_more is false', () => {
       render(<ProductSearchPagination {...defaultProps} hasMore={false} />);
 
-      expect(screen.queryByTestId('load-more-button')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).not.toBeInTheDocument();
     });
 
     it('should show button with "Load More" text', () => {
       render(<ProductSearchPagination {...defaultProps} hasMore={true} />);
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       expect(button.textContent).toMatch(/load more/i);
     });
 
@@ -69,7 +69,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      expect(screen.queryByTestId('load-more-button')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).not.toBeInTheDocument();
     });
 
     it('should show button when more results available', () => {
@@ -82,7 +82,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      expect(screen.getByTestId('load-more-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).toBeInTheDocument();
     });
   });
 
@@ -98,7 +98,7 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} hasMore={true} onLoadMore={onLoadMore} />
       );
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       await user.click(button);
 
       expect(onLoadMore).toHaveBeenCalledTimes(1);
@@ -116,7 +116,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       await user.click(button);
 
       // Button should be disabled during loading
@@ -128,7 +128,7 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} hasMore={true} isLoading={true} />
       );
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       expect(button).toBeDisabled();
     });
   });
@@ -141,35 +141,35 @@ describe('ProductSearchPagination Component', () => {
     it('should display total count', () => {
       render(<ProductSearchPagination {...defaultProps} totalCount={156} />);
 
-      expect(screen.getByTestId('total-count')).toBeInTheDocument();
-      expect(screen.getByTestId('total-count').textContent).toContain('156');
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      expect(screen.getByRole('status').textContent).toContain('156');
     });
 
     it('should format large numbers', () => {
       render(<ProductSearchPagination {...defaultProps} totalCount={1234} />);
 
-      const totalCount = screen.getByTestId('total-count');
+      const totalCount = screen.getByRole('status');
       expect(totalCount.textContent).toMatch(/1[,.]?234/);
     });
 
     it('should show "product" for count of 1', () => {
       render(<ProductSearchPagination {...defaultProps} totalCount={1} />);
 
-      const totalCount = screen.getByTestId('total-count');
+      const totalCount = screen.getByRole('status');
       expect(totalCount.textContent).toMatch(/1\s*product\b/i);
     });
 
     it('should show "products" for count > 1', () => {
       render(<ProductSearchPagination {...defaultProps} totalCount={100} />);
 
-      const totalCount = screen.getByTestId('total-count');
+      const totalCount = screen.getByRole('status');
       expect(totalCount.textContent).toMatch(/products/i);
     });
 
     it('should show "0 products" when empty', () => {
       render(<ProductSearchPagination {...defaultProps} totalCount={0} hasMore={false} />);
 
-      const totalCount = screen.getByTestId('total-count');
+      const totalCount = screen.getByRole('status');
       expect(totalCount.textContent).toMatch(/0/);
     });
 
@@ -184,7 +184,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Should show something like "Showing 40 of 100 products"
-      const countDisplay = screen.getByTestId('total-count');
+      const countDisplay = screen.getByRole('status');
       expect(countDisplay).toBeInTheDocument();
     });
   });
@@ -200,7 +200,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Button should show loading state
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       expect(button).toHaveAttribute('disabled');
     });
 
@@ -209,7 +209,7 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} hasMore={true} isLoading={true} />
       );
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       expect(button.textContent).toMatch(/loading/i);
     });
 
@@ -219,7 +219,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Spinner or loading indicator should be visible
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       expect(button).toBeInTheDocument();
     });
 
@@ -228,13 +228,13 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} hasMore={true} isLoading={true} />
       );
 
-      expect(screen.getByTestId('load-more-button')).toBeDisabled();
+      expect(screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).toBeDisabled();
 
       rerender(
         <ProductSearchPagination {...defaultProps} hasMore={true} isLoading={false} />
       );
 
-      expect(screen.getByTestId('load-more-button')).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).not.toBeDisabled();
     });
   });
 
@@ -254,7 +254,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Page numbers should be visible
-      expect(screen.getByTestId('pagination')).toBeInTheDocument();
+      expect(screen.getByRole('navigation', { name: 'Pagination' })).toBeInTheDocument();
     });
 
     it('should call onPageChange with correct page number', async () => {
@@ -271,7 +271,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Find and click page 2
-      const pagination = screen.queryByTestId('pagination');
+      const pagination = screen.queryByRole('navigation', { name: 'Pagination' });
       if (pagination) {
         const page2 = screen.queryByText('2');
         if (page2) {
@@ -292,7 +292,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Current page should be visually distinct
-      screen.queryByTestId('pagination');
+      screen.queryByRole('navigation', { name: 'Pagination' });
       // Implementation details vary
     });
 
@@ -307,7 +307,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // For many pages, should show ellipsis
-      screen.queryByTestId('pagination');
+      screen.queryByRole('navigation', { name: 'Pagination' });
       // Implementation may include "..." for skipped pages
     });
 
@@ -321,7 +321,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      const pagination = screen.queryByTestId('pagination');
+      const pagination = screen.queryByRole('navigation', { name: 'Pagination' });
       if (pagination) {
         // Previous and Next buttons should exist
         // These might be icons or text buttons
@@ -337,7 +337,7 @@ describe('ProductSearchPagination Component', () => {
     it('should have accessible Load More button', () => {
       render(<ProductSearchPagination {...defaultProps} hasMore={true} />);
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       expect(button).toHaveAccessibleName();
     });
 
@@ -346,7 +346,7 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} hasMore={true} isLoading={true} />
       );
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       // Button should have aria-busy or similar
       expect(button).toBeInTheDocument();
     });
@@ -354,7 +354,7 @@ describe('ProductSearchPagination Component', () => {
     it('should be keyboard navigable', async () => {
       render(<ProductSearchPagination {...defaultProps} hasMore={true} />);
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
 
       // Should be focusable
       await user.tab();
@@ -368,7 +368,7 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} hasMore={true} onLoadMore={onLoadMore} />
       );
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       button.focus();
 
       await user.keyboard('{Enter}');
@@ -383,7 +383,7 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} hasMore={true} onLoadMore={onLoadMore} />
       );
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       button.focus();
 
       await user.keyboard(' ');
@@ -401,7 +401,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      const pagination = screen.queryByTestId('pagination');
+      const pagination = screen.queryByRole('navigation', { name: 'Pagination' });
       if (pagination) {
         expect(pagination).toHaveAttribute('role', 'navigation');
       }
@@ -417,7 +417,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      const pagination = screen.queryByTestId('pagination');
+      const pagination = screen.queryByRole('navigation', { name: 'Pagination' });
       if (pagination) {
         expect(pagination).toHaveAttribute('aria-label');
       }
@@ -454,7 +454,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Should not crash
-      expect(screen.getByTestId('total-count')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toBeInTheDocument();
     });
 
     it('should handle single page', () => {
@@ -468,7 +468,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // No Load More button needed
-      expect(screen.queryByTestId('load-more-button')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).not.toBeInTheDocument();
     });
 
     it('should handle very large total count', () => {
@@ -480,7 +480,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      const totalCount = screen.getByTestId('total-count');
+      const totalCount = screen.getByRole('status');
       expect(totalCount).toBeInTheDocument();
     });
 
@@ -491,7 +491,7 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} hasMore={true} onLoadMore={onLoadMore} />
       );
 
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
 
       // Rapid clicks
       await user.click(button);
@@ -513,7 +513,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Should not crash
-      expect(screen.queryByTestId('pagination') || screen.queryByTestId('total-count')).toBeTruthy();
+      expect(screen.queryByRole('navigation', { name: 'Pagination' }) || screen.queryByRole('status')).toBeTruthy();
     });
   });
 
@@ -531,7 +531,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      const countDisplay = screen.getByTestId('total-count');
+      const countDisplay = screen.getByRole('status');
       expect(countDisplay.textContent).toMatch(/20/);
       expect(countDisplay.textContent).toMatch(/100/);
     });
@@ -553,7 +553,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      const countDisplay = screen.getByTestId('total-count');
+      const countDisplay = screen.getByRole('status');
       expect(countDisplay.textContent).toMatch(/40/);
     });
 
@@ -568,7 +568,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Should indicate all items are loaded
-      const countDisplay = screen.getByTestId('total-count');
+      const countDisplay = screen.getByRole('status');
       expect(countDisplay).toBeInTheDocument();
     });
   });
@@ -583,7 +583,7 @@ describe('ProductSearchPagination Component', () => {
         <ProductSearchPagination {...defaultProps} variant="loadMore" hasMore={true} />
       );
 
-      expect(screen.getByTestId('load-more-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).toBeInTheDocument();
     });
 
     it('should support "pages" variant', () => {
@@ -597,14 +597,14 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Should show page navigation instead of Load More
-      screen.queryByTestId('pagination');
+      screen.queryByRole('navigation', { name: 'Pagination' });
       // Implementation dependent
     });
 
     it('should default to "loadMore" variant', () => {
       render(<ProductSearchPagination {...defaultProps} hasMore={true} />);
 
-      expect(screen.getByTestId('load-more-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).toBeInTheDocument();
     });
   });
 
@@ -628,7 +628,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Click Load More
-      const button = screen.getByTestId('load-more-button');
+      const button = screen.getByRole('button', { name: /^(Load More|Loading\.\.\.)$/ });
       await user.click(button);
 
       expect(onLoadMore).toHaveBeenCalled();
@@ -646,7 +646,7 @@ describe('ProductSearchPagination Component', () => {
       );
 
       // Progress should update
-      const countDisplay = screen.getByTestId('total-count');
+      const countDisplay = screen.getByRole('status');
       expect(countDisplay.textContent).toMatch(/40/);
     });
 
@@ -660,7 +660,7 @@ describe('ProductSearchPagination Component', () => {
         />
       );
 
-      expect(screen.queryByTestId('load-more-button')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^(Load More|Loading\.\.\.)$/ })).not.toBeInTheDocument();
     });
   });
 });

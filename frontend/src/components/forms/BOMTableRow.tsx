@@ -8,7 +8,8 @@
  * - Emission factor selection without category filtering
  * - Delete button with tooltip (disabled when minimum constraint active)
  * - Accessibility with ARIA labels
- * - React.memo for performance optimization (prevents re-renders when sibling rows change)
+ * - React.memo for performance optimization (prevents re-renders when sibling rows change);
+ *   the row subscribes to its own fields with useWatch, and onRemove must be stable
  * - Support for virtualized rendering (TASK-FE-P8-007)
  * - Emerald Night 5B: pill-shaped quantity controls, category dot badges, per-row CO2e
  *
@@ -27,6 +28,7 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
+import { useWatch } from 'react-hook-form';
 import type { UseFormReturn, FieldArrayWithId, ControllerRenderProps } from 'react-hook-form';
 import { Trash2, Minus, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -151,11 +153,18 @@ const BOMTableRow = React.memo(function BOMTableRow({
   emissionFactors = [],
   isLoadingFactors = false,
 }: BOMTableRowProps) {
-  // Get currently selected emission factor ID
-  const selectedFactorId = form.watch(`items.${index}.emissionFactorId`);
-  // Watch quantity and category for reactive updates
-  const watchedQuantity = form.watch(`items.${index}.quantity`);
-  const watchedCategory = form.watch(`items.${index}.category`);
+  // The row subscribes to its own fields, so it re-renders when they change even though
+  // React.memo skips it when the parent re-renders for another row (#133). form.watch()
+  // would only read the values, leaving them stale until the parent re-rendered the row.
+  const [selectedFactorId, watchedQuantity, watchedCategory, watchedName] = useWatch({
+    control: form.control,
+    name: [
+      `items.${index}.emissionFactorId`,
+      `items.${index}.quantity`,
+      `items.${index}.category`,
+      `items.${index}.name`,
+    ],
+  });
 
   // Limit emission factors to MAX_DROPDOWN_ITEMS for performance
   // Always include the currently selected factor if it exists
@@ -485,7 +494,7 @@ const BOMTableRow = React.memo(function BOMTableRow({
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Component</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete "{form.watch(`items.${index}.name`) || 'this component'}"?
+                  Are you sure you want to delete "{watchedName || 'this component'}"?
                   This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>

@@ -112,8 +112,8 @@ describe('BreakdownTable', () => {
       render(<BreakdownTable {...mockProps} />);
 
       // Individual items should not be visible initially
-      expect(screen.queryByTestId('item-row-cotton')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('item-row-polyester')).not.toBeInTheDocument();
+      expect(screen.queryByRole('row', { name: /^Cotton\b/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('row', { name: /^Polyester\b/ })).not.toBeInTheDocument();
     });
 
     it('clicking a category expands it to show items', async () => {
@@ -121,13 +121,13 @@ describe('BreakdownTable', () => {
       render(<BreakdownTable {...mockProps} />);
 
       // Click on materials category expand button
-      const expandButton = screen.getByTestId('expand-materials');
+      const expandButton = screen.getByRole('button', { name: 'Materials' });
       await user.click(expandButton);
 
       // Items should now be visible
       await waitFor(() => {
-        expect(screen.getByTestId('item-row-cotton')).toBeInTheDocument();
-        expect(screen.getByTestId('item-row-polyester')).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Cotton\b/ })).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Polyester\b/ })).toBeInTheDocument();
       });
     });
 
@@ -136,12 +136,12 @@ describe('BreakdownTable', () => {
       render(<BreakdownTable {...mockProps} />);
 
       // Expand materials
-      const expandButton = screen.getByTestId('expand-materials');
+      const expandButton = screen.getByRole('button', { name: 'Materials' });
       await user.click(expandButton);
 
       // Wait for items to appear
       await waitFor(() => {
-        expect(screen.getByTestId('item-row-cotton')).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Cotton\b/ })).toBeInTheDocument();
       });
 
       // Click again to collapse
@@ -149,7 +149,7 @@ describe('BreakdownTable', () => {
 
       // Items should be hidden
       await waitFor(() => {
-        expect(screen.queryByTestId('item-row-cotton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('row', { name: /^Cotton\b/ })).not.toBeInTheDocument();
       });
     });
 
@@ -158,27 +158,27 @@ describe('BreakdownTable', () => {
       render(<BreakdownTable {...mockProps} />);
 
       // Expand materials
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
       await waitFor(() => {
-        expect(screen.getByTestId('item-row-cotton')).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Cotton\b/ })).toBeInTheDocument();
       });
 
       // Expand energy
-      await user.click(screen.getByTestId('expand-energy'));
+      await user.click(screen.getByRole('button', { name: 'Energy' }));
       await waitFor(() => {
-        expect(screen.getByTestId('item-row-electricity_us')).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Electricity Us\b/ })).toBeInTheDocument();
       });
 
       // Both categories should still be expanded
-      expect(screen.getByTestId('item-row-cotton')).toBeInTheDocument();
-      expect(screen.getByTestId('item-row-electricity_us')).toBeInTheDocument();
+      expect(screen.getByRole('row', { name: /^Cotton\b/ })).toBeInTheDocument();
+      expect(screen.getByRole('row', { name: /^Electricity Us\b/ })).toBeInTheDocument();
     });
 
     it('shows chevron rotation when expanded', async () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      const expandButton = screen.getByTestId('expand-materials');
+      const expandButton = screen.getByRole('button', { name: 'Materials' });
 
       // Initially not rotated
       const chevron = expandButton.querySelector('svg');
@@ -189,7 +189,7 @@ describe('BreakdownTable', () => {
 
       // Should now have rotate class
       await waitFor(() => {
-        const expandedChevron = screen.getByTestId('expand-materials').querySelector('svg');
+        const expandedChevron = screen.getByRole('button', { name: 'Materials' }).querySelector('svg');
         expect(expandedChevron).toHaveClass('rotate-90');
       });
     });
@@ -200,7 +200,7 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       // Emerald Night formatComponentName converts to Title Case
       await waitFor(() => {
@@ -213,7 +213,7 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
         // Cotton: 1.500 kg
@@ -227,7 +227,7 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
         // Cotton: 1.5/2.05 * 100 = 73.2%
@@ -241,13 +241,13 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const rows = screen.getAllByTestId(/^item-row-/);
+        const rows = screen.getAllByRole('row', { name: /^(Cotton|Polyester)\b/ });
         // Cotton (1.5) should come before polyester (0.3)
-        expect(rows[0]).toHaveAttribute('data-testid', 'item-row-cotton');
-        expect(rows[1]).toHaveAttribute('data-testid', 'item-row-polyester');
+        expect(rows[0]).toHaveAccessibleName(/^Cotton\b/);
+        expect(rows[1]).toHaveAccessibleName(/^Polyester\b/);
       });
     });
   });
@@ -257,10 +257,10 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      await user.click(screen.getByTestId('expand-energy'));
+      await user.click(screen.getByRole('button', { name: 'Energy' }));
 
       await waitFor(() => {
-        expect(screen.getByTestId('item-row-electricity_us')).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Electricity Us\b/ })).toBeInTheDocument();
       });
     });
 
@@ -268,10 +268,10 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      await user.click(screen.getByTestId('expand-transport'));
+      await user.click(screen.getByRole('button', { name: 'Transport' }));
 
       await waitFor(() => {
-        expect(screen.getByTestId('item-row-truck_transport')).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Truck Transport\b/ })).toBeInTheDocument();
       });
     });
 
@@ -279,11 +279,11 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        expect(screen.getByTestId('item-row-cotton')).toBeInTheDocument();
-        expect(screen.getByTestId('item-row-polyester')).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Cotton\b/ })).toBeInTheDocument();
+        expect(screen.getByRole('row', { name: /^Polyester\b/ })).toBeInTheDocument();
       });
     });
   });
@@ -292,11 +292,11 @@ describe('BreakdownTable', () => {
     it('sorts categories by CO2e descending by default', () => {
       render(<BreakdownTable {...mockProps} />);
 
-      const categoryRows = screen.getAllByTestId(/^category-row-/);
+      const categoryRows = screen.getAllByRole('row', { name: /^(Materials|Energy|Transport)\b/ });
       // Materials (1.8) > Energy (0.15) > Transport (0.1)
-      expect(categoryRows[0]).toHaveAttribute('data-testid', 'category-row-materials');
-      expect(categoryRows[1]).toHaveAttribute('data-testid', 'category-row-energy');
-      expect(categoryRows[2]).toHaveAttribute('data-testid', 'category-row-transport');
+      expect(categoryRows[0]).toHaveAccessibleName(/^Materials\b/);
+      expect(categoryRows[1]).toHaveAccessibleName(/^Energy\b/);
+      expect(categoryRows[2]).toHaveAccessibleName(/^Transport\b/);
     });
   });
 
@@ -304,7 +304,7 @@ describe('BreakdownTable', () => {
     it('has accessible expand buttons with aria-expanded', async () => {
       render(<BreakdownTable {...mockProps} />);
 
-      const expandButton = screen.getByTestId('expand-materials');
+      const expandButton = screen.getByRole('button', { name: 'Materials' });
       expect(expandButton).toHaveAttribute('aria-expanded', 'false');
     });
 
@@ -312,7 +312,7 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      const expandButton = screen.getByTestId('expand-materials');
+      const expandButton = screen.getByRole('button', { name: 'Materials' });
       await user.click(expandButton);
 
       await waitFor(() => {
@@ -333,7 +333,7 @@ describe('BreakdownTable', () => {
     it('expand buttons have aria-controls pointing to category items', () => {
       render(<BreakdownTable {...mockProps} />);
 
-      const expandButton = screen.getByTestId('expand-materials');
+      const expandButton = screen.getByRole('button', { name: 'Materials' });
       expect(expandButton).toHaveAttribute('aria-controls', 'materials-items');
     });
   });
@@ -413,10 +413,10 @@ describe('BreakdownTable', () => {
       const user = userEvent.setup();
       render(<BreakdownTable {...mockProps} />);
 
-      await user.click(screen.getByTestId('expand-materials'));
+      await user.click(screen.getByRole('button', { name: 'Materials' }));
 
       await waitFor(() => {
-        const itemRow = screen.getByTestId('item-row-cotton');
+        const itemRow = screen.getByRole('row', { name: /^Cotton\b/ });
         // Emerald Night uses subtle white overlay for expanded item rows
         expect(itemRow).toHaveClass('bg-white/[0.015]');
       });

@@ -69,7 +69,7 @@ const QUANTITY_ERROR = 'Quantity must be greater than zero';
  */
 async function waitForEditorReady() {
   await waitFor(() => {
-    expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
   }, { timeout: 5000 });
   await waitFor(() => {
     expect(useWizardStore.getState().completedSteps).toContain('edit');
@@ -98,7 +98,7 @@ describe('BOMEditor quantity zero (TASK-FE-FIX-002)', () => {
     render(<BOMEditor />);
     await waitForEditorReady();
 
-    const quantity = screen.getByTestId('bom-item-quantity') as HTMLInputElement;
+    const quantity = screen.getByRole('spinbutton', { name: 'Quantity' }) as HTMLInputElement;
     expect(quantity.value).toBe('2');
 
     fireEvent.change(quantity, { target: { value: '0' } });
@@ -116,11 +116,11 @@ describe('BOMEditor quantity zero (TASK-FE-FIX-002)', () => {
     render(<BOMEditor />);
     await waitForEditorReady();
 
-    const quantity = screen.getByTestId('bom-item-quantity') as HTMLInputElement;
+    const quantity = screen.getByRole('spinbutton', { name: 'Quantity' }) as HTMLInputElement;
     fireEvent.change(quantity, { target: { value: '0' } });
     await screen.findByText(QUANTITY_ERROR);
 
-    fireEvent.click(screen.getByTestId('qty-increase'));
+    fireEvent.click(screen.getByRole('button', { name: 'Increase quantity' }));
     await waitFor(() => expect(quantity.value).toBe('1'));
     await waitFor(() => expect(screen.queryByText(QUANTITY_ERROR)).not.toBeInTheDocument());
 
@@ -131,7 +131,7 @@ describe('BOMEditor quantity zero (TASK-FE-FIX-002)', () => {
     render(<BOMEditor />);
     await waitForEditorReady();
 
-    const quantity = screen.getByTestId('bom-item-quantity') as HTMLInputElement;
+    const quantity = screen.getByRole('spinbutton', { name: 'Quantity' }) as HTMLInputElement;
     fireEvent.change(quantity, { target: { value: '3' } });
     await waitFor(() => expect(useCalculatorStore.getState().bomItems[0].quantity).toBe(3));
     const storedItems = useCalculatorStore.getState().bomItems;

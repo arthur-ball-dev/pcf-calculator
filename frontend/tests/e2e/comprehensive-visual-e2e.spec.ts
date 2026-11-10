@@ -53,9 +53,9 @@ test.beforeAll(async () => {
 async function dismissJoyride(page: Page) {
   try {
     const joyridePortal = page.locator('#react-joyride-portal');
-    if (await joyridePortal.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await joyridePortal.waitFor({ state: 'visible', timeout: 1000 }).then(() => true, () => false)) {
       const skipButton = page.getByRole('button', { name: /skip|close|done|finish/i });
-      if (await skipButton.isVisible({ timeout: 500 }).catch(() => false)) {
+      if (await skipButton.waitFor({ state: 'visible', timeout: 500 }).then(() => true, () => false)) {
         await skipButton.click();
         await page.waitForTimeout(100);
       } else {
@@ -125,13 +125,13 @@ async function selectProductBySearch(page: Page, searchTerm: string): Promise<bo
   await page.waitForSelector('[data-testid="product-list"]', { timeout: 10000 });
 
   // Type search term
-  const searchInput = page.getByTestId('product-search-input');
+  const searchInput = page.getByRole('textbox', { name: 'Search products' });
   await searchInput.fill(searchTerm);
   await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
   // Check if products appeared
   const productOption = page.locator('[role="option"]').first();
-  if (await productOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await productOption.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false)) {
     // Setup listener for product detail API call BEFORE selecting
     const productDetailPromise = page.waitForResponse(
       (response) =>
@@ -186,23 +186,23 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
     await takeScreenshot(page, '01_main_page.png', '01 - Main page load', 'PASS', 'Wizard visible, Step 1: Select Product with ProductList');
 
     // 02 - Show ProductList with search and BOM toggle
-    const productList = page.getByTestId('product-list');
+    const productList = page.getByRole('region', { name: 'Product selection' });
     await expect(productList).toBeVisible({ timeout: 10000 });
     await takeScreenshot(page, '02_product_list.png', '02 - Product list visible', 'PASS', 'Showing With BOMs toggle, search input, and product rows');
 
     // 03 - Search for a product with BOM (laptop, backpack, etc.)
-    let productFound = await selectProductBySearch(page, 'Laptop');
+    const productFound = await selectProductBySearch(page, 'Laptop');
     if (!productFound) {
       // Fallback: select first available product
-      const searchInput = page.getByTestId('product-search-input');
+      const searchInput = page.getByRole('textbox', { name: 'Search products' });
       await searchInput.clear();
       // clear is synchronous, selectFirstProduct handles waiting
-      productFound = await selectFirstProduct(page);
+      await selectFirstProduct(page);
     }
     await takeScreenshot(page, '03_with_bom_selected.png', '03 - Product with BOM selected', 'PASS', 'Product selected with emerald check indicator');
 
     // 04 - Click Next to go to BOM Editor (Step 2)
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
     // Next line waits for BOM heading visibility
@@ -229,7 +229,7 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
     await page.locator('[role="listbox"], [data-radix-popper-content-wrapper]').first().waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
 
     // 06 - Show the Calculate button (on Step 2 - BOM Editor, it's the Next button)
-    const calculateBtn = page.getByTestId('next-button');
+    const calculateBtn = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(calculateBtn).toBeVisible({ timeout: 5000 });
     await takeScreenshot(page, '06_with_bom_step2.png', '06 - Calculate button visible', 'PASS', 'Calculate button (next-button) at bottom of BOM Editor');
 
@@ -247,12 +247,12 @@ test.describe('E2E Visual Testing - Part 1: Products WITH BOMs', () => {
 
     // 09 - Try to expand a category in breakdown
     const expandableItems = page.locator('[data-state="closed"]').first();
-    if (await expandableItems.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await expandableItems.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await expandableItems.click();
       await page.locator('[data-state="open"]').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
     }
     const accordionTrigger = page.locator('[role="button"][aria-expanded="false"]').first();
-    if (await accordionTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await accordionTrigger.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await accordionTrigger.click();
       await page.locator('[data-state="open"]').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
     }
@@ -278,7 +278,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     await takeScreenshot(page, '11_new_calculation.png', '11 - New calculation start', 'PASS', 'Step 1 visible with ProductList');
 
     // 12 - Turn off "With BOMs" toggle to show all products
-    const bomToggle = page.getByTestId('bom-toggle-switch');
+    const bomToggle = page.getByRole('switch', { name: 'Show only products with BOMs' });
     await expect(bomToggle).toBeVisible({ timeout: 5000 });
     await bomToggle.click();
     await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
@@ -293,7 +293,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
 
     // If Ceramic didn't work, try selecting first available option
     if (!productFound) {
-      const searchInput = page.getByTestId('product-search-input');
+      const searchInput = page.getByRole('textbox', { name: 'Search products' });
       await searchInput.clear();
       // clear is synchronous, selectFirstProduct handles waiting
       productFound = await selectFirstProduct(page);
@@ -308,7 +308,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     }
 
     // 15 - Go to BOM Editor (Step 2)
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
     // Next line waits for BOM heading visibility
@@ -320,7 +320,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
 
     // 16 - Click "Add Component" button to add a new row
     const addComponentButton = page.locator('button:has-text("Add Component")');
-    if (await addComponentButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await addComponentButton.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false)) {
       await addComponentButton.click();
       await page.waitForFunction(() => document.querySelectorAll('input[placeholder*="e.g"]').length > 0, {}, { timeout: 5000 }).catch(() => {});
     }
@@ -328,7 +328,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
 
     // 17 - Fill in the new component row (last row, has placeholder text)
     const newNameInput = page.locator('input[placeholder*="e.g"]').last();
-    if (await newNameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await newNameInput.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await newNameInput.fill('Aluminum Sheet');
       // fill is synchronous
     }
@@ -342,13 +342,13 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     await takeScreenshot(page, '17_component_filled.png', '17 - Component filled', 'PASS', 'New component: Aluminum Sheet, qty: 2');
 
     // 18 - Add another component
-    if (await addComponentButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await addComponentButton.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await addComponentButton.click();
       await page.waitForFunction(() => document.querySelectorAll('input[placeholder*="e.g"]').length > 0, {}, { timeout: 5000 }).catch(() => {});
     }
 
     const newNameInput2 = page.locator('input[placeholder*="e.g"]').last();
-    if (await newNameInput2.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await newNameInput2.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await newNameInput2.fill('Plastic ABS');
       // fill is synchronous
     }
@@ -387,7 +387,7 @@ test.describe('E2E Visual Testing - Part 2: Manual BOM Construction', () => {
     await takeScreenshot(page, '20_constructed_bom.png', '20 - Complete BOM', 'PASS', 'Full BOM with manually added components');
 
     // 21 - Click Calculate button (next-button on edit step shows "Calculate")
-    const calculateBtn = page.getByTestId('next-button');
+    const calculateBtn = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
 
     // Scroll to make the calculate button visible
     await calculateBtn.scrollIntoViewIfNeeded();

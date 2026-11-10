@@ -14,7 +14,7 @@
  * - Viewport-aware activation (mobile/tablet only)
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import type { SwipeEventData } from 'react-swipeable';
 import { useBreakpoints } from './useBreakpoints';
@@ -64,7 +64,9 @@ export function useSwipeNavigation({
   preventOnFormElements = true,
 }: SwipeNavigationOptions = {}): SwipeNavigationResult {
   const { isMobile, isTablet } = useBreakpoints();
-  const lastSwipeDirection = useRef<'left' | 'right' | null>(null);
+  // State, not a ref: callers read it during render, and a ref's value there is stale until
+  // something else re-renders (#162)
+  const [lastSwipeDirection, setLastSwipeDirection] = useState<'left' | 'right' | null>(null);
 
   // Swipe is only active on mobile/tablet and when enabled
   const isSwipeActive = enabled && (isMobile || isTablet);
@@ -104,7 +106,7 @@ export function useSwipeNavigation({
       if (!isSwipeActive) return;
       if (shouldPreventSwipe(eventData)) return;
 
-      lastSwipeDirection.current = 'left';
+      setLastSwipeDirection('left');
       onSwipeLeft?.();
     },
     [isSwipeActive, shouldPreventSwipe, onSwipeLeft]
@@ -118,7 +120,7 @@ export function useSwipeNavigation({
       if (!isSwipeActive) return;
       if (shouldPreventSwipe(eventData)) return;
 
-      lastSwipeDirection.current = 'right';
+      setLastSwipeDirection('right');
       onSwipeRight?.();
     },
     [isSwipeActive, shouldPreventSwipe, onSwipeRight]
@@ -146,7 +148,7 @@ export function useSwipeNavigation({
 
   return {
     handlers,
-    lastSwipeDirection: lastSwipeDirection.current,
+    lastSwipeDirection,
     isSwipeActive,
   };
 }

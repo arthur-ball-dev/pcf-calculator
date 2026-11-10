@@ -2,7 +2,7 @@
  * QA Visual Validation E2E Tests
  *
  * TWO Scenarios:
- * 1. Product WITH BOM (e.g., "Beverage_Bottle - Large 1L")
+ * 1. Product WITH BOM ("Water Bottle - Realistic", in the test dataset)
  * 2. Product WITHOUT BOM (a finished product with no BOM - toggle BOM filter off)
  *
  * UI Structure (3-step wizard, Emerald Night ProductList):
@@ -86,7 +86,7 @@ async function recordResult(
   console.log(`[${status}] ${scenario} - ${step}: ${verification}`);
 }
 
-test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
+test.describe('Scenario 1: Product WITH BOM (Water Bottle)', () => {
   test.beforeEach(async ({ page, request }) => {
     await setupPage(page, request);
   });
@@ -95,7 +95,7 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
     // Step 1: Navigate and verify initial state (setupPage already does networkidle)
 
     // Verify BOM toggle switch is present and ON by default
-    const bomToggle = page.getByTestId('bom-toggle-switch');
+    const bomToggle = page.getByRole('switch', { name: 'Show only products with BOMs' });
     await expect(bomToggle).toBeVisible({ timeout: 5000 });
     const bomToggleChecked = await bomToggle.getAttribute('aria-checked');
 
@@ -110,7 +110,7 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
     );
 
     // Verify search input is visible
-    const searchInput = page.getByTestId('product-search-input');
+    const searchInput = page.getByRole('textbox', { name: 'Search products' });
     await expect(searchInput).toBeVisible({ timeout: 10000 });
 
     await recordResult(
@@ -123,12 +123,12 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
       'S1_02_product_list.png'
     );
 
-    // Search for and select "Beverage"
-    await searchInput.fill('Beverage');
+    // Search for and select "Water Bottle - Realistic" (test data; e2e does not run on the production catalog)
+    await searchInput.fill('Water Bottle');
     await page.waitForResponse(resp => resp.url().includes('/products/search') && resp.status() === 200, { timeout: 10000 }).catch(() => {});
 
     const firstOption = page.locator('[role="option"]').first();
-    if (await firstOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await firstOption.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false)) {
       await firstOption.click();
       await page.waitForLoadState('networkidle').catch(() => {});
     }
@@ -137,26 +137,26 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
       page,
       'Scenario 1: Product WITH BOM',
       'Step 1: Select Product',
-      'Select a finished product like "Beverage_Bottle - Large 1L"',
+      'Select the finished product "Water Bottle - Realistic"',
       'PASS',
       'Product selected from list',
       'S1_03_product_selected.png'
     );
 
     // Click Next button
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
 
     // Wait for BOM skeleton to disappear
-    const bomSkeleton = page.getByTestId('bom-editor-skeleton');
-    if (await bomSkeleton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    const bomSkeleton = page.getByRole('status', { name: 'Loading bill of materials' });
+    if (await bomSkeleton.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await expect(bomSkeleton).not.toBeVisible({ timeout: 15000 });
     }
 
     // Verify Step 2: Edit BOM (use getByRole to avoid strict mode with multiple h2 matches)
     const bomHeading = page.getByRole('heading', { name: 'Edit BOM' });
-    const isBomVisible = await bomHeading.isVisible({ timeout: 10000 }).catch(() => false);
+    const isBomVisible = await bomHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false);
 
     await recordResult(
       page,
@@ -216,7 +216,7 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
 
     // Wait for results - use multiple detection strategies with long timeout
     // The Results page heading is "Results" in an h2
-    let resultsVisible = false;
+    let resultsVisible: boolean;
 
     // Strategy 1: Wait for the wizard step indicator to show "Results" as current
     try {
@@ -230,7 +230,7 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
       } catch {
         // Strategy 3: Check for results heading
         const heading = page.locator('h2').filter({ hasText: /Result/ }).first();
-        resultsVisible = await heading.isVisible({ timeout: 5000 }).catch(() => false);
+        resultsVisible = await heading.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false);
       }
     }
 
@@ -249,7 +249,7 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
     if (resultsVisible) {
       // Check for Sankey diagram
       const sankeyContainer = page.locator('[class*="sankey"]').or(page.locator('svg')).first();
-      const sankeyVisible = await sankeyContainer.isVisible({ timeout: 5000 }).catch(() => false);
+      const sankeyVisible = await sankeyContainer.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false);
 
       await recordResult(
         page,
@@ -263,7 +263,7 @@ test.describe('Scenario 1: Product WITH BOM (Beverage_Bottle)', () => {
 
       // Check for breakdown table
       const breakdownTable = page.locator('table').or(page.locator('[role="table"]')).first();
-      const tableVisible = await breakdownTable.isVisible({ timeout: 5000 }).catch(() => false);
+      const tableVisible = await breakdownTable.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false);
 
       await recordResult(
         page,
@@ -297,7 +297,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
     );
 
     // Toggle OFF BOM filter by clicking the switch
-    const bomToggle = page.getByTestId('bom-toggle-switch');
+    const bomToggle = page.getByRole('switch', { name: 'Show only products with BOMs' });
     await expect(bomToggle).toBeVisible({ timeout: 5000 });
     const isChecked = await bomToggle.getAttribute('aria-checked');
     if (isChecked === 'true') {
@@ -319,7 +319,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
     );
 
     // Wait for the product list to populate with all finished products (including those without BOMs)
-    const searchInput = page.getByTestId('product-search-input');
+    const searchInput = page.getByRole('textbox', { name: 'Search products' });
     await expect(searchInput).toBeVisible({ timeout: 10000 });
 
     // Wait for products to load after toggle change
@@ -339,7 +339,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
     const firstOption = page.locator('[role="option"]').first();
     let productSelected = false;
 
-    if (await firstOption.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await firstOption.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) {
       const productText = await firstOption.textContent();
       console.log(`Selecting product: ${productText?.substring(0, 80)}`);
       await firstOption.click();
@@ -363,7 +363,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
     }
 
     // Click Next
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     const nextEnabled = await nextButton.isEnabled();
 
     if (!nextEnabled) {
@@ -375,14 +375,14 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
     await nextButton.click();
 
     // Wait for BOM skeleton to disappear
-    const bomSkeleton = page.getByTestId('bom-editor-skeleton');
-    if (await bomSkeleton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    const bomSkeleton = page.getByRole('status', { name: 'Loading bill of materials' });
+    if (await bomSkeleton.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
       await expect(bomSkeleton).not.toBeVisible({ timeout: 15000 });
     }
 
     // Verify Step 2 (use getByRole to avoid strict mode)
     const bomHeading = page.getByRole('heading', { name: 'Edit BOM' });
-    const isBomVisible = await bomHeading.isVisible({ timeout: 10000 }).catch(() => false);
+    const isBomVisible = await bomHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false);
 
     // Check if BOM has items or is empty
     const bomRows = page.locator('tr').or(page.locator('[data-testid^="bom-row"]'));
@@ -405,7 +405,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
 
     // Click "Add Component" button if visible
     const addComponentButton = page.locator('button:has-text("Add Component")');
-    const addButtonVisible = await addComponentButton.isVisible({ timeout: 3000 }).catch(() => false);
+    const addButtonVisible = await addComponentButton.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false);
 
     if (addButtonVisible) {
       await addComponentButton.click();
@@ -423,7 +423,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
 
       // Fill in component details
       const newNameInput = page.locator('input[placeholder*="e.g"]').last();
-      if (await newNameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await newNameInput.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
         await newNameInput.fill('Steel Sheet');
       }
 
@@ -495,7 +495,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
       await calculateBtn.click();
 
       // Wait for results using multiple strategies
-      let resultsVisible = false;
+      let resultsVisible: boolean;
 
       try {
         await page.waitForSelector('button[aria-label*="Results"][aria-label*="current"]', { timeout: 60000 });
@@ -506,7 +506,7 @@ test.describe('Scenario 2: Product WITHOUT BOM (No BOM)', () => {
           resultsVisible = true;
         } catch {
           const heading = page.locator('h2').filter({ hasText: /Result/ }).first();
-          resultsVisible = await heading.isVisible({ timeout: 5000 }).catch(() => false);
+          resultsVisible = await heading.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false);
         }
       }
 
@@ -550,7 +550,7 @@ Generated: ${new Date().toISOString()}
 | Skipped | ${skipCount} |
 | Pass Rate | ${((passCount / testResults.length) * 100).toFixed(1)}% |
 
-## Scenario 1: Product WITH BOM (Beverage_Bottle)
+## Scenario 1: Product WITH BOM (Water Bottle)
 
 Tests the complete wizard flow with a product that has an existing Bill of Materials.
 

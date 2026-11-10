@@ -167,7 +167,7 @@ export default function ResultsDisplay() {
   const dataQualityRating = Object.keys(breakdown).length > 0 ? 3.5 : 2.5;
 
   return (
-    <div className="space-y-10" data-testid="results-display">
+    <div className="space-y-10" data-testid="results-display" role="group" aria-label="Calculation results">
       {/* 1. Hero Section - Large PCF value with badges */}
       <ResultsHero
         totalCO2e={totalCO2e}

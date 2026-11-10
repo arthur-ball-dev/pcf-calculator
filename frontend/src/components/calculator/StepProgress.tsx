@@ -90,7 +90,9 @@ const StepProgress: React.FC<StepProgressProps> = ({ steps, currentStep }) => {
                 isAccessible && !isActive && 'cursor-pointer'
               )}
               aria-current={isActive ? 'step' : undefined}
-              aria-label={`Step ${index + 1} of ${steps.length}: ${step.progressLabel || step.label}${isComplete ? ' (completed)' : ''}${isActive ? ' (current)' : ''}`}
+              // Starts with the visible text (WCAG 2.5.3 Label in Name), so voice control users can
+              // say what they see: "2. Edit BOM, step 2 of 3 (current)"
+              aria-label={`${displayLabel}, step ${index + 1} of ${steps.length}${isComplete ? ' (completed)' : ''}${isActive ? ' (current)' : ''}`}
             >
               {/* Dot indicator */}
               <span

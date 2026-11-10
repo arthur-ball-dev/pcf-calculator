@@ -140,7 +140,7 @@ describe('ScenarioComparison Component', () => {
 
       render(<ScenarioComparison />);
 
-      expect(screen.queryByTestId('comparison-container')).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Scenario comparison' })).not.toBeInTheDocument();
     });
   });
 
@@ -153,21 +153,21 @@ describe('ScenarioComparison Component', () => {
     test('renders two panes when 2 scenarios selected', () => {
       render(<ScenarioComparison />);
 
-      expect(screen.getByTestId('scenario-pane-left')).toBeInTheDocument();
-      expect(screen.getByTestId('scenario-pane-right')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'First scenario' })).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Second scenario' })).toBeInTheDocument();
     });
 
     test('left pane displays first scenario', () => {
       render(<ScenarioComparison />);
 
-      const leftPane = screen.getByTestId('scenario-pane-left');
+      const leftPane = screen.getByRole('region', { name: 'First scenario' });
       expect(leftPane).toHaveTextContent('Baseline Scenario');
     });
 
     test('right pane displays second scenario', () => {
       render(<ScenarioComparison />);
 
-      const rightPane = screen.getByTestId('scenario-pane-right');
+      const rightPane = screen.getByRole('region', { name: 'Second scenario' });
       expect(rightPane).toHaveTextContent('Alternative Scenario');
     });
 
@@ -180,7 +180,7 @@ describe('ScenarioComparison Component', () => {
     test('renders comparison container', () => {
       render(<ScenarioComparison />);
 
-      expect(screen.getByTestId('comparison-container')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Scenario comparison' })).toBeInTheDocument();
     });
   });
 
@@ -247,13 +247,13 @@ describe('ScenarioComparison Component', () => {
     test('displays delta visualization component', () => {
       render(<ScenarioComparison />);
 
-      expect(screen.getByTestId('delta-visualization')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Emissions comparison' })).toBeInTheDocument();
     });
 
     test('delta visualization receives deltas prop', () => {
       render(<ScenarioComparison />);
 
-      const visualization = screen.getByTestId('delta-visualization');
+      const visualization = screen.getByRole('group', { name: 'Emissions comparison' });
       expect(visualization).toBeInTheDocument();
       // Full prop testing will be done in DeltaVisualization tests
     });
@@ -268,22 +268,22 @@ describe('ScenarioComparison Component', () => {
     test('left pane has overflow auto for scrolling', () => {
       render(<ScenarioComparison />);
 
-      const leftPane = screen.getByTestId('scenario-pane-left');
+      const leftPane = screen.getByRole('region', { name: 'First scenario' });
       expect(leftPane).toHaveStyle({ overflow: 'auto' });
     });
 
     test('right pane has overflow auto for scrolling', () => {
       render(<ScenarioComparison />);
 
-      const rightPane = screen.getByTestId('scenario-pane-right');
+      const rightPane = screen.getByRole('region', { name: 'Second scenario' });
       expect(rightPane).toHaveStyle({ overflow: 'auto' });
     });
 
     test('when left pane scrolls, right pane scroll position matches', async () => {
       render(<ScenarioComparison />);
 
-      const leftPane = screen.getByTestId('scenario-pane-left');
-      const rightPane = screen.getByTestId('scenario-pane-right');
+      const leftPane = screen.getByRole('region', { name: 'First scenario' });
+      const rightPane = screen.getByRole('region', { name: 'Second scenario' });
 
       // Set up scroll height for testing
       Object.defineProperty(leftPane, 'scrollHeight', { value: 1000, configurable: true });
@@ -300,8 +300,8 @@ describe('ScenarioComparison Component', () => {
     test('when right pane scrolls, left pane scroll position matches', async () => {
       render(<ScenarioComparison />);
 
-      const leftPane = screen.getByTestId('scenario-pane-left');
-      const rightPane = screen.getByTestId('scenario-pane-right');
+      const leftPane = screen.getByRole('region', { name: 'First scenario' });
+      const rightPane = screen.getByRole('region', { name: 'Second scenario' });
 
       // Simulate scroll on right pane
       fireEvent.scroll(rightPane, { target: { scrollTop: 150 } });
@@ -314,8 +314,8 @@ describe('ScenarioComparison Component', () => {
     test('horizontal scroll is also synchronized', async () => {
       render(<ScenarioComparison />);
 
-      const leftPane = screen.getByTestId('scenario-pane-left');
-      const rightPane = screen.getByTestId('scenario-pane-right');
+      const leftPane = screen.getByRole('region', { name: 'First scenario' });
+      const rightPane = screen.getByRole('region', { name: 'Second scenario' });
 
       // Simulate horizontal scroll
       fireEvent.scroll(leftPane, { target: { scrollLeft: 100 } });
@@ -335,14 +335,14 @@ describe('ScenarioComparison Component', () => {
     test('applies custom className when provided', () => {
       render(<ScenarioComparison className="custom-class" />);
 
-      const container = screen.getByTestId('comparison-container');
+      const container = screen.getByRole('region', { name: 'Scenario comparison' });
       expect(container).toHaveClass('custom-class');
     });
 
     test('container fills available height', () => {
       render(<ScenarioComparison />);
 
-      const container = screen.getByTestId('comparison-container');
+      const container = screen.getByRole('region', { name: 'Scenario comparison' });
       // Component should use flex layout to fill height
       expect(container).toBeInTheDocument();
     });
@@ -361,7 +361,7 @@ describe('ScenarioComparison Component', () => {
 
       render(<ScenarioComparison />);
 
-      expect(screen.getByTestId('comparison-container')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Scenario comparison' })).toBeInTheDocument();
     });
 
     test('primary comparison shows first two scenarios', () => {
@@ -377,8 +377,8 @@ describe('ScenarioComparison Component', () => {
       render(<ScenarioComparison />);
 
       // Left pane shows first, right pane shows second
-      expect(screen.getByTestId('scenario-pane-left')).toHaveTextContent('Baseline Scenario');
-      expect(screen.getByTestId('scenario-pane-right')).toHaveTextContent('Alternative Scenario');
+      expect(screen.getByRole('region', { name: 'First scenario' })).toHaveTextContent('Baseline Scenario');
+      expect(screen.getByRole('region', { name: 'Second scenario' })).toHaveTextContent('Alternative Scenario');
     });
   });
 
@@ -396,7 +396,7 @@ describe('ScenarioComparison Component', () => {
       // Should not throw
       render(<ScenarioComparison />);
 
-      expect(screen.getByTestId('comparison-container')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Scenario comparison' })).toBeInTheDocument();
     });
 
     test('handles baseline with null results', () => {
@@ -413,7 +413,7 @@ describe('ScenarioComparison Component', () => {
       // Should not throw
       render(<ScenarioComparison />);
 
-      expect(screen.getByTestId('comparison-container')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Scenario comparison' })).toBeInTheDocument();
     });
   });
 
@@ -427,8 +427,8 @@ describe('ScenarioComparison Component', () => {
       render(<ScenarioComparison />);
 
       // Panes should be identifiable for screen readers
-      const leftPane = screen.getByTestId('scenario-pane-left');
-      const rightPane = screen.getByTestId('scenario-pane-right');
+      const leftPane = screen.getByRole('region', { name: 'First scenario' });
+      const rightPane = screen.getByRole('region', { name: 'Second scenario' });
 
       expect(leftPane).toBeInTheDocument();
       expect(rightPane).toBeInTheDocument();
@@ -445,7 +445,7 @@ describe('ScenarioComparison Component', () => {
     test('comparison is keyboard navigable', async () => {
       render(<ScenarioComparison />);
 
-      screen.getByTestId('comparison-container');
+      screen.getByRole('region', { name: 'Scenario comparison' });
 
       // Should be able to tab into the component
       await user.tab();
@@ -462,7 +462,7 @@ describe('ScenarioComparison Component', () => {
 
       render(<ScenarioComparison />);
 
-      const leftPane = screen.getByTestId('scenario-pane-left');
+      const leftPane = screen.getByRole('region', { name: 'First scenario' });
 
       // Scroll multiple times
       fireEvent.scroll(leftPane, { target: { scrollTop: 100 } });
@@ -470,7 +470,7 @@ describe('ScenarioComparison Component', () => {
       fireEvent.scroll(leftPane, { target: { scrollTop: 300 } });
 
       // Component should still be stable
-      expect(screen.getByTestId('comparison-container')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Scenario comparison' })).toBeInTheDocument();
     });
   });
 });

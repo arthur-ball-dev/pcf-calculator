@@ -79,6 +79,8 @@ export function ExportButton({
     <div
       className={`flex flex-col items-start gap-2 ${className || ''}`}
       data-testid="export-buttons"
+      role="group"
+      aria-label="Export results"
     >
       <div className="flex items-center gap-2">
         {/* CSV Download Button */}

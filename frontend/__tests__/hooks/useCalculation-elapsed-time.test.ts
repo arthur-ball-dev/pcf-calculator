@@ -118,7 +118,6 @@ describe('useCalculation - Elapsed Time Tracking', () => {
 
   it('should stop incrementing elapsed time when calculation completes', async () => {
     let pollCount = 0;
-    let elapsedBeforeCompletion = 0;
 
     server.use(
       rest.post('http://localhost:8000/api/v1/calculate', (req, res, ctx) => {
@@ -161,7 +160,7 @@ describe('useCalculation - Elapsed Time Tracking', () => {
     });
 
     expect(result.current.elapsedSeconds).toBe(4);
-    elapsedBeforeCompletion = result.current.elapsedSeconds;
+    const elapsedBeforeCompletion = result.current.elapsedSeconds;
 
     // Poll 3: completed (6 seconds)
     await act(async () => {

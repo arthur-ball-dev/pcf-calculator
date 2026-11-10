@@ -196,7 +196,7 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error, onRetry, context }) 
  * Loading skeleton for initial emission factors load.
  */
 const ProductListSkeleton: React.FC = () => (
-  <div className="space-y-6" data-testid="product-list-skeleton">
+  <div className="space-y-6" data-testid="product-list-skeleton" role="status" aria-label="Loading products">
     <div className="space-y-2">
       <div className="h-8 w-48 bg-white/[0.06] animate-pulse rounded" />
       <div className="h-4 w-80 bg-white/[0.04] animate-pulse rounded" />
@@ -377,6 +377,9 @@ const ProductList: React.FC = () => {
    * Always searches because the product list is always visible (no popover).
    */
   useEffect(() => {
+    // Fetching from the API is what this effect is for; searchProducts sets its loading flag before
+    // the request starts. Moving the list to react-query would remove the effect altogether (#162).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing with an external system (the API)
     searchProducts(debouncedSearch, showOnlyWithBom, selectedIndustry);
   }, [debouncedSearch, showOnlyWithBom, selectedIndustry, searchProducts]);
 
@@ -481,7 +484,12 @@ const ProductList: React.FC = () => {
   // Main render
   // ---------------------------------------------------------------------------
   return (
-    <div data-testid="product-list" className="space-y-6">
+    <div
+      data-testid="product-list"
+      className="space-y-6"
+      role="region"
+      aria-label="Product selection"
+    >
       {/* Page Title */}
       <div>
         <h1 className="font-heading text-[1.625rem] font-bold tracking-tight text-[var(--text-primary)]">

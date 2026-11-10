@@ -97,6 +97,8 @@ export function ScenarioComparison({ className }: ScenarioComparisonProps) {
       className={`h-full flex flex-col ${className || ''}`}
       data-testid="comparison-container"
       data-tour="scenario-compare"
+      role="region"
+      aria-label="Scenario comparison"
     >
       <ComparisonHeader scenarios={scenarios} deltas={deltas} />
 
@@ -109,6 +111,8 @@ export function ScenarioComparison({ className }: ScenarioComparisonProps) {
           onScroll={() => handleScroll(0)}
           className="flex-1 h-full overflow-auto p-4 border-r"
           data-testid="scenario-pane-left"
+          role="region"
+          aria-label="First scenario"
           style={{ overflow: 'auto' }}
           tabIndex={0}
         >
@@ -129,6 +133,8 @@ export function ScenarioComparison({ className }: ScenarioComparisonProps) {
           onScroll={() => handleScroll(1)}
           className="flex-1 h-full overflow-auto p-4"
           data-testid="scenario-pane-right"
+          role="region"
+          aria-label="Second scenario"
           style={{ overflow: 'auto' }}
           tabIndex={0}
         >

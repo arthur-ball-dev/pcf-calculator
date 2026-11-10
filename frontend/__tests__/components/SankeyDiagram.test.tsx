@@ -15,9 +15,9 @@ import type { Calculation } from '../../src/types/store.types';
 // Mock Nivo Sankey component
 vi.mock('@nivo/sankey', () => ({
   ResponsiveSankey: ({ data }: { data: { nodes: unknown[]; links: unknown[] } }) => (
-    <div data-testid="sankey-chart">
-      <div data-testid="sankey-nodes-count">{data.nodes.length}</div>
-      <div data-testid="sankey-links-count">{data.links.length}</div>
+    <div role="figure" aria-label="Sankey chart">
+      <output aria-label="Node count">{data.nodes.length}</output>
+      <output aria-label="Link count">{data.links.length}</output>
     </div>
   ),
 }));
@@ -37,7 +37,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} />);
 
-      const chart = screen.getByTestId('sankey-chart');
+      const chart = screen.getByRole('figure', { name: 'Sankey chart' });
       expect(chart).toBeInTheDocument();
     });
 
@@ -54,7 +54,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} />);
 
-      const nodesCount = screen.getByTestId('sankey-nodes-count');
+      const nodesCount = screen.getByRole('status', { name: 'Node count' });
       expect(nodesCount.textContent).toBe('4'); // materials, energy, transport, total
     });
 
@@ -71,7 +71,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} />);
 
-      const linksCount = screen.getByTestId('sankey-links-count');
+      const linksCount = screen.getByRole('status', { name: 'Link count' });
       expect(linksCount.textContent).toBe('3'); // materials→total, energy→total, transport→total
     });
 
@@ -88,7 +88,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = (screen.getByRole('figure', { name: 'Sankey chart' }).closest('[role="img"]') as HTMLElement);
       expect(container).toBeInTheDocument();
     });
   });
@@ -156,7 +156,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} width={800} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = (screen.getByRole('figure', { name: 'Sankey chart' }).closest('[role="img"]') as HTMLElement);
       expect(container).toHaveStyle({ width: '800px' });
     });
 
@@ -173,7 +173,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} height={400} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = (screen.getByRole('figure', { name: 'Sankey chart' }).closest('[role="img"]') as HTMLElement);
       expect(container).toHaveStyle({ height: '400px' });
     });
 
@@ -190,7 +190,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = (screen.getByRole('figure', { name: 'Sankey chart' }).closest('[role="img"]') as HTMLElement);
       const style = window.getComputedStyle(container);
       const heightValue = parseInt(style.height, 10);
       expect(heightValue).toBeGreaterThanOrEqual(400);
@@ -211,7 +211,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = (screen.getByRole('figure', { name: 'Sankey chart' }).closest('[role="img"]') as HTMLElement);
       expect(container).toHaveAttribute('role', 'img');
     });
 
@@ -228,7 +228,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} />);
 
-      const container = screen.getByTestId('sankey-container');
+      const container = (screen.getByRole('figure', { name: 'Sankey chart' }).closest('[role="img"]') as HTMLElement);
       expect(container).toHaveAttribute('aria-label');
       const ariaLabel = container.getAttribute('aria-label');
       expect(ariaLabel).toContain('Carbon flow');
@@ -249,7 +249,7 @@ describe('SankeyDiagram', () => {
 
       render(<SankeyDiagram calculation={calculation} />);
 
-      const nodesCount = screen.getByTestId('sankey-nodes-count');
+      const nodesCount = screen.getByRole('status', { name: 'Node count' });
       expect(nodesCount.textContent).toBe('2'); // Only materials and total
     });
 
@@ -288,7 +288,7 @@ describe('SankeyDiagram', () => {
       rerender(<SankeyDiagram calculation={calculation} />);
 
       // Component should still render correctly
-      const chart = screen.getByTestId('sankey-chart');
+      const chart = screen.getByRole('figure', { name: 'Sankey chart' });
       expect(chart).toBeInTheDocument();
     });
   });

@@ -150,6 +150,11 @@ export interface StepConfig {
   progressLabel?: string; // Optional shorter label for progress indicator
   component?: React.ComponentType;
   validate?: () => Promise<boolean>;
+  /**
+   * The step's component marks the step complete or incomplete itself, so the wizard does not
+   * validate it on entry. A second owner raced the component and flickered the Next button (#133).
+   */
+  completedByComponent?: boolean;
 }
 
 export interface EmissionBreakdown {

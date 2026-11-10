@@ -26,8 +26,8 @@
  * ```
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import type { CallBackProps } from 'react-joyride';
+import { useState, useCallback } from 'react';
+import type { EventData } from 'react-joyride';
 import { TOUR_STEP_IDS } from '@/config/tourSteps';
 
 // Constants
@@ -77,7 +77,7 @@ export interface UseGuidedTourReturn {
   /** Go back to the previous step */
   goToPreviousStep: () => void;
   /** Callback handler for Joyride events */
-  handleJoyrideCallback: (data: CallBackProps) => void;
+  handleJoyrideCallback: (data: EventData) => void;
 }
 
 /**
@@ -128,17 +128,9 @@ export function useGuidedTour(
   });
   const [currentStep, setCurrentStepState] = useState<number>(0);
 
-  // Read from localStorage on mount and find first valid step (handles SSR)
-  useEffect(() => {
-    const completed = getStoredCompletionStatus();
-    setHasCompletedTour(completed);
-    if (!completed) {
-      // Find the first valid step in the DOM before starting
-      const firstValidStep = findFirstValidStepIndex();
-      setCurrentStepState(firstValidStep);
-      setIsTourActive(true);
-    }
-  }, []);
+  // No mount effect: the lazy initializers above already read localStorage (this is a client-only
+  // SPA), and the tour UI filters steps by their anchors itself (GuidedTour), so re-reading here
+  // only rendered twice (#162).
 
   /**
    * Set current step with bounds checking
@@ -223,7 +215,7 @@ export function useGuidedTour(
    * - Missing targets (skip to next step with valid target)
    */
   const handleJoyrideCallback = useCallback(
-    (data: CallBackProps) => {
+    (data: EventData) => {
       const { status, action, type } = data;
 
       // Type guards for status and action

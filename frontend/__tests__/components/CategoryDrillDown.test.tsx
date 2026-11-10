@@ -62,7 +62,7 @@ describe('CategoryDrillDown', () => {
       render(<CategoryDrillDown {...defaultProps} />);
 
       // Get all category items and check their values
-      const items = screen.getAllByTestId('category-item');
+      const items = screen.getAllByRole('listitem');
       expect(items[0]).toHaveTextContent('6.500 kg');
       expect(items[1]).toHaveTextContent('0.500 kg'); // Dye Materials (sorted second)
       expect(items[2]).toHaveTextContent('0.300 kg'); // Polyester Thread (sorted third)
@@ -199,7 +199,7 @@ describe('CategoryDrillDown', () => {
     it('should display items sorted by CO2e value descending by default', () => {
       render(<CategoryDrillDown {...defaultProps} />);
 
-      const items = screen.getAllByTestId('category-item');
+      const items = screen.getAllByRole('listitem');
       // First item should be the highest value (Cotton Fabric: 6.5)
       expect(items[0]).toHaveTextContent('Cotton Fabric');
       // Second item (Dye Materials: 0.5)

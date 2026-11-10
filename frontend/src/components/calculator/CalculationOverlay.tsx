@@ -62,7 +62,7 @@ export function CalculationOverlay({
         {isCalculating && !error && (
           <div className="flex flex-col items-center space-y-6">
             {/* Spinner */}
-            <div className="relative">
+            <div className="relative" role="img" aria-label="Calculating">
               <div className="w-20 h-20 rounded-full border-4 border-muted" />
               <Loader2
                 className="absolute inset-0 w-20 h-20 text-primary animate-spin"

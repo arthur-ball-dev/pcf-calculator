@@ -22,6 +22,8 @@ logs/
 !/logs/**
 
 # Re-apply after the re-includes above, which would otherwise undo them
+**/__pycache__/
+*.pyc
 
 # Database files (runtime data)
 *.db

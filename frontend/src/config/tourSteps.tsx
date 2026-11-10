@@ -59,7 +59,7 @@ function StepContent({ title, description }: StepContentProps) {
  * - target: CSS selector for the element to highlight
  * - content: React content to display in tooltip
  * - placement: Position of tooltip relative to target
- * - disableBeacon: Whether to show pulsing beacon (disabled on first step)
+ * - skipBeacon: show the tooltip at once instead of a pulsing beacon first
  */
 export const TOUR_STEPS: Step[] = [
   {
@@ -71,7 +71,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'bottom',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="bom-table"]',
@@ -82,7 +82,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'top',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="calculate-button"]',
@@ -93,7 +93,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'top',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="results-summary"]',
@@ -104,7 +104,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'left',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="visualization-tabs"]',
@@ -115,7 +115,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'bottom',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="export-buttons"]',
@@ -126,7 +126,7 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'left',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="scenario-compare"]',
@@ -137,6 +137,6 @@ export const TOUR_STEPS: Step[] = [
       />
     ),
     placement: 'bottom',
-    disableBeacon: true,
+    skipBeacon: true,
   },
 ];

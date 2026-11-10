@@ -70,7 +70,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-buttons')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Export results' })).toBeInTheDocument();
     });
 
     it('should render with CSV and Excel button text', () => {
@@ -95,8 +95,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      const csvButton = screen.getByTestId('export-csv-button');
-      const excelButton = screen.getByTestId('export-excel-button');
+      const csvButton = screen.getByRole('button', { name: 'Download as CSV' });
+      const excelButton = screen.getByRole('button', { name: 'Download as Excel' });
       expect(csvButton).toBeInTheDocument();
       expect(csvButton.tagName).toBe('BUTTON');
       expect(excelButton).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-csv-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toBeInTheDocument();
     });
 
     it('should render direct Excel button', () => {
@@ -124,7 +124,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-excel-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toBeInTheDocument();
     });
   });
 
@@ -144,7 +144,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-csv-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as CSV' }));
 
       expect(mockExportToCSV).toHaveBeenCalled();
     });
@@ -160,7 +160,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-csv-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as CSV' }));
 
       expect(mockExportToCSV).toHaveBeenCalled();
     });
@@ -176,7 +176,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-csv-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as CSV' }));
 
       expect(mockExportToCSV).toHaveBeenCalledTimes(1);
     });
@@ -198,7 +198,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-excel-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as Excel' }));
 
       expect(mockExportToExcel).toHaveBeenCalled();
     });
@@ -214,7 +214,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-excel-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as Excel' }));
 
       expect(mockExportToExcel).toHaveBeenCalled();
     });
@@ -230,7 +230,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      await user.click(screen.getByTestId('export-excel-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as Excel' }));
 
       expect(mockExportToExcel).toHaveBeenCalledTimes(1);
     });
@@ -259,7 +259,7 @@ describe('ExportButton Component', () => {
       );
 
       // Should have loading indicator (spinner) - check for animate-spin class on SVG
-      const csvButton = screen.getByTestId('export-csv-button');
+      const csvButton = screen.getByRole('button', { name: 'Download as CSV' });
       const spinner = csvButton.querySelector('.animate-spin');
       expect(spinner).toBeInTheDocument();
     });
@@ -281,8 +281,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
-      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toBeDisabled();
     });
 
     it('should disable direct buttons during export', () => {
@@ -302,8 +302,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
-      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toBeDisabled();
     });
 
     it('should show loading state via disabled buttons during export', () => {
@@ -324,8 +324,8 @@ describe('ExportButton Component', () => {
       );
 
       // Both buttons should be disabled during export
-      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
-      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toBeDisabled();
     });
   });
 
@@ -344,8 +344,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
-      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toBeDisabled();
     });
 
     it('should disable buttons when no results', () => {
@@ -357,8 +357,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
-      expect(screen.getByTestId('export-excel-button')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toBeDisabled();
     });
 
     it('should not call export when disabled', async () => {
@@ -374,7 +374,7 @@ describe('ExportButton Component', () => {
       );
 
       // Try to click disabled button
-      await user.click(screen.getByTestId('export-csv-button'));
+      await user.click(screen.getByRole('button', { name: 'Download as CSV' }));
 
       expect(mockExportToCSV).not.toHaveBeenCalled();
     });
@@ -465,8 +465,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-csv-button')).toHaveAccessibleName();
-      expect(screen.getByTestId('export-excel-button')).toHaveAccessibleName();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toHaveAccessibleName();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toHaveAccessibleName();
     });
 
     it('should have accessible names for direct buttons', () => {
@@ -478,8 +478,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-csv-button')).toHaveAccessibleName();
-      expect(screen.getByTestId('export-excel-button')).toHaveAccessibleName();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toHaveAccessibleName();
+      expect(screen.getByRole('button', { name: 'Download as Excel' })).toHaveAccessibleName();
     });
 
     it('should show loading via disabled state during export', () => {
@@ -500,7 +500,7 @@ describe('ExportButton Component', () => {
       );
 
       // Buttons are disabled during export
-      expect(screen.getByTestId('export-csv-button')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Download as CSV' })).toBeDisabled();
     });
 
     it('should be keyboard accessible', async () => {
@@ -514,7 +514,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      const csvButton = screen.getByTestId('export-csv-button');
+      const csvButton = screen.getByRole('button', { name: 'Download as CSV' });
 
       // Focus button
       csvButton.focus();
@@ -539,8 +539,8 @@ describe('ExportButton Component', () => {
         />
       );
 
-      const csvButton = screen.getByTestId('export-csv-button');
-      const excelButton = screen.getByTestId('export-excel-button');
+      const csvButton = screen.getByRole('button', { name: 'Download as CSV' });
+      const excelButton = screen.getByRole('button', { name: 'Download as Excel' });
 
       // Focus CSV button and verify
       csvButton.focus();
@@ -567,7 +567,7 @@ describe('ExportButton Component', () => {
         />
       );
 
-      expect(screen.getByTestId('export-buttons')).toHaveClass('custom-class');
+      expect(screen.getByRole('group', { name: 'Export results' })).toHaveClass('custom-class');
     });
   });
 
@@ -586,7 +586,7 @@ describe('ExportButton Component', () => {
       );
 
       // Check for icon (lucide-react renders SVG)
-      const csvButton = screen.getByTestId('export-csv-button');
+      const csvButton = screen.getByRole('button', { name: 'Download as CSV' });
       expect(csvButton.querySelector('svg')).toBeInTheDocument();
     });
 
@@ -608,7 +608,7 @@ describe('ExportButton Component', () => {
       );
 
       // Should have spinning loader icon
-      const csvButton = screen.getByTestId('export-csv-button');
+      const csvButton = screen.getByRole('button', { name: 'Download as CSV' });
       const svg = csvButton.querySelector('svg');
       expect(svg).toBeInTheDocument();
       expect(svg).toHaveClass('animate-spin');

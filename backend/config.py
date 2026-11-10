@@ -269,6 +269,10 @@ class Settings(BaseSettings):
         default=100,
         description="General rate limit: requests per minute"
     )
+    RATE_LIMIT_READINESS: int = Field(
+        default=30,
+        description="Readiness probe rate limit: requests per minute (each one runs a database query)"
+    )
     RATE_LIMIT_CALCULATION: int = Field(
         default=10,
         description="Calculation rate limit: requests per minute (expensive operations)"

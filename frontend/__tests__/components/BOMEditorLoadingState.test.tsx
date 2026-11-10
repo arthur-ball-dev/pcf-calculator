@@ -38,7 +38,7 @@ vi.mock('@/hooks/useEmissionFactors', () => ({
  */
 async function waitForEditorReady() {
   await waitFor(() => {
-    expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
   }, { timeout: 3000 });
 }
 
@@ -58,7 +58,7 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
       render(<BOMEditor />);
 
       // Should show loading skeleton
-      expect(screen.getByTestId('bom-editor-skeleton')).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Loading bill of materials' })).toBeInTheDocument();
     });
 
     test('loading skeleton has appropriate accessibility attributes', () => {
@@ -66,7 +66,7 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
 
       render(<BOMEditor />);
 
-      const skeleton = screen.getByTestId('bom-editor-skeleton');
+      const skeleton = screen.getByRole('status', { name: 'Loading bill of materials' });
       expect(skeleton).toBeInTheDocument();
 
       // Should have visual loading indicators (animation)
@@ -125,7 +125,7 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
       const { rerender } = render(<BOMEditor />);
 
       // Should show loading skeleton
-      expect(screen.getByTestId('bom-editor-skeleton')).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Loading bill of materials' })).toBeInTheDocument();
 
       // Simulate loading completion
       useCalculatorStore.getState().setLoadingBOM(false);
@@ -133,7 +133,7 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
 
       // Should show editor
       await waitFor(() => {
-        expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
         expect(screen.getByText(/Add Component/i)).toBeInTheDocument();
       });
     });
@@ -192,7 +192,7 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
 
       // Should show loading skeleton
       await waitFor(() => {
-        expect(screen.getByTestId('bom-editor-skeleton')).toBeInTheDocument();
+        expect(screen.getByRole('status', { name: 'Loading bill of materials' })).toBeInTheDocument();
         expect(screen.queryByText(/Add Component/i)).not.toBeInTheDocument();
       });
     });
@@ -208,7 +208,7 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
 
       // Should show editor with one empty row
       await waitFor(() => {
-        expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
         expect(screen.getByText(/Add Component/i)).toBeInTheDocument();
       });
 
@@ -234,7 +234,7 @@ describe('BOMEditor - Loading State (TASK-FE-019)', () => {
 
       // Should end up in non-loading state
       await waitFor(() => {
-        expect(screen.queryByTestId('bom-editor-skeleton')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading bill of materials' })).not.toBeInTheDocument();
         expect(screen.getByText(/Add Component/i)).toBeInTheDocument();
       });
     });

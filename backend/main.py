@@ -160,6 +160,9 @@ app.add_middleware(
     endpoint_limits={
         "/api/v1/calculate": settings.RATE_LIMIT_CALCULATION,
         "/api/v1/auth/login": settings.RATE_LIMIT_AUTH_ATTEMPTS,
+        # Public and runs a query, so it is limited despite the /health exemption below.
+        # Railway's health check uses /health, which stays exempt.
+        "/health/ready": settings.RATE_LIMIT_READINESS,
     },
     endpoint_windows={
         "/api/v1/auth/login": 300,  # 5 minute window for auth

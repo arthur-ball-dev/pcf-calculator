@@ -18,46 +18,18 @@ Test-Driven Development Protocol:
 """
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.pool import StaticPool
 from datetime import datetime, timezone, timedelta
 import json
+from backend.tests.pg_isolation import empty_all_tables
 
 
 @pytest.fixture(scope="function")
-def db_engine():
-    """Create in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-    return engine
-
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """Create database session for testing."""
-    from backend.models import Base
-    try:
-        from backend.models import DataSyncLog, DataSource
-    except ImportError:
-        pytest.skip("DataSyncLog or DataSource model not yet implemented")
-
-    Base.metadata.create_all(db_engine)
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
-
-    # Enable foreign key constraints for SQLite
-    session.execute(text("PRAGMA foreign_keys = ON"))
-    session.commit()
-
-    yield session
-
-    session.close()
+def db_session(db_session):
+    """PostgreSQL session from conftest, emptied for this test and rolled back after it."""
+    empty_all_tables(db_session)
+    return db_session
 
 
 @pytest.fixture(scope="function")

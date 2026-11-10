@@ -48,7 +48,7 @@ export function ProductSearchResults({
   if (products.length === 0) {
     if (showEmptyState) {
       return (
-        <div className="text-center py-12" data-testid="no-results">
+        <div className="text-center py-12" data-testid="no-results" role="status">
           <p className="text-gray-500 mb-2">No products found</p>
           <p className="text-sm text-gray-400">
             Try adjusting your search or filters
@@ -80,6 +80,8 @@ export function ProductSearchResults({
     <div
       className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${className || ''}`}
       data-testid="results-grid"
+      role="group"
+      aria-label="Search results"
     >
       {products.map((product) => (
         <Card
@@ -88,7 +90,8 @@ export function ProductSearchResults({
           onClick={() => handleCardClick(product)}
           onKeyDown={(e) => handleKeyDown(e, product)}
           tabIndex={onProductClick ? 0 : undefined}
-          role={onProductClick ? 'button' : undefined}
+          role={onProductClick ? 'button' : 'article'}
+          aria-label={product.name}
           data-testid={`product-card-${product.id}`}
         >
           <CardHeader className="pb-2">

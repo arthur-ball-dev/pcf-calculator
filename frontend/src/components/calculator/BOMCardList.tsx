@@ -212,6 +212,8 @@ export function BOMCardList({
             key={item.id}
             className="glass-card overflow-hidden"
             data-testid={`bom-card-${item.id}`}
+            role="article"
+            aria-label={item.name || 'Unnamed Component'}
           >
             {/* Card Header - Name, category, and actions */}
             <div className="px-4 pt-4 pb-2">

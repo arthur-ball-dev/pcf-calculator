@@ -48,10 +48,15 @@ export function DeltaVisualization({ deltas }: DeltaVisualizationProps) {
   const maxEmissions = Math.max(...deltas.map((d) => d.emissions), 1);
 
   return (
-    <Card className="mt-4" data-testid="delta-visualization">
+    <Card className="mt-4" data-testid="delta-visualization" role="group" aria-label="Emissions comparison">
       <CardContent className="pt-4">
         <h4 className="text-sm font-medium mb-3">Emissions Comparison</h4>
-        <div className="space-y-3" data-testid="bars-container">
+        <div
+          className="space-y-3"
+          data-testid="bars-container"
+          role="list"
+          aria-label="Scenario emissions"
+        >
           {deltas.map((delta) => {
             const widthPercent = (delta.emissions / maxEmissions) * 100;
 
@@ -60,6 +65,8 @@ export function DeltaVisualization({ deltas }: DeltaVisualizationProps) {
                 key={delta.scenarioId}
                 className="flex items-center gap-3"
                 data-testid={`bar-row-${delta.scenarioId}`}
+                role="listitem"
+                aria-label={delta.scenarioName}
               >
                 <div
                   className="w-32 text-sm truncate"

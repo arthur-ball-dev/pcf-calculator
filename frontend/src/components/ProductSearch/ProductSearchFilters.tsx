@@ -158,7 +158,12 @@ export function ProductSearchFilters({
   const manufacturerValue = selectedManufacturer || ALL_VALUE;
 
   return (
-    <div className={`space-y-4 ${className || ''}`} data-testid="filter-popover">
+    <div
+      className={`space-y-4 ${className || ''}`}
+      data-testid="filter-popover"
+      role="group"
+      aria-label="Filters"
+    >
       <h4 className="font-medium">Filters</h4>
 
       {/* Industry Filter */}

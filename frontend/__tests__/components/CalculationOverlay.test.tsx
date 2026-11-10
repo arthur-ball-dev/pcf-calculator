@@ -31,13 +31,13 @@ describe('CalculationOverlay', () => {
     it('renders nothing when isOpen is false', () => {
       render(<CalculationOverlay {...defaultProps} isOpen={false} />);
 
-      expect(screen.queryByTestId('calculation-overlay')).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('renders overlay when isOpen is true', () => {
       render(<CalculationOverlay {...defaultProps} />);
 
-      expect(screen.getByTestId('calculation-overlay')).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
   });
 
@@ -57,13 +57,13 @@ describe('CalculationOverlay', () => {
     it('shows spinner during calculation', () => {
       render(<CalculationOverlay {...defaultProps} />);
 
-      expect(screen.getByTestId('overlay-spinner')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: 'Calculating' })).toBeInTheDocument();
     });
 
     it('shows cancel button during calculation', () => {
       render(<CalculationOverlay {...defaultProps} />);
 
-      expect(screen.getByTestId('overlay-cancel-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
       expect(screen.getByText('Cancel')).toBeInTheDocument();
     });
 
@@ -71,7 +71,7 @@ describe('CalculationOverlay', () => {
       const onCancel = vi.fn();
       render(<CalculationOverlay {...defaultProps} onCancel={onCancel} />);
 
-      fireEvent.click(screen.getByTestId('overlay-cancel-button'));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onCancel).toHaveBeenCalledTimes(1);
     });
@@ -81,13 +81,13 @@ describe('CalculationOverlay', () => {
     it('does not show elapsed time when 0 seconds', () => {
       render(<CalculationOverlay {...defaultProps} elapsedSeconds={0} />);
 
-      expect(screen.queryByTestId('overlay-elapsed-time')).not.toBeInTheDocument();
+      expect(screen.queryByText(/^\d+s elapsed$/)).not.toBeInTheDocument();
     });
 
     it('shows elapsed time when greater than 0', () => {
       render(<CalculationOverlay {...defaultProps} elapsedSeconds={5} />);
 
-      const elapsedTime = screen.getByTestId('overlay-elapsed-time');
+      const elapsedTime = screen.getByText(/^\d+s elapsed$/);
       expect(elapsedTime).toBeInTheDocument();
       expect(elapsedTime).toHaveTextContent('5s elapsed');
     });
@@ -97,11 +97,11 @@ describe('CalculationOverlay', () => {
         <CalculationOverlay {...defaultProps} elapsedSeconds={5} />
       );
 
-      expect(screen.getByTestId('overlay-elapsed-time')).toHaveTextContent('5s');
+      expect(screen.getByText(/^\d+s elapsed$/)).toHaveTextContent('5s');
 
       rerender(<CalculationOverlay {...defaultProps} elapsedSeconds={10} />);
 
-      expect(screen.getByTestId('overlay-elapsed-time')).toHaveTextContent('10s');
+      expect(screen.getByText(/^\d+s elapsed$/)).toHaveTextContent('10s');
     });
   });
 
@@ -121,20 +121,20 @@ describe('CalculationOverlay', () => {
     it('displays error message', () => {
       render(<CalculationOverlay {...errorProps} />);
 
-      expect(screen.getByTestId('overlay-error-message')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
 
     it('shows retry button in error state', () => {
       render(<CalculationOverlay {...errorProps} />);
 
-      expect(screen.getByTestId('overlay-retry-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
       expect(screen.getByText('Try Again')).toBeInTheDocument();
     });
 
     it('shows close button in error state', () => {
       render(<CalculationOverlay {...errorProps} />);
 
-      expect(screen.getByTestId('overlay-close-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
       expect(screen.getByText('Close')).toBeInTheDocument();
     });
 
@@ -142,7 +142,7 @@ describe('CalculationOverlay', () => {
       const onRetry = vi.fn();
       render(<CalculationOverlay {...errorProps} onRetry={onRetry} />);
 
-      fireEvent.click(screen.getByTestId('overlay-retry-button'));
+      fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
 
       expect(onRetry).toHaveBeenCalledTimes(1);
     });
@@ -151,7 +151,7 @@ describe('CalculationOverlay', () => {
       const onCancel = vi.fn();
       render(<CalculationOverlay {...errorProps} onCancel={onCancel} />);
 
-      fireEvent.click(screen.getByTestId('overlay-close-button'));
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
       expect(onCancel).toHaveBeenCalledTimes(1);
     });
@@ -159,7 +159,7 @@ describe('CalculationOverlay', () => {
     it('does not show spinner in error state', () => {
       render(<CalculationOverlay {...errorProps} />);
 
-      expect(screen.queryByTestId('overlay-spinner')).not.toBeInTheDocument();
+      expect(screen.queryByRole('img', { name: 'Calculating' })).not.toBeInTheDocument();
     });
   });
 
@@ -186,7 +186,7 @@ describe('CalculationOverlay', () => {
     it('elapsed time has aria-live attribute for screen readers', () => {
       render(<CalculationOverlay {...defaultProps} elapsedSeconds={5} />);
 
-      const elapsedTime = screen.getByTestId('overlay-elapsed-time');
+      const elapsedTime = screen.getByText(/^\d+s elapsed$/);
       expect(elapsedTime).toHaveAttribute('aria-live', 'polite');
       expect(elapsedTime).toHaveAttribute('aria-atomic', 'true');
     });
@@ -197,7 +197,7 @@ describe('CalculationOverlay', () => {
       render(<CalculationOverlay {...defaultProps} />);
 
       // Backdrop is the first child of the overlay with bg-black/50 class
-      const overlay = screen.getByTestId('calculation-overlay');
+      const overlay = screen.getByRole('dialog');
       const backdrop = overlay.querySelector('[aria-hidden="true"]');
       expect(backdrop).toBeInTheDocument();
     });
@@ -205,7 +205,7 @@ describe('CalculationOverlay', () => {
     it('renders modal content centered', () => {
       render(<CalculationOverlay {...defaultProps} />);
 
-      const overlay = screen.getByTestId('calculation-overlay');
+      const overlay = screen.getByRole('dialog');
       expect(overlay).toHaveClass('flex', 'items-center', 'justify-center');
     });
   });

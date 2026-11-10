@@ -479,7 +479,14 @@ class RateLimitMiddleware:
         await self.app(scope, receive, send_with_headers)
 
     def _is_excluded_path(self, path: str) -> bool:
-        """Check if path is excluded from rate limiting."""
+        """
+        Check if path is excluded from rate limiting.
+
+        A path with its own entry in endpoint_limits is always limited, even when it
+        falls under an excluded prefix: /health is exempt, /health/ready is not.
+        """
+        if path in self.endpoint_limits:
+            return False
         for excluded in self.excluded_paths:
             if path == excluded or path.startswith(excluded + "/"):
                 return True

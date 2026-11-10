@@ -85,7 +85,12 @@ function classifyBOMItems(items: BOMItem[]): BOMItem[] {
  */
 const BOMEditorSkeleton: React.FC = () => {
   return (
-    <div className="space-y-4 animate-pulse" data-testid="bom-editor-skeleton">
+    <div
+      className="space-y-4 animate-pulse"
+      data-testid="bom-editor-skeleton"
+      role="status"
+      aria-label="Loading bill of materials"
+    >
       <div className="h-8 bg-muted rounded" />
       <div className="h-64 bg-muted rounded" />
     </div>
@@ -153,14 +158,6 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     }
   }, [bomItems, form]);
 
-  useEffect(() => {
-    if (isValid) {
-      markStepComplete('edit');
-    } else {
-      markStepIncomplete('edit');
-    }
-  }, [isValid, markStepComplete, markStepIncomplete]);
-
   const handleAddComponent = () => {
     const newItem: BOMItem = { id: generateId(), ...DEFAULT_BOM_ITEM };
     append(newItem);
@@ -170,10 +167,18 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     }, 0);
   };
 
-  const handleRemoveComponent = (index: number) => {
-    if (fields.length <= 1) return;
+  const fieldCount = fields.length;
+  const handleRemoveComponent = useCallback((index: number) => {
+    if (fieldCount <= 1) return;
     remove(index);
-  };
+  }, [fieldCount, remove]);
+
+  // One stable remove handler per row index. An inline () => handleRemoveComponent(index)
+  // was a new function on every render, so React.memo re-rendered every row each time (#133).
+  const rowRemoveHandlers = useMemo(
+    () => Array.from({ length: fieldCount }, (_, index) => () => handleRemoveComponent(index)),
+    [fieldCount, handleRemoveComponent],
+  );
 
   const handleCardUpdate = useCallback((id: string, updates: Partial<BOMItem>) => {
     const itemIndex = fields.findIndex((field) => field.id === id);
@@ -193,6 +198,22 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
   const watchedItems = form.watch('items');
   // react-hook-form updates its values in place, so track content rather than references.
   const watchedItemsJson = JSON.stringify(watchedItems);
+
+  // The edit step is complete when the current values pass the BOM schema. Parsing them
+  // directly gives the answer on the first render; react-hook-form's isValid starts false and
+  // settles only after its async resolver runs, which made the step go incomplete -> complete
+  // on every visit and lost Calculate clicks in between (#133).
+  const isBomValid = useMemo(
+    () => bomFormSchema.safeParse({ items: JSON.parse(watchedItemsJson) }).success,
+    [watchedItemsJson],
+  );
+  useEffect(() => {
+    if (isBomValid) {
+      markStepComplete('edit');
+    } else {
+      markStepIncomplete('edit');
+    }
+  }, [isBomValid, markStepComplete, markStepIncomplete]);
 
   // Sync valid form values to the store once validation has settled (isValid is a dependency),
   // so an invalid edit never reaches the store and the first valid edit after it does.
@@ -233,9 +254,11 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     return hasAnyFactor ? total : null;
   }, [watchedItems, emissionFactors]);
 
-  const arrayLevelError = errors.items && !Array.isArray(errors.items)
-    ? (errors.items as { message?: string }).message
-    : null;
+  // Array-level errors (the duplicate-name refine) sit in errors.items.root from
+  // react-hook-form 7.76; earlier versions put them in errors.items.message.
+  const itemsError = errors.items as { message?: string; root?: { message?: string } } | undefined;
+  const arrayLevelError =
+    itemsError?.root?.message ?? (Array.isArray(itemsError) ? undefined : itemsError?.message) ?? null;
 
   const cardItems: BOMItem[] = fields.map((field, index) => {
     const values = form.getValues(`items.${index}`);
@@ -312,7 +335,7 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
                 field={field}
                 index={index}
                 form={form}
-                onRemove={() => handleRemoveComponent(index)}
+                onRemove={rowRemoveHandlers[index]}
                 canRemove={fields.length > 1}
                 emissionFactors={emissionFactors}
                 isLoadingFactors={isLoadingFactors}
@@ -344,6 +367,8 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
           <div
             ref={parentRef}
             data-testid="bom-virtual-scroll-container"
+            role="region"
+            aria-label="Bill of materials rows"
             className="overflow-y-auto"
             style={{ height: `${CONTAINER_HEIGHT}px` }}
           >
@@ -363,7 +388,7 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
                           field={field}
                           index={virtualRow.index}
                           form={form}
-                          onRemove={() => handleRemoveComponent(virtualRow.index)}
+                          onRemove={rowRemoveHandlers[virtualRow.index]}
                           canRemove={fields.length > 1}
                           emissionFactors={emissionFactors}
                           isLoadingFactors={isLoadingFactors}

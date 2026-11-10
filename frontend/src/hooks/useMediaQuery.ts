@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 /**
  * Custom hook for responsive design that tracks media query matches.
@@ -12,34 +12,31 @@ import { useState, useEffect } from 'react';
  * const isLandscape = useMediaQuery('(orientation: landscape)');
  */
 export function useMediaQuery(query: string): boolean {
-  // SSR safety: default to false when window is undefined
-  // Don't call matchMedia during initialization to avoid double calls
-  const [matches, setMatches] = useState<boolean>(false);
+  // One MediaQueryList per query. Its current value is read during render, so the first render is
+  // already right; the previous version set it from an effect and rendered once more (#162).
+  // No matchMedia (SSR, some test environments) reads as "no match".
+  const mediaQueryList = useMemo(
+    () => (typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(query)
+      : null),
+    [query],
+  );
 
+  const [matches, setMatches] = useState(() => mediaQueryList?.matches ?? false);
+  // A new query: take its current value straight away, during render
+  const [trackedList, setTrackedList] = useState(mediaQueryList);
+  if (mediaQueryList !== trackedList) {
+    setTrackedList(mediaQueryList);
+    setMatches(mediaQueryList?.matches ?? false);
+  }
+
+  // Later changes arrive as events
   useEffect(() => {
-    // SSR safety check and test environment safety (jsdom may not have matchMedia)
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return;
-    }
-
-    const mediaQueryList = window.matchMedia(query);
-
-    // Handler for media query changes
-    const handleChange = (event: MediaQueryListEvent) => {
-      setMatches(event.matches);
-    };
-
-    // Set initial value
-    setMatches(mediaQueryList.matches);
-
-    // Modern browsers
+    if (!mediaQueryList) return;
+    const handleChange = (event: MediaQueryListEvent) => setMatches(event.matches);
     mediaQueryList.addEventListener('change', handleChange);
-
-    // Cleanup
-    return () => {
-      mediaQueryList.removeEventListener('change', handleChange);
-    };
-  }, [query]);
+    return () => mediaQueryList.removeEventListener('change', handleChange);
+  }, [mediaQueryList]);
 
   return matches;
 }

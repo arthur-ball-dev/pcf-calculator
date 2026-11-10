@@ -224,9 +224,9 @@ describe('BOMEditor Responsive Layout', () => {
       render(<BOMEditor />);
 
       await waitFor(() => {
-        // BOMCardList test IDs should not be present
-        expect(screen.queryByTestId('bom-card-item-1')).not.toBeInTheDocument();
-        expect(screen.queryByTestId(/^bom-card-/)).not.toBeInTheDocument();
+        // No BOMCardList cards should be present
+        expect(screen.queryByRole('article', { name: 'Cotton' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('article')).not.toBeInTheDocument();
       });
     });
 
@@ -265,8 +265,8 @@ describe('BOMEditor Responsive Layout', () => {
       render(<BOMEditor />);
 
       await waitFor(() => {
-        // BOMCardList should be present (cards have data-testid pattern)
-        expect(screen.getByTestId('bom-card-item-1')).toBeInTheDocument();
+        // BOMCardList should be present (each card is an article)
+        expect(screen.getByRole('article', { name: 'Cotton' })).toBeInTheDocument();
       });
     });
 
@@ -283,8 +283,8 @@ describe('BOMEditor Responsive Layout', () => {
       render(<BOMEditor />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('bom-card-item-1')).toBeInTheDocument();
-        expect(screen.getByTestId('bom-card-item-2')).toBeInTheDocument();
+        expect(screen.getByRole('article', { name: 'Cotton' })).toBeInTheDocument();
+        expect(screen.getByRole('article', { name: 'Polyester' })).toBeInTheDocument();
       });
     });
 
@@ -316,7 +316,7 @@ describe('BOMEditor Responsive Layout', () => {
         // Either table or cards could be shown - depends on implementation
         // The important thing is that the component renders correctly
         const hasTable = screen.queryByRole('table') !== null;
-        const hasCards = screen.queryByTestId('bom-card-item-1') !== null;
+        const hasCards = screen.queryByRole('article', { name: 'Cotton' }) !== null;
 
         // One or the other should be present
         expect(hasTable || hasCards).toBe(true);
@@ -358,7 +358,7 @@ describe('BOMEditor Responsive Layout', () => {
       render(<BOMEditor />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('bom-card-item-1')).toBeInTheDocument();
+        expect(screen.getByRole('article', { name: 'Cotton' })).toBeInTheDocument();
       });
 
       // Verify data is present in card view
@@ -393,7 +393,7 @@ describe('BOMEditor Responsive Layout', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByTestId('bom-card-item-1')).toBeInTheDocument();
+        expect(screen.getByRole('article', { name: 'Cotton' })).toBeInTheDocument();
       });
 
       // setBomItems should not be called just from view switching
@@ -415,8 +415,8 @@ describe('BOMEditor Responsive Layout', () => {
       });
 
       await waitFor(() => {
-        const card1 = screen.getByTestId('bom-card-item-1');
-        const card2 = screen.getByTestId('bom-card-item-2');
+        const card1 = screen.getByRole('article', { name: 'Cotton' });
+        const card2 = screen.getByRole('article', { name: 'Polyester' });
         expect(card1).toBeInTheDocument();
         expect(card2).toBeInTheDocument();
       });
@@ -453,7 +453,7 @@ describe('BOMEditor Responsive Layout', () => {
       await waitFor(() => {
         // Card view should also indicate 2 items
         // This could be shown as count or by having 2 cards
-        const cards = screen.getAllByTestId(/^bom-card-item-/);
+        const cards = screen.getAllByRole('article');
         expect(cards.length).toBe(2);
       });
     }, 15000);
@@ -506,15 +506,15 @@ describe('BOMEditor Responsive Layout', () => {
       render(<BOMEditor />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('bom-card-item-1')).toBeInTheDocument();
+        expect(screen.getByRole('article', { name: 'Cotton' })).toBeInTheDocument();
       });
 
       // Click edit button on first card
-      const editButton = screen.getByTestId('edit-btn-item-1');
+      const editButton = screen.getByRole('button', { name: 'Edit Cotton quantity' });
       await user.click(editButton);
 
       // Enter new quantity
-      const quantityInput = screen.getByTestId('quantity-input-item-1');
+      const quantityInput = screen.getByRole('spinbutton', { name: 'Quantity' });
       await user.clear(quantityInput);
       await user.type(quantityInput, '2.5');
 
@@ -544,7 +544,7 @@ describe('BOMEditor Responsive Layout', () => {
 
       // Emerald Night uses AlertDialog for delete confirmation
       await waitFor(() => {
-        const confirmBtn = screen.queryByTestId('confirm-remove-btn') || screen.queryByRole('button', { name: /confirm|remove|delete/i });
+        const confirmBtn = screen.queryByRole('button', { name: 'Remove' }) || screen.queryByRole('button', { name: /confirm|remove|delete/i });
         if (confirmBtn) {
           // If confirmation dialog appears, click confirm
           user.click(confirmBtn);
@@ -561,19 +561,19 @@ describe('BOMEditor Responsive Layout', () => {
       render(<BOMEditor />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('bom-card-item-1')).toBeInTheDocument();
+        expect(screen.getByRole('article', { name: 'Cotton' })).toBeInTheDocument();
       });
 
       // Click remove button on first card
-      const removeButton = screen.getByTestId('remove-btn-item-1');
+      const removeButton = screen.getByRole('button', { name: 'Remove Cotton' });
       await user.click(removeButton);
 
       // Confirmation dialog should appear
       await waitFor(() => {
-        expect(screen.getByTestId('confirm-remove-btn')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
       });
 
-      await user.click(screen.getByTestId('confirm-remove-btn'));
+      await user.click(screen.getByRole('button', { name: 'Remove' }));
 
       // Should trigger removal
       await waitFor(() => {
@@ -650,7 +650,7 @@ describe('BOMEditor Responsive Layout', () => {
 
       await waitFor(() => {
         // Should show card view because isMobile is true
-        expect(screen.getByTestId('bom-card-item-1')).toBeInTheDocument();
+        expect(screen.getByRole('article', { name: 'Cotton' })).toBeInTheDocument();
         expect(screen.queryByRole('table')).not.toBeInTheDocument();
       });
     });
@@ -663,7 +663,7 @@ describe('BOMEditor Responsive Layout', () => {
       await waitFor(() => {
         // Should show table view because isMobile is false
         expect(screen.getByRole('table')).toBeInTheDocument();
-        expect(screen.queryByTestId('bom-card-item-1')).not.toBeInTheDocument();
+        expect(screen.queryByRole('article', { name: 'Cotton' })).not.toBeInTheDocument();
       }, { timeout: 10000 });
     }, 15000);
 
@@ -681,7 +681,7 @@ describe('BOMEditor Responsive Layout', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByTestId('bom-card-item-1')).toBeInTheDocument();
+        expect(screen.getByRole('article', { name: 'Cotton' })).toBeInTheDocument();
       });
     }, 15000);
   });

@@ -130,12 +130,13 @@ export default function CategoryDrillDown({
               No items in this category
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2" role="list">
               {/* Item list */}
               {sortedItems.map((item, index) => (
                 <div
                   key={`${item.name}-${index}`}
                   data-testid="category-item"
+                  role="listitem"
                   className="flex justify-between items-center py-2 px-3 rounded-md bg-muted/50 hover:bg-muted transition-colors"
                 >
                   <span className="font-medium text-sm truncate max-w-[200px]">

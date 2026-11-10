@@ -12,7 +12,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { render, screen } from '../../testUtils';
+import { render, screen, within } from '../../testUtils';
 // Real import - enabled per TDD Exception approval (TASK-FE-P5-002_SEQ-003)
 import { DeltaVisualization, type DeltaData } from '../../../src/components/Scenarios/DeltaVisualization';
 
@@ -38,9 +38,9 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      expect(screen.getByTestId('bar-row-a')).toBeInTheDocument();
-      expect(screen.getByTestId('bar-row-b')).toBeInTheDocument();
-      expect(screen.getByTestId('bar-row-c')).toBeInTheDocument();
+      expect(screen.getByRole('listitem', { name: 'Scenario A' })).toBeInTheDocument();
+      expect(screen.getByRole('listitem', { name: 'Scenario B' })).toBeInTheDocument();
+      expect(screen.getByRole('listitem', { name: 'Scenario C' })).toBeInTheDocument();
     });
 
     test('renders correct number of bars', () => {
@@ -51,22 +51,20 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const container = screen.getByTestId('bars-container');
-      const bars = container.querySelectorAll('[data-testid^="bar-row-"]');
+      const bars = within(screen.getByRole('list', { name: 'Scenario emissions' })).getAllByRole('listitem');
       expect(bars).toHaveLength(2);
     });
 
     test('renders empty state when no deltas provided', () => {
       render(<DeltaVisualization deltas={[]} />);
 
-      const container = screen.getByTestId('bars-container');
-      expect(container.children).toHaveLength(0);
+      expect(within(screen.getByRole('list', { name: 'Scenario emissions' })).queryAllByRole('listitem')).toHaveLength(0);
     });
 
     test('renders visualization container with testid', () => {
       render(<DeltaVisualization deltas={[createDelta()]} />);
 
-      expect(screen.getByTestId('delta-visualization')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Emissions comparison' })).toBeInTheDocument();
     });
 
     test('renders heading for the visualization', () => {
@@ -86,9 +84,9 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const maxBar = screen.getByTestId('bar-fill-max');
-      const halfBar = screen.getByTestId('bar-fill-half');
-      const quarterBar = screen.getByTestId('bar-fill-quarter');
+      const maxBar = screen.getByRole('progressbar', { name: 'Test Scenario: 200 kg CO2e' });
+      const halfBar = screen.getByRole('progressbar', { name: 'Test Scenario: 100 kg CO2e' });
+      const quarterBar = screen.getByRole('progressbar', { name: 'Test Scenario: 50 kg CO2e' });
 
       // Max emissions should be 100% width
       expect(maxBar).toHaveStyle({ width: '100%' });
@@ -106,7 +104,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const bigBar = screen.getByTestId('bar-fill-big');
+      const bigBar = screen.getByRole('progressbar', { name: 'Test Scenario: 500 kg CO2e' });
       expect(bigBar).toHaveStyle({ width: '100%' });
     });
 
@@ -119,9 +117,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const barA = screen.getByTestId('bar-fill-a');
-      const barB = screen.getByTestId('bar-fill-b');
-      const barC = screen.getByTestId('bar-fill-c');
+      const [barA, barB, barC] = screen.getAllByRole('progressbar');
 
       expect(barA).toHaveStyle({ width: '100%' });
       expect(barB).toHaveStyle({ width: '100%' });
@@ -136,7 +132,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const zeroBar = screen.getByTestId('bar-fill-zero');
+      const zeroBar = screen.getByRole('progressbar', { name: 'Test Scenario: 0 kg CO2e' });
       expect(zeroBar).toHaveStyle({ width: '0%' });
     });
 
@@ -148,7 +144,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const tinyBar = screen.getByTestId('bar-fill-tiny');
+      const tinyBar = screen.getByRole('progressbar', { name: 'Test Scenario: 0.1 kg CO2e' });
       // 0.1/100 = 0.1%
       expect(tinyBar).toHaveStyle({ width: '0.1%' });
     });
@@ -160,7 +156,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const onlyBar = screen.getByTestId('bar-fill-only');
+      const onlyBar = screen.getByRole('progressbar');
       expect(onlyBar).toHaveStyle({ width: '100%' });
     });
   });
@@ -173,7 +169,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const bar = screen.getByTestId('bar-fill-inc');
+      const bar = screen.getByRole('progressbar');
       expect(bar).toHaveClass('bg-red-400');
     });
 
@@ -184,7 +180,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const bar = screen.getByTestId('bar-fill-dec');
+      const bar = screen.getByRole('progressbar');
       expect(bar).toHaveClass('bg-green-400');
     });
 
@@ -195,7 +191,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const bar = screen.getByTestId('bar-fill-same');
+      const bar = screen.getByRole('progressbar');
       expect(bar).toHaveClass('bg-blue-400');
     });
 
@@ -208,9 +204,9 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      expect(screen.getByTestId('bar-fill-baseline')).toHaveClass('bg-blue-400');
-      expect(screen.getByTestId('bar-fill-worse')).toHaveClass('bg-red-400');
-      expect(screen.getByTestId('bar-fill-better')).toHaveClass('bg-green-400');
+      expect(screen.getByRole('progressbar', { name: 'Test Scenario: 100 kg CO2e' })).toHaveClass('bg-blue-400');
+      expect(screen.getByRole('progressbar', { name: 'Test Scenario: 150 kg CO2e' })).toHaveClass('bg-red-400');
+      expect(screen.getByRole('progressbar', { name: 'Test Scenario: 70 kg CO2e' })).toHaveClass('bg-green-400');
     });
   });
 
@@ -222,7 +218,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      expect(screen.getByTestId('scenario-label-test')).toHaveTextContent('Production Baseline');
+      expect(screen.getByText('Production Baseline')).toHaveTextContent('Production Baseline');
     });
 
     test('displays emissions value with unit', () => {
@@ -232,7 +228,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      expect(screen.getByTestId('emissions-value-test')).toHaveTextContent('125.5 kg');
+      expect(screen.getByText(/ kg$/)).toHaveTextContent('125.5 kg');
     });
 
     test('formats emissions to 1 decimal place', () => {
@@ -243,7 +239,7 @@ describe('DeltaVisualization Component', () => {
       render(<DeltaVisualization deltas={deltas} />);
 
       // Should round to 100.0
-      expect(screen.getByTestId('emissions-value-precise')).toHaveTextContent('100.0 kg');
+      expect(screen.getByText(/ kg$/)).toHaveTextContent('100.0 kg');
     });
 
     test('handles long scenario names', () => {
@@ -256,7 +252,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      expect(screen.getByTestId('scenario-label-long')).toHaveTextContent(
+      expect(screen.getByText(/Very Long Scenario Name/)).toHaveTextContent(
         /Very Long Scenario Name/
       );
     });
@@ -268,7 +264,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const track = screen.getByTestId('bar-track-track');
+      const track = screen.getByRole('progressbar').parentElement;
       expect(track).toHaveClass('bg-gray-100');
     });
 
@@ -277,7 +273,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const track = screen.getByTestId('bar-track-full');
+      const track = screen.getByRole('progressbar').parentElement;
       expect(track).toHaveStyle({ width: '100%' });
     });
   });
@@ -288,7 +284,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const bar = screen.getByTestId('bar-fill-a11y');
+      const bar = screen.getByRole('progressbar');
       expect(bar).toHaveAttribute('role', 'progressbar');
     });
 
@@ -299,7 +295,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const bar = screen.getByTestId('bar-fill-aria');
+      const bar = screen.getByRole('progressbar');
       expect(bar).toHaveAttribute('aria-valuenow', '75');
     });
 
@@ -308,7 +304,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const bar = screen.getByTestId('bar-fill-min');
+      const bar = screen.getByRole('progressbar');
       expect(bar).toHaveAttribute('aria-valuemin', '0');
     });
 
@@ -321,7 +317,7 @@ describe('DeltaVisualization Component', () => {
       render(<DeltaVisualization deltas={deltas} />);
 
       // All bars should have max set to highest emissions
-      const firstBar = screen.getByTestId('bar-fill-first');
+      const firstBar = screen.getByRole('progressbar', { name: 'Test Scenario: 50 kg CO2e' });
       expect(firstBar).toHaveAttribute('aria-valuemax', '200');
     });
 
@@ -332,7 +328,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const bar = screen.getByTestId('bar-fill-labeled');
+      const bar = screen.getByRole('progressbar');
       expect(bar).toHaveAttribute('aria-label', 'My Scenario: 150 kg CO2e');
     });
   });
@@ -347,12 +343,11 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const container = screen.getByTestId('bars-container');
-      const rows = container.querySelectorAll('[data-testid^="bar-row-"]');
+      const rows = within(screen.getByRole('list', { name: 'Scenario emissions' })).getAllByRole('listitem');
 
-      expect(rows[0]).toHaveAttribute('data-testid', 'bar-row-first');
-      expect(rows[1]).toHaveAttribute('data-testid', 'bar-row-second');
-      expect(rows[2]).toHaveAttribute('data-testid', 'bar-row-third');
+      expect(rows[0]).toHaveAccessibleName('First');
+      expect(rows[1]).toHaveAccessibleName('Second');
+      expect(rows[2]).toHaveAccessibleName('Third');
     });
   });
 
@@ -366,7 +361,7 @@ describe('DeltaVisualization Component', () => {
       // Should handle without crashing
       render(<DeltaVisualization deltas={deltas} />);
 
-      expect(screen.getByTestId('delta-visualization')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Emissions comparison' })).toBeInTheDocument();
     });
 
     test('handles very large emissions values', () => {
@@ -376,7 +371,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      expect(screen.getByTestId('emissions-value-huge')).toHaveTextContent('999999999.0 kg');
+      expect(screen.getByText(/ kg$/)).toHaveTextContent('999999999.0 kg');
     });
 
     test('handles decimal emissions in bar width calculation', () => {
@@ -387,7 +382,7 @@ describe('DeltaVisualization Component', () => {
 
       render(<DeltaVisualization deltas={deltas} />);
 
-      const partialBar = screen.getByTestId('bar-fill-partial');
+      const partialBar = screen.getByRole('progressbar', { name: 'Test Scenario: 33.33 kg CO2e' });
       // 33.33/100 = 33.33%
       expect(partialBar).toHaveStyle({ width: '33.33%' });
     });
@@ -400,7 +395,7 @@ describe('DeltaVisualization Component', () => {
       render(<DeltaVisualization deltas={deltas} />);
 
       // Check that component renders (animation classes will be tested in E2E)
-      expect(screen.getByTestId('bar-fill-animated')).toBeInTheDocument();
+      expect(screen.getByRole('progressbar')).toBeInTheDocument();
     });
   });
 });

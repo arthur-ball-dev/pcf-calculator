@@ -94,11 +94,11 @@ test.describe('Visual & UX Flow Validation', () => {
     await expect(step1Heading).toBeVisible();
 
     // Verify product list is visible (replaces old combobox dropdown)
-    const productList = page.getByTestId('product-list');
+    const productList = page.getByRole('region', { name: 'Product selection' });
     await expect(productList).toBeVisible();
 
     // Verify search input is visible
-    const searchInput = page.getByTestId('product-search-input');
+    const searchInput = page.getByRole('textbox', { name: 'Search products' });
     await expect(searchInput).toBeVisible();
 
     // Wait a moment for any async rendering to complete
@@ -226,7 +226,7 @@ test.describe('Visual & UX Flow Validation', () => {
     });
 
     // Navigate to Step 2 (Edit BOM)
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
 
@@ -245,7 +245,7 @@ test.describe('Visual & UX Flow Validation', () => {
 
     // On Step 2 (Edit BOM), the Next button shows "Calculate"
     // Click Calculate to trigger calculation
-    const calculateButton = page.getByTestId('next-button');
+    const calculateButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(calculateButton).toBeEnabled({ timeout: 5000 });
     await calculateButton.click();
 
@@ -270,7 +270,7 @@ test.describe('Visual & UX Flow Validation', () => {
 
     // Test Previous button functionality
     // Use Promise.all to avoid Playwright navigation timeout on client-side state change
-    const previousButton = page.getByTestId('previous-button');
+    const previousButton = page.getByRole('button', { name: 'Previous step' });
     await expect(previousButton).toBeVisible();
     await Promise.all([
       page.waitForFunction(() => {
@@ -327,7 +327,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await page.waitForLoadState('networkidle').catch(() => {});
 
     // Go to Step 2
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
 
@@ -342,7 +342,7 @@ test.describe('Visual & UX Flow Validation', () => {
     // Find first quantity input field
     // BOM Editor uses input fields for quantity editing
     const quantityInputs = page.locator('input[type="number"]');
-    const firstQuantityInput = page.getByTestId('bom-item-quantity').first();
+    const firstQuantityInput = page.getByRole('spinbutton', { name: 'Quantity' }).first();
 
     // Check if input exists
     const inputCount = await quantityInputs.count();
@@ -427,7 +427,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await page.waitForLoadState('networkidle').catch(() => {});
 
     // Go to Step 2 (Edit BOM)
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
     await nextButton.click();
 
@@ -438,7 +438,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await page.waitForLoadState('networkidle').catch(() => {});
 
     // Click Calculate button (Next button on edit step shows "Calculate")
-    const calculateButton = page.getByTestId('next-button');
+    const calculateButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(calculateButton).toBeEnabled({ timeout: 5000 });
     await calculateButton.click();
 
@@ -484,7 +484,7 @@ test.describe('Visual & UX Flow Validation', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Check Product Search input has accessible name
-    const searchInput = page.getByTestId('product-search-input');
+    const searchInput = page.getByRole('textbox', { name: 'Search products' });
     await expect(searchInput).toBeVisible();
 
     // Verify search input has accessible name
@@ -492,13 +492,13 @@ test.describe('Visual & UX Flow Validation', () => {
     expect(searchLabel).toBeTruthy();
 
     // Check BOM toggle switch has accessible name
-    const bomToggle = page.getByTestId('bom-toggle-switch');
+    const bomToggle = page.getByRole('switch', { name: 'Show only products with BOMs' });
     await expect(bomToggle).toBeVisible();
     const toggleLabel = await bomToggle.getAttribute('aria-label');
     expect(toggleLabel).toBeTruthy();
 
     // Check navigation buttons have proper labels
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     await expect(nextButton).toBeVisible();
 
     const nextButtonLabel = await nextButton.getAttribute('aria-label');
@@ -584,7 +584,7 @@ test.describe('Visual & UX Flow Validation', () => {
     }
 
     // Verify touch-friendly button sizes (minimum 44x44px for WCAG)
-    const nextButton = page.getByTestId('next-button');
+    const nextButton = page.getByRole('button', { name: /^(Next step|Calculate carbon footprint)$/ });
     const buttonBox = await nextButton.boundingBox();
 
     if (buttonBox) {

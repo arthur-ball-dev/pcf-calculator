@@ -22,6 +22,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { ProductSearch } from '@/components/ProductSearch/ProductSearch';
 
+/** Every product card in the results: a button when clickable, otherwise an article. */
+function getAllCards(): HTMLElement[] {
+  const results = within(screen.getByRole('group', { name: 'Search results' }));
+  return [...results.queryAllByRole('button'), ...results.queryAllByRole('article')];
+}
+
 // Create wrapper with QueryClient
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -69,19 +75,19 @@ describe('ProductSearch Component', () => {
     it('should render the search component container', async () => {
       renderWithProviders(<ProductSearch />);
 
-      expect(screen.getByTestId('product-search')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Product search' })).toBeInTheDocument();
     });
 
     it('should render the search input field', async () => {
       renderWithProviders(<ProductSearch />);
 
-      expect(screen.getByTestId('search-input')).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: 'Search products' })).toBeInTheDocument();
     });
 
     it('should render search input with placeholder text', async () => {
       renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       expect(input).toHaveAttribute('placeholder');
       expect(input.getAttribute('placeholder')).toMatch(/search.*product/i);
     });
@@ -89,14 +95,14 @@ describe('ProductSearch Component', () => {
     it('should render filter button', async () => {
       renderWithProviders(<ProductSearch />);
 
-      expect(screen.getByTestId('filter-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Filters/ })).toBeInTheDocument();
     });
 
     it('should render search icon in input', async () => {
       renderWithProviders(<ProductSearch />);
 
       // Search icon should be present (as visual indicator)
-      const searchContainer = screen.getByTestId('product-search');
+      const searchContainer = screen.getByRole('region', { name: 'Product search' });
       expect(searchContainer).toBeInTheDocument();
     });
   });
@@ -109,7 +115,7 @@ describe('ProductSearch Component', () => {
     it('should update input value when user types', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
       expect(input).toHaveValue('laptop');
@@ -118,26 +124,26 @@ describe('ProductSearch Component', () => {
     it('should show clear button when input has value', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
-      expect(screen.getByTestId('clear-search')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument();
     });
 
     it('should not show clear button when input is empty', async () => {
       renderWithProviders(<ProductSearch />);
 
-      expect(screen.queryByTestId('clear-search')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument();
     });
 
     it('should clear input when clear button is clicked', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
       expect(input).toHaveValue('laptop');
 
-      const clearButton = screen.getByTestId('clear-search');
+      const clearButton = screen.getByRole('button', { name: 'Clear search' });
       await user.click(clearButton);
 
       expect(input).toHaveValue('');
@@ -146,7 +152,7 @@ describe('ProductSearch Component', () => {
     it('should trigger search after debounce delay (300ms)', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
       // Before debounce - should show loading or initial state
@@ -155,9 +161,9 @@ describe('ProductSearch Component', () => {
 
       await waitFor(() => {
         // Results or loading state should be visible
-        const hasResults = screen.queryByTestId('results-grid');
-        const hasLoading = screen.queryByTestId('loading-skeletons');
-        const hasNoResults = screen.queryByTestId('no-results');
+        const hasResults = screen.queryByRole('group', { name: 'Search results' });
+        const hasLoading = screen.queryByRole('status', { name: 'Loading products' });
+        const hasNoResults = screen.queryByText('No products found');
         expect(hasResults || hasLoading || hasNoResults).toBeTruthy();
       });
     });
@@ -165,7 +171,7 @@ describe('ProductSearch Component', () => {
     it('should debounce rapid typing correctly', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
 
       // Type rapidly
       await user.type(input, 'smart');
@@ -181,9 +187,9 @@ describe('ProductSearch Component', () => {
 
       // Only final search should be triggered
       await waitFor(() => {
-        expect(screen.queryByTestId('loading-skeletons') ||
-               screen.queryByTestId('results-grid') ||
-               screen.queryByTestId('no-results')).toBeTruthy();
+        expect(screen.queryByRole('status', { name: 'Loading products' }) ||
+               screen.queryByRole('group', { name: 'Search results' }) ||
+               screen.queryByText('No products found')).toBeTruthy();
       });
     });
   });
@@ -196,37 +202,37 @@ describe('ProductSearch Component', () => {
     it('should open filter popover when filter button is clicked', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
-      expect(screen.getByTestId('filter-popover')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Filters' })).toBeInTheDocument();
     });
 
     it('should render industry select in filter popover', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
-      expect(screen.getByTestId('industry-select')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Industry' })).toBeInTheDocument();
     });
 
     it('should render category select in filter popover', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
-      expect(screen.getByTestId('category-select')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Category' })).toBeInTheDocument();
     });
 
     it('should show industry options when industry select is opened', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       // Should show industry options
@@ -238,11 +244,11 @@ describe('ProductSearch Component', () => {
     it('should show filter count badge when filters are active', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
       // Select an industry
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -256,18 +262,18 @@ describe('ProductSearch Component', () => {
       await user.keyboard('{Escape}');
 
       // Filter button should show badge with count
-      within(screen.getByTestId('filter-button')).queryByText('1');
+      within(screen.getByRole('button', { name: /^Filters/ })).queryByText('1');
       // Badge might appear once filters are applied
     });
 
     it('should show clear filters button when filters are active', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
       // Select an industry
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -278,18 +284,18 @@ describe('ProductSearch Component', () => {
 
       // Clear filters button should appear
       await waitFor(() => {
-        expect(screen.getByTestId('clear-filters')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Clear all filters' })).toBeInTheDocument();
       });
     });
 
     it('should clear all filters when clear filters button is clicked', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
       // Select an industry
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -299,12 +305,12 @@ describe('ProductSearch Component', () => {
       await user.click(screen.getByText(/electronics/i));
 
       // Click clear filters
-      const clearFilters = screen.getByTestId('clear-filters');
+      const clearFilters = screen.getByRole('button', { name: 'Clear all filters' });
       await user.click(clearFilters);
 
       // Clear filters button should disappear (no active filters)
       await waitFor(() => {
-        expect(screen.queryByTestId('clear-filters')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Clear all filters' })).not.toBeInTheDocument();
       });
     });
   });
@@ -319,7 +325,7 @@ describe('ProductSearch Component', () => {
 
       // On initial render, should show loading state
       await waitFor(() => {
-        screen.queryByTestId('loading-skeletons');
+        screen.queryByRole('status', { name: 'Loading products' });
         // Loading should appear during fetch
         // May transition quickly in tests with MSW
       });
@@ -328,7 +334,7 @@ describe('ProductSearch Component', () => {
     it('should show loading skeletons when search is triggered', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
       // Advance past debounce
@@ -341,13 +347,13 @@ describe('ProductSearch Component', () => {
     it('should hide loading skeletons when results load', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
       vi.advanceTimersByTime(300);
 
       await waitFor(() => {
-        expect(screen.queryByTestId('loading-skeletons')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading products' })).not.toBeInTheDocument();
       });
     });
 
@@ -355,7 +361,7 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch />);
 
       // If loading skeletons are present, they should be in a grid
-      const skeletons = screen.queryByTestId('loading-skeletons');
+      const skeletons = screen.queryByRole('status', { name: 'Loading products' });
       if (skeletons) {
         // Skeletons container should exist with skeleton elements
         expect(skeletons).toBeInTheDocument();
@@ -372,7 +378,7 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('results-grid')).toBeInTheDocument();
+        expect(screen.getByRole('group', { name: 'Search results' })).toBeInTheDocument();
       });
     });
 
@@ -380,7 +386,7 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch />);
 
       await waitFor(() => {
-        const resultsCount = screen.getByTestId('results-count');
+        const resultsCount = screen.getByText(/^\d+ products? found/);
         expect(resultsCount).toBeInTheDocument();
         expect(resultsCount.textContent).toMatch(/\d+\s*product/i);
       });
@@ -389,13 +395,13 @@ describe('ProductSearch Component', () => {
     it('should display search query in results summary', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
       vi.advanceTimersByTime(300);
 
       await waitFor(() => {
-        const resultsCount = screen.getByTestId('results-count');
+        const resultsCount = screen.getByText(/^\d+ products? found/);
         expect(resultsCount.textContent).toMatch(/laptop/i);
       });
     });
@@ -404,7 +410,7 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch />);
 
       await waitFor(() => {
-        const cards = screen.getAllByTestId(/^product-card-/);
+        const cards = getAllCards();
         expect(cards.length).toBeGreaterThan(0);
       });
     });
@@ -412,26 +418,26 @@ describe('ProductSearch Component', () => {
     it('should show no results message when search returns empty', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'xyznonexistent123abc');
 
       vi.advanceTimersByTime(300);
 
       await waitFor(() => {
-        expect(screen.getByTestId('no-results')).toBeInTheDocument();
+        expect(screen.getByText('No products found')).toBeInTheDocument();
       });
     });
 
     it('should show helpful message in no results state', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'xyznonexistent123abc');
 
       vi.advanceTimersByTime(300);
 
       await waitFor(() => {
-        const noResults = screen.getByTestId('no-results');
+        const noResults = screen.getByText('No products found');
         expect(noResults.textContent).toMatch(/no products found/i);
       });
     });
@@ -447,7 +453,7 @@ describe('ProductSearch Component', () => {
 
       await waitFor(() => {
         // Pagination may appear if results exceed page size
-        screen.queryByTestId('pagination');
+        screen.queryByRole('group', { name: 'Pagination controls' });
         // Depends on mock data returning has_more=true
       });
     });
@@ -456,31 +462,31 @@ describe('ProductSearch Component', () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
       // Search for something with few results
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'xyznonexistent123abc');
 
       vi.advanceTimersByTime(300);
 
       await waitFor(() => {
-        const noResults = screen.getByTestId('no-results');
+        const noResults = screen.getByText('No products found');
         expect(noResults).toBeInTheDocument();
       });
 
       // Pagination should not appear for empty results
-      expect(screen.queryByTestId('pagination')).not.toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: 'Pagination controls' })).not.toBeInTheDocument();
     });
 
     it('should reset to first page when search query changes', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
       vi.advanceTimersByTime(300);
 
       await waitFor(() => {
-        expect(screen.queryByTestId('results-grid') ||
-               screen.queryByTestId('no-results')).toBeTruthy();
+        expect(screen.queryByRole('group', { name: 'Search results' }) ||
+               screen.queryByText('No products found')).toBeTruthy();
       });
 
       // Type new search
@@ -497,13 +503,13 @@ describe('ProductSearch Component', () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('filter-button')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^Filters/ })).toBeInTheDocument();
       });
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -528,10 +534,10 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch onProductSelect={onProductSelect} />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('results-grid')).toBeInTheDocument();
+        expect(screen.getByRole('group', { name: 'Search results' })).toBeInTheDocument();
       });
 
-      const cards = screen.getAllByTestId(/^product-card-/);
+      const cards = getAllCards();
       if (cards.length > 0) {
         await userEvent.click(cards[0]);
         expect(onProductSelect).toHaveBeenCalled();
@@ -544,10 +550,10 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch onProductSelect={onProductSelect} />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('results-grid')).toBeInTheDocument();
+        expect(screen.getByRole('group', { name: 'Search results' })).toBeInTheDocument();
       });
 
-      const cards = screen.getAllByTestId(/^product-card-/);
+      const cards = getAllCards();
       if (cards.length > 0) {
         await userEvent.click(cards[0]);
 
@@ -589,7 +595,7 @@ describe('ProductSearch Component', () => {
     it('should have accessible search input', async () => {
       renderWithProviders(<ProductSearch />);
 
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
 
       // Input should be accessible
       expect(input.tagName.toLowerCase()).toBe('input');
@@ -600,7 +606,7 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch />);
 
       // Either visible label or aria-label
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       const hasLabel = input.hasAttribute('aria-label') ||
                        input.hasAttribute('aria-labelledby') ||
                        screen.queryByLabelText(/search/i);
@@ -610,7 +616,7 @@ describe('ProductSearch Component', () => {
     it('should have keyboard-accessible filter button', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
 
       // Should be focusable
       filterButton.focus();
@@ -620,39 +626,39 @@ describe('ProductSearch Component', () => {
       await user.keyboard('{Enter}');
 
       await waitFor(() => {
-        expect(screen.getByTestId('filter-popover')).toBeInTheDocument();
+        expect(screen.getByRole('group', { name: 'Filters' })).toBeInTheDocument();
       });
     });
 
     it('should trap focus in filter popover when open', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
       await waitFor(() => {
-        expect(screen.getByTestId('filter-popover')).toBeInTheDocument();
+        expect(screen.getByRole('group', { name: 'Filters' })).toBeInTheDocument();
       });
 
       // Focus should be within popover
-      const popover = screen.getByTestId('filter-popover');
+      const popover = screen.getByRole('group', { name: 'Filters' });
       expect(popover.contains(document.activeElement)).toBe(true);
     });
 
     it('should close filter popover with Escape key', async () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
       await waitFor(() => {
-        expect(screen.getByTestId('filter-popover')).toBeInTheDocument();
+        expect(screen.getByRole('group', { name: 'Filters' })).toBeInTheDocument();
       });
 
       await user.keyboard('{Escape}');
 
       await waitFor(() => {
-        expect(screen.queryByTestId('filter-popover')).not.toBeInTheDocument();
+        expect(screen.queryByRole('group', { name: 'Filters' })).not.toBeInTheDocument();
       });
     });
 
@@ -660,9 +666,9 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch />);
 
       await waitFor(() => {
-        const grid = screen.queryByTestId('results-grid');
+        const grid = screen.queryByRole('group', { name: 'Search results' });
         if (grid) {
-          const cards = screen.getAllByTestId(/^product-card-/);
+          const cards = getAllCards();
           if (cards.length > 0) {
             // Cards should be interactive
             expect(cards[0]).toHaveAttribute('tabIndex');
@@ -675,7 +681,7 @@ describe('ProductSearch Component', () => {
       renderWithProviders(<ProductSearch />);
 
       await waitFor(() => {
-        const resultsCount = screen.getByTestId('results-count');
+        const resultsCount = screen.getByText(/^\d+ products? found/);
         // Results count should be accessible
         expect(resultsCount).toBeInTheDocument();
       });
@@ -691,14 +697,14 @@ describe('ProductSearch Component', () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
       // Type search query
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
       // Open and set filter
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -714,8 +720,8 @@ describe('ProductSearch Component', () => {
 
       // Should show filtered results
       await waitFor(() => {
-        expect(screen.queryByTestId('results-grid') ||
-               screen.queryByTestId('no-results')).toBeTruthy();
+        expect(screen.queryByRole('group', { name: 'Search results' }) ||
+               screen.queryByText('No products found')).toBeTruthy();
       });
     });
 
@@ -723,16 +729,16 @@ describe('ProductSearch Component', () => {
       const { user } = renderWithProviders(<ProductSearch />);
 
       // Type search query
-      const input = screen.getByTestId('search-input');
+      const input = screen.getByRole('textbox', { name: 'Search products' });
       await user.type(input, 'laptop');
 
       vi.advanceTimersByTime(300);
 
       // Open and set filter
-      const filterButton = screen.getByTestId('filter-button');
+      const filterButton = screen.getByRole('button', { name: /^Filters/ });
       await user.click(filterButton);
 
-      const industrySelect = screen.getByTestId('industry-select');
+      const industrySelect = screen.getByRole('combobox', { name: 'Industry' });
       await user.click(industrySelect);
 
       await waitFor(() => {
@@ -742,7 +748,7 @@ describe('ProductSearch Component', () => {
       await user.click(screen.getByText(/electronics/i));
 
       // Clear filters
-      const clearFilters = screen.getByTestId('clear-filters');
+      const clearFilters = screen.getByRole('button', { name: 'Clear all filters' });
       await user.click(clearFilters);
 
       // Search query should still be there

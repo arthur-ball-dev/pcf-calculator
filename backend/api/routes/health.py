@@ -58,7 +58,8 @@ async def readiness() -> JSONResponse:
 
     Unlike /health and /health/db, this opens a connection, so it fails on bad
     credentials or an unreachable database. The endpoint is public, so failure
-    detail goes to the server log only.
+    detail goes to the server log only. Each request runs a query, so the path
+    has its own rate limit (RATE_LIMIT_READINESS) rather than the /health exemption.
 
     Returns:
         JSONResponse: 200 with status "ready", or 503 with status "unavailable"

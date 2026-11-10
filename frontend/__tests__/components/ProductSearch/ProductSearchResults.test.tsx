@@ -18,6 +18,19 @@ import { render, screen, userEvent } from '../../testUtils';
 import { ProductSearchResults } from '@/components/ProductSearch/ProductSearchResults';
 import type { MockProduct } from '@/mocks/data/products';
 
+/** A product's card: a button when it is clickable, otherwise an article, named after the product. */
+function getCard(product: { name: string }): HTMLElement {
+  return (
+    screen.queryByRole('button', { name: product.name }) ??
+    screen.getByRole('article', { name: product.name })
+  );
+}
+
+/** Every product card on screen. */
+function queryAllCards(): HTMLElement[] {
+  return [...screen.queryAllByRole('button'), ...screen.queryAllByRole('article')];
+}
+
 // Mock product data matching API contract
 const mockProducts: MockProduct[] = [
   {
@@ -105,7 +118,7 @@ describe('ProductSearchResults Component', () => {
     it('should render a list of products', () => {
       render(<ProductSearchResults products={mockProducts} />);
 
-      expect(screen.getAllByTestId(/^product-card-/)).toHaveLength(mockProducts.length);
+      expect(queryAllCards()).toHaveLength(mockProducts.length);
     });
 
     it('should render each product in a card format', () => {
@@ -113,7 +126,7 @@ describe('ProductSearchResults Component', () => {
 
       // Each product should have its own card
       mockProducts.forEach((product) => {
-        expect(screen.getByTestId(`product-card-${product.id}`)).toBeInTheDocument();
+        expect(getCard(product)).toBeInTheDocument();
       });
     });
 
@@ -147,7 +160,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={[mockProductWithoutCategory]} />);
 
       // Should render without errors
-      expect(screen.getByTestId(`product-card-${mockProductWithoutCategory.id}`)).toBeInTheDocument();
+      expect(getCard(mockProductWithoutCategory)).toBeInTheDocument();
       expect(screen.getByText(mockProductWithoutCategory.name)).toBeInTheDocument();
     });
   });
@@ -168,7 +181,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={[mockProductWithoutCategory]} />);
 
       // Should render without errors even without manufacturer
-      expect(screen.getByTestId(`product-card-${mockProductWithoutCategory.id}`)).toBeInTheDocument();
+      expect(getCard(mockProductWithoutCategory)).toBeInTheDocument();
     });
 
     it('should display country of origin when present', () => {
@@ -183,7 +196,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={[mockProductWithoutCategory]} />);
 
       // Should render without errors
-      expect(screen.getByTestId(`product-card-${mockProductWithoutCategory.id}`)).toBeInTheDocument();
+      expect(getCard(mockProductWithoutCategory)).toBeInTheDocument();
     });
 
     it('should display description when present', () => {
@@ -193,7 +206,7 @@ describe('ProductSearchResults Component', () => {
       mockProducts.forEach((product) => {
         if (product.description) {
           // Check if description text exists (may be truncated with CSS)
-          const card = screen.getByTestId(`product-card-${product.id}`);
+          const card = getCard(product);
           expect(card).toBeInTheDocument();
         }
       });
@@ -222,7 +235,7 @@ describe('ProductSearchResults Component', () => {
 
       render(<ProductSearchResults products={[nonFinishedProduct]} />);
 
-      const card = screen.getByTestId(`product-card-${nonFinishedProduct.id}`);
+      const card = getCard(nonFinishedProduct);
 
       // Badge should not be in this specific card
       // Check that card doesn't contain "Finished" badge
@@ -237,8 +250,8 @@ describe('ProductSearchResults Component', () => {
       const nonFinishedProduct = mockProducts.find((p) => !p.is_finished_product);
 
       if (finishedProduct && nonFinishedProduct) {
-        const finishedCard = screen.getByTestId(`product-card-${finishedProduct.id}`);
-        const nonFinishedCard = screen.getByTestId(`product-card-${nonFinishedProduct.id}`);
+        const finishedCard = getCard(finishedProduct);
+        const nonFinishedCard = getCard(nonFinishedProduct);
 
         // They should exist and be different in some way
         expect(finishedCard).toBeInTheDocument();
@@ -257,7 +270,7 @@ describe('ProductSearchResults Component', () => {
 
       render(<ProductSearchResults products={mockProducts} onProductClick={onProductClick} />);
 
-      const firstCard = screen.getByTestId(`product-card-${mockProducts[0].id}`);
+      const firstCard = getCard(mockProducts[0]);
       await user.click(firstCard);
 
       expect(onProductClick).toHaveBeenCalledTimes(1);
@@ -268,7 +281,7 @@ describe('ProductSearchResults Component', () => {
 
       render(<ProductSearchResults products={mockProducts} onProductClick={onProductClick} />);
 
-      const firstCard = screen.getByTestId(`product-card-${mockProducts[0].id}`);
+      const firstCard = getCard(mockProducts[0]);
       await user.click(firstCard);
 
       expect(onProductClick).toHaveBeenCalledWith(mockProducts[0]);
@@ -277,7 +290,7 @@ describe('ProductSearchResults Component', () => {
     it('should make cards look clickable (cursor pointer)', () => {
       render(<ProductSearchResults products={mockProducts} onProductClick={() => {}} />);
 
-      const card = screen.getByTestId(`product-card-${mockProducts[0].id}`);
+      const card = getCard(mockProducts[0]);
 
       // Cards should have cursor:pointer style or be rendered as buttons
       expect(card).toBeInTheDocument();
@@ -289,7 +302,7 @@ describe('ProductSearchResults Component', () => {
 
       render(<ProductSearchResults products={mockProducts} onProductClick={onProductClick} />);
 
-      const card = screen.getByTestId(`product-card-${mockProducts[0].id}`);
+      const card = getCard(mockProducts[0]);
       card.focus();
 
       await user.keyboard('{Enter}');
@@ -300,7 +313,7 @@ describe('ProductSearchResults Component', () => {
     it('should have proper focus indicators', () => {
       render(<ProductSearchResults products={mockProducts} onProductClick={() => {}} />);
 
-      const card = screen.getByTestId(`product-card-${mockProducts[0].id}`);
+      const card = getCard(mockProducts[0]);
 
       // Card should be focusable
       expect(card).toHaveAttribute('tabIndex');
@@ -316,26 +329,26 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={[]} />);
 
       // Should not render any product cards
-      expect(screen.queryAllByTestId(/^product-card-/)).toHaveLength(0);
+      expect(queryAllCards()).toHaveLength(0);
     });
 
     it('should show empty state message when no products', () => {
       render(<ProductSearchResults products={[]} showEmptyState={true} />);
 
-      expect(screen.getByTestId('no-results')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toBeInTheDocument();
     });
 
     it('should show helpful message in empty state', () => {
       render(<ProductSearchResults products={[]} showEmptyState={true} />);
 
-      const emptyState = screen.getByTestId('no-results');
+      const emptyState = screen.getByRole('status');
       expect(emptyState.textContent).toMatch(/no products/i);
     });
 
     it('should not show empty state when showEmptyState is false', () => {
       render(<ProductSearchResults products={[]} showEmptyState={false} />);
 
-      expect(screen.queryByTestId('no-results')).not.toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
   });
 
@@ -348,14 +361,14 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={mockProducts} />);
 
       // Results should be in a grid container
-      const grid = screen.getByTestId('results-grid');
+      const grid = screen.getByRole('group', { name: 'Search results' });
       expect(grid).toBeInTheDocument();
     });
 
     it('should apply grid classes for responsive layout', () => {
       render(<ProductSearchResults products={mockProducts} />);
 
-      const grid = screen.getByTestId('results-grid');
+      const grid = screen.getByRole('group', { name: 'Search results' });
       // Grid should have appropriate CSS classes for responsive layout
       expect(grid).toBeInTheDocument();
     });
@@ -370,7 +383,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={mockProducts} />);
 
       // Grid should be properly structured
-      const grid = screen.getByTestId('results-grid');
+      const grid = screen.getByRole('group', { name: 'Search results' });
       expect(grid).toBeInTheDocument();
     });
 
@@ -378,7 +391,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={mockProducts} onProductClick={() => {}} />);
 
       mockProducts.forEach((product) => {
-        const card = screen.getByTestId(`product-card-${product.id}`);
+        const card = getCard(product);
 
         // Cards should be focusable when clickable
         expect(card.hasAttribute('tabIndex') || card.tagName.toLowerCase() === 'button').toBeTruthy();
@@ -398,7 +411,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={mockProducts} />);
 
       // Product names should be in heading elements or have proper semantic structure
-      const card = screen.getByTestId(`product-card-${mockProducts[0].id}`);
+      const card = getCard(mockProducts[0]);
       expect(card).toBeInTheDocument();
     });
   });
@@ -418,7 +431,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={[longNameProduct]} />);
 
       // Should render without breaking layout
-      expect(screen.getByTestId(`product-card-${longNameProduct.id}`)).toBeInTheDocument();
+      expect(getCard(longNameProduct)).toBeInTheDocument();
     });
 
     it('should handle product with very long description', () => {
@@ -431,7 +444,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={[longDescProduct]} />);
 
       // Should render without breaking layout
-      expect(screen.getByTestId(`product-card-${longDescProduct.id}`)).toBeInTheDocument();
+      expect(getCard(longDescProduct)).toBeInTheDocument();
     });
 
     it('should handle product with null description', () => {
@@ -444,7 +457,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={[nullDescProduct]} />);
 
       // Should render without errors
-      expect(screen.getByTestId(`product-card-${nullDescProduct.id}`)).toBeInTheDocument();
+      expect(getCard(nullDescProduct)).toBeInTheDocument();
     });
 
     it('should handle large number of products', () => {
@@ -458,7 +471,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={manyProducts} />);
 
       // Should render all products
-      expect(screen.getAllByTestId(/^product-card-/)).toHaveLength(100);
+      expect(queryAllCards()).toHaveLength(100);
     });
 
     it('should handle products with special characters in name', () => {
@@ -471,7 +484,7 @@ describe('ProductSearchResults Component', () => {
       render(<ProductSearchResults products={[specialCharProduct]} />);
 
       // Should escape and display properly
-      expect(screen.getByTestId(`product-card-${specialCharProduct.id}`)).toBeInTheDocument();
+      expect(getCard(specialCharProduct)).toBeInTheDocument();
     });
   });
 
