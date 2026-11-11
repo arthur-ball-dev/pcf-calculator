@@ -4,6 +4,12 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
+/** Matches modules inside the given packages under node_modules (POSIX or Windows separators) */
+function nodeModules(packages: string[]): RegExp {
+  const names = packages.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('/', '[\\\\/]'));
+  return new RegExp(`[\\\\/]node_modules[\\\\/](?:${names.join('|')})[\\\\/]`);
+}
+
 export default defineConfig({
   plugins: [
     react(),
@@ -67,50 +73,44 @@ export default defineConfig({
   // Build Configuration - TASK-FE-P7-024: Bundle Optimization
   // =============================================================================
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        // Manual chunk splitting for optimal bundle sizes
-        // Uses object syntax to avoid circular dependency issues with Rollup helpers
-        manualChunks: {
-          'vendor-react': [
-            'react',
-            'react-dom',
-            'scheduler',
-          ],
-          'charts': [
-            '@nivo/core',
-            '@nivo/sankey',
-            '@nivo/colors',
-            '@nivo/legends',
-            '@nivo/text',
-            '@nivo/theming',
-            '@nivo/tooltip',
-          ],
-          'state': [
-            'zustand',
-            'immer',
-            '@tanstack/react-query',
-          ],
-          'vendor-ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-select',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-checkbox',
-            '@radix-ui/react-radio-group',
-            '@radix-ui/react-label',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-slot',
-          ],
-          'forms': [
-            'react-hook-form',
-            '@hookform/resolvers',
-            'zod',
-          ],
-          'icons': [
-            'lucide-react',
+        // Vendor chunks for caching between releases. Vite 8 (Rolldown) dropped the object form of
+        // manualChunks; codeSplitting groups capture modules by path instead.
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-react', test: nodeModules(['react', 'react-dom', 'scheduler']) },
+            {
+              name: 'charts',
+              test: nodeModules([
+                '@nivo/core',
+                '@nivo/sankey',
+                '@nivo/colors',
+                '@nivo/legends',
+                '@nivo/text',
+                '@nivo/theming',
+                '@nivo/tooltip',
+              ]),
+            },
+            { name: 'state', test: nodeModules(['zustand', 'immer', '@tanstack/react-query']) },
+            {
+              name: 'vendor-ui',
+              test: nodeModules([
+                '@radix-ui/react-dialog',
+                '@radix-ui/react-select',
+                '@radix-ui/react-popover',
+                '@radix-ui/react-dropdown-menu',
+                '@radix-ui/react-tooltip',
+                '@radix-ui/react-checkbox',
+                '@radix-ui/react-radio-group',
+                '@radix-ui/react-label',
+                '@radix-ui/react-separator',
+                '@radix-ui/react-alert-dialog',
+                '@radix-ui/react-slot',
+              ]),
+            },
+            { name: 'forms', test: nodeModules(['react-hook-form', '@hookform/resolvers', 'zod']) },
+            { name: 'icons', test: nodeModules(['lucide-react']) },
           ],
         },
       },
@@ -158,7 +158,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
 });

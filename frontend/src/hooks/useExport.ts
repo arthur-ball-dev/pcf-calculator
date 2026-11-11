@@ -14,10 +14,16 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { exportToCSV, type CSVOptions } from '@/utils/export/csvExport';
-import { exportToExcel, type CalculationExportData } from '@/utils/export/excelExport';
+import type { CalculationExportData } from '@/utils/export/excelExport';
+import { getLoadedExcelExport, preloadExcelExport } from '@/utils/export/loadExcelExport';
 import { classifyComponent, formatCategoryLabel } from '@/utils/classifyComponent';
 import type { DataSourceInfo } from '@/utils/exportAttribution';
 import type { CalculationStatusResponse } from '@/types/api.types';
+
+// Fetch the Excel export chunk (ExcelJS) in the background so an export does not wait on it (#179)
+preloadExcelExport().catch(() => {
+  // Retried on the first Excel export; that export reports the error
+});
 
 // Default data sources with attribution info
 // Used when explicit data sources are not provided
@@ -289,7 +295,8 @@ export function useExport(
 
       const filename = generateFilename(productInfo.name, productInfo.code);
       // await the result in case the function returns a Promise (for testing mocks)
-      await exportToExcel(exportData, filename);
+      const excelExport = getLoadedExcelExport() ?? (await preloadExcelExport());
+      await excelExport.exportToExcel(exportData, filename);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Excel export failed';
       setError(message);

@@ -10,11 +10,11 @@
  * - Column width configuration
  * - Cell formatting for numbers and percentages
  * - Download triggering with proper MIME type
- * - Dynamic import of exceljs library for code splitting
+ * - Loaded on demand by its callers, so exceljs stays out of the main bundle
  * - Attribution sheet for data source compliance
  *
- * Note: The main exportToExcel function uses dynamic import to keep exceljs
- * out of the initial bundle. The helper functions (createWorkbook, addSummarySheet, etc.)
+ * Note: ExportDialog and useExport import this module dynamically to keep exceljs
+ * out of the initial bundle (#179). The helper functions (createWorkbook, addSummarySheet, etc.)
  * are kept synchronous for backward compatibility with existing tests.
  */
 
@@ -291,16 +291,15 @@ export function addAttributionSheet(
 
 /**
  * Export data to Excel file
- * Uses dynamic import to load exceljs library on demand for bundle optimization.
+ * Callers import this module dynamically, which keeps exceljs out of the main bundle.
  * This is the main entry point for Excel export functionality.
  */
 export async function exportToExcel(
   data: CalculationExportData,
   filename: string
 ): Promise<void> {
-  // Dynamically load exceljs - this is where the code splitting happens
-  const ExcelJSModule = await import('exceljs');
-  const workbook = new ExcelJSModule.default.Workbook();
+  // The whole module is loaded on demand by its callers, so ExcelJS lands in that lazy chunk (#179)
+  const workbook = new ExcelJS.Workbook();
 
   // Add Summary sheet
   const dateStr = data.calculationDate

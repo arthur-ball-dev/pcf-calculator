@@ -26,7 +26,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { exportToCSV, type CSVOptions } from '@/utils/export/csvExport';
-import { exportToExcel, type CalculationExportData } from '@/utils/export/excelExport';
+// Excel export (and ExcelJS with it) loads on first use, keeping it out of the main bundle (#179)
+import type { CalculationExportData } from '@/utils/export/excelExport';
+import { loadExcelExport } from '@/utils/export/loadExcelExport';
 import type { CalculationStatusResponse } from '@/types/api.types';
 
 type ExportFormat = 'csv' | 'excel';
@@ -185,6 +187,7 @@ export function ExportDialog({
           parameters: {},
         };
 
+        const { exportToExcel } = await loadExcelExport();
         await exportToExcel(exportData, filename);
       }
 
