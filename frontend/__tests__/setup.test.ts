@@ -64,7 +64,7 @@ describe('TASK-FE-001: Project Setup Verification', () => {
         // Core dependencies
         'zustand': '^5.0.0',
         'react-hook-form': '^7.51.0',
-        '@hookform/resolvers': '^5.9.1',
+        '@hookform/resolvers': '^7.0.3',
         'zod': '^4.6.6',
         'axios': '^1.6.0',
         '@nivo/core': '^0.85.0',

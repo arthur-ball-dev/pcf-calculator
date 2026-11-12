@@ -1,6 +1,6 @@
 # Direct dependencies pinned to exact versions (2026-10-19) so fresh Railway builds are reproducible.
 # Unpinned ranges let a rebuild pull SQLAlchemy 2.1, which dropped its implicit greenlet dependency.
-fastapi==0.162.1
+fastapi==0.162.2
 uvicorn[standard]==0.54.0
 sqlalchemy[asyncio]==2.1.8  # [asyncio] extra installs greenlet
 pydantic==2.14.3
