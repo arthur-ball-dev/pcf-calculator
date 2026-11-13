@@ -179,6 +179,8 @@ interface SankeyDiagramProps {
   height?: number;
   /** Callback when a category node is clicked (not triggered for 'total' node) */
   onNodeClick?: (node: SankeyNodeClickData) => void;
+  /** Category of a component by its BOM row (#195); the name is classified otherwise */
+  categoryOf?: (componentName: string) => 'materials' | 'energy' | 'transport' | 'combustion' | 'other' | undefined;
 }
 
 /** Categories that are drillable (not including 'total') */
@@ -245,6 +247,7 @@ export default function SankeyDiagram({
   width,
   height,
   onNodeClick,
+  categoryOf,
 }: SankeyDiagramProps) {
   // State for expanded category (null = overview, string = expanded category)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -258,10 +261,10 @@ export default function SankeyDiagram({
   // Transform calculation data to Sankey format (overview or expanded)
   const sankeyData = useMemo(() => {
     if (expandedCategory) {
-      return transformToExpandedSankeyData(calculation, expandedCategory);
+      return transformToExpandedSankeyData(calculation, expandedCategory, categoryOf);
     }
-    return transformToSankeyData(calculation);
-  }, [calculation, expandedCategory]);
+    return transformToSankeyData(calculation, categoryOf);
+  }, [calculation, expandedCategory, categoryOf]);
 
   // Create label map and custom labels layer for text wrapping
   const customLabelsLayer = useMemo(() => {
@@ -337,7 +340,7 @@ export default function SankeyDiagram({
       // If in overview mode and clicked a drillable category, try to expand it
       if (!expandedCategory && DRILLABLE_CATEGORIES.includes(nodeId)) {
         // Check if expanding would produce valid data before drilling down
-        const expandedData = transformToExpandedSankeyData(calculation, nodeId);
+        const expandedData = transformToExpandedSankeyData(calculation, nodeId, categoryOf);
 
         // Only drill down if the expanded view would have valid nodes
         if (expandedData.nodes.length > 0) {
@@ -361,7 +364,7 @@ export default function SankeyDiagram({
         }
       }
     },
-    [expandedCategory, onNodeClick, sankeyData.nodes, calculation]
+    [expandedCategory, onNodeClick, sankeyData.nodes, calculation, categoryOf]
   );
 
   // Handle back button click

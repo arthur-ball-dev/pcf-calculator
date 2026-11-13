@@ -163,8 +163,16 @@ export function useCalculation(): UseCalculationReturn {
 
     try {
       // Submit calculation request
+      // Send the BOM as edited, so the result reflects the user's changes (#195)
       const response = await api.calculations.submit({
         product_id: String(productId),
+        bom: items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          category: item.category,
+          emission_factor_id: item.emissionFactorId,
+        })),
       });
 
       const calculationId = response.calculation_id;

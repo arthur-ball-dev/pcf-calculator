@@ -19,8 +19,8 @@ import { handlers } from './handlers';
  *
  * Override handlers:
  * server.use(
- *   rest.get('/api/v1/products', (req, res, ctx) => {
- *     return res(ctx.status(500), ctx.json({ error: 'Server error' }))
+ *   http.get('/api/v1/products', () => {
+ *     return HttpResponse.json({ error: 'Server error' }, { status: 500 })
  *   })
  * )
  */

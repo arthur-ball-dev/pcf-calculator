@@ -56,6 +56,8 @@ interface BreakdownTableProps {
   transportCO2e?: number;
   breakdown?: BreakdownByComponent;
   itemSources?: Record<string, string>;
+  /** Category of a component by its BOM row (#195); the name is classified otherwise */
+  categoryOf?: (componentName: string) => string | undefined;
 }
 
 /**
@@ -151,6 +153,7 @@ export default function BreakdownTable({
   transportCO2e = 0,
   breakdown,
   itemSources,
+  categoryOf,
 }: BreakdownTableProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
@@ -160,12 +163,14 @@ export default function BreakdownTable({
       materials: { category: 'materials', total: 0, percentage: 0, items: [] },
       energy: { category: 'energy', total: 0, percentage: 0, items: [] },
       transport: { category: 'transport', total: 0, percentage: 0, items: [] },
+      combustion: { category: 'combustion', total: 0, percentage: 0, items: [] },
       other: { category: 'other', total: 0, percentage: 0, items: [] },
     };
 
     if (breakdown && Object.keys(breakdown).length > 0) {
       Object.entries(breakdown).forEach(([componentName, co2e]) => {
-        const category = classifyComponent(componentName);
+        const rowCategory = categoryOf?.(componentName);
+        const category = rowCategory && rowCategory in categoriesMap ? rowCategory : classifyComponent(componentName);
         const dataSource = itemSources?.[componentName];
         categoriesMap[category].items.push({
           name: componentName,
@@ -191,7 +196,7 @@ export default function BreakdownTable({
     return Object.values(categoriesMap)
       .filter((cat) => cat.total > 0)
       .sort((a, b) => b.total - a.total);
-  }, [totalCO2e, materialsCO2e, energyCO2e, transportCO2e, breakdown, itemSources]);
+  }, [totalCO2e, materialsCO2e, energyCO2e, transportCO2e, breakdown, itemSources, categoryOf]);
 
   /**
    * Toggle category expansion

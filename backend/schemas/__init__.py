@@ -91,6 +91,37 @@ class ProductListResponse(BaseModel):
 CalculationType = Literal["cradle_to_gate", "cradle_to_grave", "gate_to_gate"]
 
 
+# BOM row categories as the wizard's BOM editor offers them
+BOMLineCategory = Literal["material", "energy", "transport", "combustion", "other"]
+
+# Matches the BOM editor's limit (frontend/src/schemas/bomSchema.ts)
+MAX_SUBMITTED_BOM_ROWS = 100
+
+
+class CalculationBOMLine(BaseModel):
+    """One row of the BOM as edited in the wizard (#195)."""
+    name: str = Field(..., max_length=200, description="Component name; unique within the BOM")
+    quantity: float = Field(
+        ..., gt=0, le=1e9, allow_inf_nan=False, description="Amount, in `unit`"
+    )
+    unit: str = Field(
+        ..., min_length=1, max_length=20,
+        description="Unit of quantity; converted to the emission factor's unit",
+    )
+    category: BOMLineCategory = Field(..., description="Breakdown category of the row")
+    emission_factor_id: str = Field(
+        ..., min_length=1, max_length=64, description="Emission factor to multiply by"
+    )
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Name must not be blank")
+        return value
+
+
 class CalculationRequest(BaseModel):
     """Request model for POST /calculate"""
     product_id: str = Field(..., min_length=1, description="UUID of product to calculate PCF for")
@@ -98,12 +129,30 @@ class CalculationRequest(BaseModel):
         default="cradle_to_gate",
         description="Type of calculation: cradle_to_gate, cradle_to_grave, or gate_to_gate"
     )
+    bom: Optional[List[CalculationBOMLine]] = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_SUBMITTED_BOM_ROWS,
+        description=(
+            "The BOM as edited by the user. When given, the calculation uses these rows "
+            "instead of the product's catalog BOM; they are not stored."
+        ),
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "product_id": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
-                "calculation_type": "cradle_to_gate"
+                "calculation_type": "cradle_to_gate",
+                "bom": [
+                    {
+                        "name": "Cotton Fabric",
+                        "quantity": 0.18,
+                        "unit": "kg",
+                        "category": "material",
+                        "emission_factor_id": "471fe408a2604386bae572d9fc9a6b5c",
+                    }
+                ],
             }
         }
     )

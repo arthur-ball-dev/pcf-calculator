@@ -105,8 +105,9 @@ def get_product_service(
 def get_calculation_service(
     calculation_repo: CalculationRepository = Depends(get_calculation_repository),
     product_repo: ProductRepository = Depends(get_product_repository),
+    emission_factor_repo: EmissionFactorRepository = Depends(get_emission_factor_repository),
 ) -> CalculationService:
-    return CalculationService(calculation_repo, product_repo)
+    return CalculationService(calculation_repo, product_repo, emission_factor_repo)
 
 
 def get_category_service(

@@ -43,6 +43,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.domain.units import are_compatible
 from backend.models import EmissionFactor, DataSource
 
 
@@ -50,6 +51,27 @@ logger = logging.getLogger(__name__)
 
 # Path to mapping configuration
 MAPPING_CONFIG_PATH = Path(__file__).parent.parent.parent / "data" / "emission_factor_mappings.json"
+
+
+def _unit_fits(factor: Any, unit: Optional[str]) -> bool:
+    """Whether a quantity in `unit` converts to the factor's unit (no unit on either side fits)."""
+    factor_unit = getattr(factor, "unit", None)
+    if not isinstance(unit, str) or not unit or not isinstance(factor_unit, str) or not factor_unit:
+        return True
+    return are_compatible(unit, factor_unit)
+
+
+def pick_factor_for_unit(candidates: List[Any], unit: Optional[str]) -> Optional[Any]:
+    """
+    The first candidate whose unit the row's unit converts to, else the first candidate.
+
+    #195: a BOM row is calculated as quantity converted to the factor's unit, so a factor of
+    another kind (a tkm row against a per-vehicle-mile factor) can't be used for it.
+    """
+    for factor in candidates:
+        if _unit_fits(factor, unit):
+            return factor
+    return candidates[0] if candidates else None
 
 
 class EmissionFactorMapper:
@@ -164,6 +186,11 @@ class EmissionFactorMapper:
         # Check if component has configured mappings
         activity_names = self._mappings.get(component_name, [])
 
+        # A match whose unit the row's unit can't be converted to is kept only as a last resort
+        # (#195): EPA lists the same truck per vehicle-mile and per short ton-mile, and a tkm row
+        # needs the latter.
+        candidates: List[EmissionFactor] = []
+
         for activity_name in activity_names:
             # Try exact match on this activity_name
             query = select(EmissionFactor).where(
@@ -177,10 +204,12 @@ class EmissionFactorMapper:
             factor = result.scalar_one_or_none()
 
             if factor:
-                logger.debug(
-                    f"Mapping lookup found: {component_name} -> {activity_name}"
-                )
-                return factor
+                if _unit_fits(factor, unit):
+                    logger.debug(
+                        f"Mapping lookup found: {component_name} -> {activity_name}"
+                    )
+                    return factor
+                candidates.append(factor)
 
             # Try partial match (activity_name contains the pattern)
             query = select(EmissionFactor).where(
@@ -193,14 +222,17 @@ class EmissionFactorMapper:
             result = await self.db.execute(query)
             factors = result.scalars().all()
             if factors:
-                # Return best match (shortest name)
-                factor = min(factors, key=lambda f: len(f.activity_name))
-                logger.debug(
-                    f"Mapping partial lookup found: {component_name} -> {factor.activity_name}"
-                )
-                return factor
+                # Best match first (shortest name), preferring a unit the row converts to
+                ranked = sorted(factors, key=lambda f: len(f.activity_name))
+                factor = pick_factor_for_unit(ranked, unit)
+                if _unit_fits(factor, unit):
+                    logger.debug(
+                        f"Mapping partial lookup found: {component_name} -> {factor.activity_name}"
+                    )
+                    return factor
+                candidates.extend(ranked)
 
-        return None
+        return pick_factor_for_unit(candidates, unit)
 
     async def get_factor_for_component(
         self,

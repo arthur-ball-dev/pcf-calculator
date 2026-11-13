@@ -17,7 +17,7 @@ const API_BASE_URL = 'http://localhost:8000';
 const server = setupServer(...phase5Handlers);
 
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'error' });
+  server.listen({ onUnhandledFrame: 'error' });
 });
 
 afterEach(() => {

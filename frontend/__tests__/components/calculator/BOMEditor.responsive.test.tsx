@@ -292,8 +292,8 @@ describe('BOMEditor Responsive Layout', () => {
       render(<BOMEditor />);
 
       await waitFor(() => {
-        expect(screen.getByText('Cotton')).toBeInTheDocument();
-        expect(screen.getByText('Polyester')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Cotton')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Polyester')).toBeInTheDocument();
       });
     });
   });
@@ -348,7 +348,7 @@ describe('BOMEditor Responsive Layout', () => {
 
       // Data should still be present in card view
       await waitFor(() => {
-        expect(screen.getByText('Cotton')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Cotton')).toBeInTheDocument();
         expect(screen.getByText('1.5')).toBeInTheDocument();
       });
     }, 15000);
@@ -362,7 +362,7 @@ describe('BOMEditor Responsive Layout', () => {
       });
 
       // Verify data is present in card view
-      expect(screen.getByText('Cotton')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Cotton')).toBeInTheDocument();
       expect(screen.getByText('1.5')).toBeInTheDocument();
 
       // Simulate resize to desktop

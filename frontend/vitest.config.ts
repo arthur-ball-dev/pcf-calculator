@@ -25,6 +25,12 @@ export default defineConfig({
     env: {
       VITE_API_BASE_URL: 'http://localhost:8000',
     },
+    // Serve the jsdom page from the API origin. Since msw 2, a mocked XMLHttpRequest response
+    // goes through jsdom's CORS check; from the default page origin (localhost:3000) every
+    // axios call to the mocked localhost:8000 API failed with "Network Error" (msw 1 bypassed it).
+    environmentOptions: {
+      jsdom: { url: 'http://localhost:8000' },
+    },
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

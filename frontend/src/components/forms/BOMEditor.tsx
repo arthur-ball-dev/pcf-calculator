@@ -47,7 +47,7 @@ import { BOMCardList } from '@/components/calculator/BOMCardList';
 import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { useEmissionFactors, type EmissionFactor } from '@/hooks/useEmissionFactors';
 import { generateId } from '@/lib/utils';
-import { classifyComponent } from '@/utils/classifyComponent';
+import { categoryAfterRename, rowCO2e } from '@/utils/bomRow';
 import type { BOMItem } from '@/types/store.types';
 
 /**
@@ -68,17 +68,6 @@ const DEFAULT_BOM_ITEM: Omit<BOMItem, 'id'> = {
   category: 'material',
   emissionFactorId: null,
 };
-
-/**
- * Auto-classify BOM items based on component name
- */
-function classifyBOMItems(items: BOMItem[]): BOMItem[] {
-  return items.map((item) => {
-    const classified = classifyComponent(item.name);
-    const formCategory = classified === 'materials' ? 'material' : classified;
-    return { ...item, category: formCategory };
-  });
-}
 
 /**
  * Loading skeleton component for BOM Editor
@@ -125,8 +114,10 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
   const form = useForm<BOMFormData>({
     resolver: zodResolver(bomFormSchema),
     defaultValues: {
+      // Categories are taken as stored: the catalog load derives them from names once, and
+      // after that they are the user's to change (#195)
       items: bomItems.length > 0
-        ? classifyBOMItems(JSON.parse(JSON.stringify(bomItems)))
+        ? JSON.parse(JSON.stringify(bomItems))
         : [{ id: generateId(), ...DEFAULT_BOM_ITEM }],
     },
     mode: 'onChange',
@@ -152,9 +143,8 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     const currentBomJson = JSON.stringify(bomItems);
     if (currentBomJson === lastBomItemsRef.current) return;
     if (bomItems.length > 0) {
-      const classifiedItems = classifyBOMItems(JSON.parse(currentBomJson));
-      lastBomItemsRef.current = JSON.stringify(classifiedItems);
-      form.reset({ items: classifiedItems });
+      lastBomItemsRef.current = currentBomJson;
+      form.reset({ items: JSON.parse(currentBomJson) });
     }
   }, [bomItems, form]);
 
@@ -180,12 +170,27 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     [fieldCount, handleRemoveComponent],
   );
 
+  // A phone card edits the same fields as a desktop row (#195)
   const handleCardUpdate = useCallback((id: string, updates: Partial<BOMItem>) => {
     const itemIndex = fields.findIndex((field) => field.id === id);
-    if (itemIndex !== -1 && updates.quantity !== undefined) {
-      const fieldPath = `items.${itemIndex}.quantity` as FieldPath<BOMFormData>;
-      form.setValue(fieldPath, updates.quantity, { shouldValidate: true, shouldDirty: true });
+    if (itemIndex === -1) return;
+    const options = { shouldValidate: true, shouldDirty: true };
+    const path = (key: keyof BOMItem) => `items.${itemIndex}.${key}` as FieldPath<BOMFormData>;
+
+    if (updates.name !== undefined) {
+      const previousName = form.getValues(`items.${itemIndex}.name`) || '';
+      const currentCategory = form.getValues(`items.${itemIndex}.category`) as BOMItem['category'];
+      form.setValue(path('name'), updates.name, options);
+      if (updates.name && updates.category === undefined) {
+        form.setValue(path('category'), categoryAfterRename(previousName, updates.name, currentCategory), options);
+      }
     }
+    if (updates.category !== undefined) form.setValue(path('category'), updates.category, options);
+    if (updates.unit !== undefined) form.setValue(path('unit'), updates.unit, options);
+    if (updates.emissionFactorId !== undefined) {
+      form.setValue(path('emissionFactorId'), updates.emissionFactorId, options);
+    }
+    if (updates.quantity !== undefined) form.setValue(path('quantity'), updates.quantity, options);
   }, [fields, form]);
 
   const handleCardRemove = useCallback((id: string) => {
@@ -203,10 +208,12 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
   // directly gives the answer on the first render; react-hook-form's isValid starts false and
   // settles only after its async resolver runs, which made the step go incomplete -> complete
   // on every visit and lost Calculate clicks in between (#133).
-  const isBomValid = useMemo(
-    () => bomFormSchema.safeParse({ items: JSON.parse(watchedItemsJson) }).success,
-    [watchedItemsJson],
-  );
+  // A row without an emission factor is valid to edit but can't be calculated, so it keeps the
+  // step incomplete (and Calculate disabled) until it has one (#195)
+  const isBomValid = useMemo(() => {
+    const items = JSON.parse(watchedItemsJson) as BOMFormData['items'];
+    return bomFormSchema.safeParse({ items }).success && items.every((i) => Boolean(i.emissionFactorId));
+  }, [watchedItemsJson]);
   useEffect(() => {
     if (isBomValid) {
       markStepComplete('edit');
@@ -245,9 +252,10 @@ const BOMEditorForm: React.FC<BOMEditorFormProps> = ({ emissionFactors, isLoadin
     for (const item of watchedItems) {
       if (item.emissionFactorId) {
         const factor = emissionFactors.find(f => f.id === item.emissionFactorId);
-        if (factor) {
+        const co2e = rowCO2e(item.quantity, item.unit, factor);
+        if (co2e !== null) {
           hasAnyFactor = true;
-          total += (item.quantity || 0) * factor.co2e_factor;
+          total += co2e;
         }
       }
     }

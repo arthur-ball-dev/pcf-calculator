@@ -148,7 +148,7 @@ async def domain_validation_handler(request: Request, exc: DomainValidationError
     logger.warning(f"Domain validation error: {exc.message}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=create_error_dict(code="VALIDATION_ERROR", message=exc.message),
+        content=create_error_dict(code="VALIDATION_ERROR", message=exc.message, details=exc.details),
     )
 
 

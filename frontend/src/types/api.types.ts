@@ -101,9 +101,20 @@ export interface ProductSearchResponse {
 
 export type CalculationType = 'cradle_to_gate' | 'cradle_to_grave' | 'gate_to_gate';
 
+/** One row of the BOM as edited in the wizard (#195); mirrors backend CalculationBOMLine */
+export interface CalculationBOMLine {
+  name: string;
+  quantity: number;
+  unit: string;
+  category: 'material' | 'energy' | 'transport' | 'combustion' | 'other';
+  emission_factor_id: string | null;
+}
+
 export interface CalculationRequest {
   product_id: string;
   calculation_type?: CalculationType;
+  /** The edited BOM; the backend calculates these rows instead of the catalog BOM */
+  bom?: CalculationBOMLine[];
 }
 
 export interface CalculationStartResponse {

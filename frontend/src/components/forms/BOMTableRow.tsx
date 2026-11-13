@@ -12,6 +12,8 @@
  *   the row subscribes to its own fields with useWatch, and onRemove must be stable
  * - Support for virtualized rendering (TASK-FE-P8-007)
  * - Emerald Night 5B: pill-shaped quantity controls, category dot badges, per-row CO2e
+ * - #195: category picker; unit picklist limited to the factor's unit kind; choosing a factor
+ *   of another kind switches the unit; missing-factor hint; CO2e preview converts units
  *
  * Props:
  * - field: Field object from useFieldArray (properly typed)
@@ -32,13 +34,6 @@ import { useWatch } from 'react-hook-form';
 import type { UseFormReturn, FieldArrayWithId, ControllerRenderProps } from 'react-hook-form';
 import { Trash2, Minus, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   FormControl,
   FormField,
@@ -65,53 +60,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { TableCell, TableRow } from '@/components/ui/table';
 import type { EmissionFactor } from '@/hooks/useEmissionFactors';
-import { classifyComponent } from '@/utils/classifyComponent';
-import { EMISSION_CATEGORY_COLORS } from '@/constants/colors';
+import { categoryAfterRename, rowCO2e as computeRowCO2e } from '@/utils/bomRow';
+import { unitForFactorChange } from '@/utils/units';
+import {
+  CategorySelect,
+  EmissionFactorSelect,
+  MissingFactorHint,
+  UnitSelect,
+} from '@/components/forms/bomFields/BOMFieldSelects';
+import type { BOMItemCategory } from '@/types/store.types';
 import { SourceBadge } from '@/components/attribution/SourceBadge';
 import { emissionFactorsAPI } from '@/services/api/emissionFactors';
 import type { BOMFormData } from '@/schemas/bomSchema';
-
-/**
- * Available units for BOM items
- */
-const UNITS = ['kg', 'g', 'L', 'mL', 'kWh', 'MJ', 'tkm', 'm', 'cm'] as const;
-
-/**
- * Category display config with color dots
- * Maps form category values to display labels and color codes
- */
-const CATEGORY_CONFIG: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  material: {
-    label: 'Materials',
-    color: EMISSION_CATEGORY_COLORS.materials,
-    bgColor: 'rgba(16, 185, 129, 0.18)',
-    borderColor: 'rgba(16, 185, 129, 0.22)',
-  },
-  energy: {
-    label: 'Energy',
-    color: EMISSION_CATEGORY_COLORS.energy,
-    bgColor: 'rgba(245, 158, 11, 0.18)',
-    borderColor: 'rgba(245, 158, 11, 0.22)',
-  },
-  transport: {
-    label: 'Transport',
-    color: EMISSION_CATEGORY_COLORS.transport,
-    bgColor: 'rgba(59, 130, 246, 0.18)',
-    borderColor: 'rgba(59, 130, 246, 0.22)',
-  },
-  combustion: {
-    label: 'Combustion',
-    color: '#E91E63',
-    bgColor: 'rgba(233, 30, 99, 0.18)',
-    borderColor: 'rgba(233, 30, 99, 0.22)',
-  },
-  other: {
-    label: 'Other',
-    color: EMISSION_CATEGORY_COLORS.other,
-    bgColor: 'rgba(148, 163, 184, 0.15)',
-    borderColor: 'rgba(148, 163, 184, 0.18)',
-  },
-};
 
 /**
  * Type for field from useFieldArray<BOMFormData, 'items'>
@@ -138,12 +98,6 @@ interface BOMTableRowProps {
   isLoadingFactors?: boolean;
 }
 
-/**
- * Maximum number of emission factors to render in dropdown
- * This prevents rendering 300+ SelectItems which causes severe performance issues
- */
-const MAX_DROPDOWN_ITEMS = 50;
-
 const BOMTableRow = React.memo(function BOMTableRow({
   index,
   form,
@@ -156,57 +110,28 @@ const BOMTableRow = React.memo(function BOMTableRow({
   // The row subscribes to its own fields, so it re-renders when they change even though
   // React.memo skips it when the parent re-renders for another row (#133). form.watch()
   // would only read the values, leaving them stale until the parent re-rendered the row.
-  const [selectedFactorId, watchedQuantity, watchedCategory, watchedName] = useWatch({
+  const [selectedFactorId, watchedQuantity, watchedUnit, watchedName] = useWatch({
     control: form.control,
     name: [
       `items.${index}.emissionFactorId`,
       `items.${index}.quantity`,
-      `items.${index}.category`,
+      `items.${index}.unit`,
       `items.${index}.name`,
     ],
   });
 
-  // Limit emission factors to MAX_DROPDOWN_ITEMS for performance
-  // Always include the currently selected factor if it exists
-  const filteredFactors = useMemo(() => {
-    if (emissionFactors.length <= MAX_DROPDOWN_ITEMS) {
-      return emissionFactors;
-    }
-
-    // Take first MAX_DROPDOWN_ITEMS
-    const limited = emissionFactors.slice(0, MAX_DROPDOWN_ITEMS);
-
-    // If selected factor exists and isn't in the limited set, add it
-    if (selectedFactorId) {
-      const selectedInLimited = limited.some(f => f.id === selectedFactorId);
-      if (!selectedInLimited) {
-        const selectedFactor = emissionFactors.find(f => f.id === selectedFactorId);
-        if (selectedFactor) {
-          limited.unshift(selectedFactor); // Add at beginning
-        }
-      }
-    }
-
-    return limited;
-  }, [emissionFactors, selectedFactorId]);
+  const selectedFactor = useMemo(
+    () => (selectedFactorId ? emissionFactors.find((f) => f.id === selectedFactorId) : undefined),
+    [selectedFactorId, emissionFactors],
+  );
 
   /**
    * Calculate per-row CO2e estimate
    */
-  const rowCO2e = useMemo(() => {
-    if (!selectedFactorId) return null;
-    const factor = emissionFactors.find(f => f.id === selectedFactorId);
-    if (!factor) return null;
-    const qty = watchedQuantity || 0;
-    return qty * factor.co2e_factor;
-  }, [selectedFactorId, watchedQuantity, emissionFactors]);
-
-  /**
-   * Get the category config for the current row
-   */
-  const categoryConfig = useMemo(() => {
-    return CATEGORY_CONFIG[watchedCategory] || CATEGORY_CONFIG.other;
-  }, [watchedCategory]);
+  const rowCO2e = useMemo(
+    () => computeRowCO2e(watchedQuantity, watchedUnit, selectedFactor),
+    [watchedQuantity, watchedUnit, selectedFactor],
+  );
 
   /**
    * Handle name field changes with auto-classification, auto-EF suggestion, and validation
@@ -216,12 +141,16 @@ const BOMTableRow = React.memo(function BOMTableRow({
       e: React.ChangeEvent<HTMLInputElement>,
       fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.name`>['onChange']
     ) => {
+      const previousName = form.getValues(`items.${index}.name`) || '';
       fieldOnChange(e);
       const newName = e.target.value;
       if (newName) {
-        const classifiedCategory = classifyComponent(newName);
-        const formCategory = classifiedCategory === 'materials' ? 'material' : classifiedCategory;
-        form.setValue(`items.${index}.category`, formCategory);
+        // Re-derive the category from the name only while the user hasn't chosen one
+        const currentCategory = form.getValues(`items.${index}.category`) as BOMItemCategory;
+        form.setValue(
+          `items.${index}.category`,
+          categoryAfterRename(previousName, newName, currentCategory),
+        );
 
         if (newName.length >= 3) {
           const currentUnit = form.getValues(`items.${index}.unit`) || 'kg';
@@ -281,12 +210,20 @@ const BOMTableRow = React.memo(function BOMTableRow({
    */
   const handleEmissionFactorChange = useCallback(
     (
-      value: string,
+      factor: EmissionFactor | null,
       fieldOnChange: ControllerRenderProps<BOMFormData, `items.${number}.emissionFactorId`>['onChange']
     ) => {
-      fieldOnChange(value || null);
+      fieldOnChange(factor?.id ?? null);
+      if (factor) {
+        // A unit of another kind than the factor's can't be converted: switch to the factor's unit
+        const currentUnit = form.getValues(`items.${index}.unit`) || factor.unit;
+        const nextUnit = unitForFactorChange(currentUnit, factor.unit);
+        if (nextUnit !== currentUnit) {
+          form.setValue(`items.${index}.unit`, nextUnit, { shouldValidate: true, shouldDirty: true });
+        }
+      }
     },
-    []
+    [form, index]
   );
 
   /**
@@ -328,22 +265,18 @@ const BOMTableRow = React.memo(function BOMTableRow({
         />
       </TableCell>
 
-      {/* Category with colored dot badge */}
+      {/* Category picker */}
       <TableCell className="py-2 px-3">
-        <span
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[13px] font-semibold tracking-[0.02em] whitespace-nowrap"
-          style={{
-            background: categoryConfig.bgColor,
-            color: categoryConfig.color,
-            border: `1px solid ${categoryConfig.borderColor}`,
-          }}
-        >
-          <span
-            className="w-[7px] h-[7px] rounded-full flex-shrink-0"
-            style={{ background: categoryConfig.color }}
-          />
-          {categoryConfig.label}
-        </span>
+        <FormField
+          control={form.control}
+          name={`items.${index}.category`}
+          render={({ field: categoryField }) => (
+            <CategorySelect
+              value={categoryField.value as BOMItemCategory}
+              onChange={categoryField.onChange}
+            />
+          )}
+        />
       </TableCell>
 
       {/* Quantity - Pill-shaped controls */}
@@ -393,18 +326,11 @@ const BOMTableRow = React.memo(function BOMTableRow({
                   control={form.control}
                   name={`items.${index}.unit`}
                   render={({ field: unitField }) => (
-                    <Select onValueChange={unitField.onChange} value={unitField.value}>
-                      <SelectTrigger className="w-[70px] h-[30px] text-[13px] text-[var(--text-dim)] bg-transparent border-white/[0.08]" aria-label="Unit">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {UNITS.map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <UnitSelect
+                      value={unitField.value}
+                      onChange={unitField.onChange}
+                      factorUnit={selectedFactor?.unit}
+                    />
                   )}
                 />
               </div>
@@ -419,33 +345,18 @@ const BOMTableRow = React.memo(function BOMTableRow({
         <FormField
           control={form.control}
           name={`items.${index}.emissionFactorId`}
-          render={({ field }) => {
-            const selectValue = field.value ?? '';
-
-            return (
-              <FormItem>
-                <Select
-                  onValueChange={(value) => handleEmissionFactorChange(value, field.onChange)}
-                  value={selectValue}
-                  disabled={isLoadingFactors || filteredFactors.length === 0}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full bg-white/[0.04] border-white/[0.08] text-[var(--text-primary)] truncate" aria-label="Emission factor">
-                      <SelectValue placeholder="Select factor" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {filteredFactors.map((factor) => (
-                      <SelectItem key={factor.id} value={factor.id}>
-                        {factor.activity_name} ({factor.co2e_factor} kg CO&#8322;e/{factor.unit})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            );
-          }}
+          render={({ field }) => (
+            <FormItem>
+              <EmissionFactorSelect
+                value={field.value}
+                onChange={(factor) => handleEmissionFactorChange(factor, field.onChange)}
+                factors={emissionFactors}
+                disabled={isLoadingFactors}
+              />
+              {!field.value && <MissingFactorHint />}
+              <FormMessage />
+            </FormItem>
+          )}
         />
       </TableCell>
 
@@ -463,7 +374,6 @@ const BOMTableRow = React.memo(function BOMTableRow({
       {/* Source */}
       <TableCell className="py-2 px-3 text-center">
         {(() => {
-          const selectedFactor = emissionFactors.find((f) => f.id === selectedFactorId);
           return selectedFactor && selectedFactor.data_source ? (
             <SourceBadge
               sourceCode={selectedFactor.data_source}

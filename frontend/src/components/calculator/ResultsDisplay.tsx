@@ -33,6 +33,7 @@ import SankeyDiagram from '../visualizations/SankeyDiagram';
 import { ExportButton } from '../ExportButton';
 import { LicenseFooter } from '../attribution/LicenseFooter';
 import { classifyComponent } from '../../utils/classifyComponent';
+import { categoryLookup } from '../../utils/bomRow';
 import { RotateCcw } from 'lucide-react';
 
 /**
@@ -79,10 +80,12 @@ export default function ResultsDisplay() {
   // Calculate category totals from breakdown items for consistent classification
   const breakdown = calculation.breakdown || {};
   const categoryTotals = { materials: 0, energy: 0, transport: 0, combustion: 0, other: 0 };
+  // Components count towards their BOM row's category (#195), else the name's
+  const categoryOf = categoryLookup(bomItems);
 
   if (Object.keys(breakdown).length > 0) {
     Object.entries(breakdown).forEach(([componentName, co2e]) => {
-      const category = classifyComponent(componentName);
+      const category = categoryOf(componentName) ?? classifyComponent(componentName);
       categoryTotals[category] += co2e;
     });
   } else {
@@ -190,7 +193,7 @@ export default function ResultsDisplay() {
             Emission flow from BOM components through categories to total PCF
           </p>
         </div>
-        <SankeyDiagram calculation={calculation} />
+        <SankeyDiagram calculation={calculation} categoryOf={categoryOf} />
       </section>
 
       {/* 3. Breakdown Table Section - Full-width glass card */}
@@ -209,6 +212,7 @@ export default function ResultsDisplay() {
           energyCO2e={calculation.energy_co2e}
           transportCO2e={calculation.transport_co2e}
           breakdown={calculation.breakdown}
+          categoryOf={categoryOf}
         />
       </section>
 

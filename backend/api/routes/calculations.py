@@ -18,6 +18,7 @@ This module implements the async calculation pattern:
 """
 
 import logging
+from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
@@ -26,8 +27,12 @@ from sqlalchemy.orm import Session
 from backend.api.dependencies import get_calculation_service
 from backend.models.user import User
 from backend.auth.dependencies import get_optional_user
-from backend.domain.entities.calculation import Calculation, CreateCalculationRequest
-from backend.domain.entities.errors import ProductNotFoundError
+from backend.domain.entities.calculation import (
+    BOMLineInput,
+    Calculation,
+    CreateCalculationRequest,
+)
+from backend.domain.entities.errors import DomainValidationError, ProductNotFoundError
 from backend.domain.services.calculation_service import CalculationService
 from backend.schemas import (
     CalculationRequest,
@@ -93,6 +98,22 @@ def _status_response(calculation: Calculation) -> CalculationStatusResponse:
 # API Endpoints
 # ============================================================================
 
+def _bom_lines(request: CalculationRequest) -> Optional[tuple]:
+    """The submitted BOM as domain rows (#195), or None to calculate the catalog BOM."""
+    if request.bom is None:
+        return None
+    return tuple(
+        BOMLineInput(
+            name=line.name,
+            quantity=Decimal(str(line.quantity)),
+            unit=line.unit,
+            category=line.category,
+            emission_factor_id=line.emission_factor_id,
+        )
+        for line in request.bom
+    )
+
+
 @router.post(
     "/calculate",
     response_model=CalculationStartResponse,
@@ -142,10 +163,11 @@ def start_calculation(
             CreateCalculationRequest(
                 product_id=request.product_id,
                 calculation_type=request.calculation_type,
+                bom=_bom_lines(request),
             )
         )
-    except ProductNotFoundError:
-        # Handled by backend/api/error_handlers.py as 404 PRODUCT_NOT_FOUND
+    except (ProductNotFoundError, DomainValidationError):
+        # Handled by backend/api/error_handlers.py: 404 PRODUCT_NOT_FOUND, 422 VALIDATION_ERROR
         raise
     except Exception as e:
         logger.error(f"Failed to create calculation record: {e}")
@@ -164,6 +186,7 @@ def start_calculation(
         request.product_id,
         request.calculation_type,
         session_factory,
+        calculation.resolved_bom,
     )
 
     logger.info(f"Calculation {calc_id} queued for background processing")

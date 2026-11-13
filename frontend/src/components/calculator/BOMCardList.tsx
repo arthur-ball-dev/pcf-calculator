@@ -39,9 +39,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Trash2, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 import { SourceBadge } from '@/components/attribution/SourceBadge';
-import { EMISSION_CATEGORY_COLORS } from '@/constants/colors';
 import type { EmissionFactor } from '@/hooks/useEmissionFactors';
+import {
+  CategorySelect,
+  EmissionFactorSelect,
+  MissingFactorHint,
+  UnitSelect,
+} from '@/components/forms/bomFields/BOMFieldSelects';
+import { categoryStyle } from '@/components/forms/bomFields/categories';
+import { rowCO2e } from '@/utils/bomRow';
+import { unitForFactorChange } from '@/utils/units';
 
 interface BOMItem {
   id: string;
@@ -65,45 +74,11 @@ interface BOMCardListProps {
 }
 
 /**
- * Category display config with color dots
- * Maps form category values to display labels and color codes
- */
-const CATEGORY_CONFIG: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  material: {
-    label: 'Materials',
-    color: EMISSION_CATEGORY_COLORS.materials,
-    bgColor: 'rgba(16, 185, 129, 0.18)',
-    borderColor: 'rgba(16, 185, 129, 0.22)',
-  },
-  energy: {
-    label: 'Energy',
-    color: EMISSION_CATEGORY_COLORS.energy,
-    bgColor: 'rgba(245, 158, 11, 0.18)',
-    borderColor: 'rgba(245, 158, 11, 0.22)',
-  },
-  transport: {
-    label: 'Transport',
-    color: EMISSION_CATEGORY_COLORS.transport,
-    bgColor: 'rgba(59, 130, 246, 0.18)',
-    borderColor: 'rgba(59, 130, 246, 0.22)',
-  },
-  combustion: {
-    label: 'Combustion',
-    color: '#E91E63',
-    bgColor: 'rgba(233, 30, 99, 0.18)',
-    borderColor: 'rgba(233, 30, 99, 0.22)',
-  },
-  other: {
-    label: 'Other',
-    color: EMISSION_CATEGORY_COLORS.other,
-    bgColor: 'rgba(148, 163, 184, 0.15)',
-    borderColor: 'rgba(148, 163, 184, 0.18)',
-  },
-};
-
-/**
  * Mobile-optimized card list for BOM items.
  * Provides larger touch targets and better readability on small screens.
+ * Unless read-only, each card edits name, category, quantity, unit and emission factor, with
+ * the desktop row's rules (#195): units limited to the factor's kind, a factor of another kind
+ * switches the unit, a missing factor is pointed out, and the CO2e preview converts units.
  * Styled with Emerald Night 5B glassmorphic dark theme.
  */
 export function BOMCardList({
@@ -160,9 +135,23 @@ export function BOMCardList({
   const getItemCO2e = useCallback((item: BOMItem): number | null => {
     if (!item.emissionFactorId || emissionFactors.length === 0) return null;
     const factor = emissionFactors.find(f => f.id === item.emissionFactorId);
-    if (!factor) return null;
-    return item.quantity * factor.co2e_factor;
+    return rowCO2e(item.quantity, item.unit, factor);
   }, [emissionFactors]);
+
+  /**
+   * Choose a card's emission factor; a unit of another kind switches to the factor's unit
+   */
+  const handleFactorChange = useCallback((item: BOMItem, factor: EmissionFactor | null) => {
+    if (!factor) {
+      onUpdate(item.id, { emissionFactorId: null });
+      return;
+    }
+    const nextUnit = unitForFactorChange(item.unit, factor.unit);
+    onUpdate(
+      item.id,
+      nextUnit !== item.unit ? { emissionFactorId: factor.id, unit: nextUnit } : { emissionFactorId: factor.id },
+    );
+  }, [onUpdate]);
 
   /**
    * Calculate total CO2e across all items
@@ -203,7 +192,8 @@ export function BOMCardList({
       </div>
 
       {items.map((item) => {
-        const catConfig = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.other;
+        const catConfig = categoryStyle(item.category);
+        const factorUnit = emissionFactors.find((f) => f.id === item.emissionFactorId)?.unit;
         const itemCO2e = getItemCO2e(item);
         const isEditing = editingId === item.id;
 
@@ -219,11 +209,28 @@ export function BOMCardList({
             <div className="px-4 pt-4 pb-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-base text-[var(--text-primary)] truncate">
-                    {item.name || 'Unnamed Component'}
-                  </h3>
+                  {isReadOnly ? (
+                    <h3 className="font-medium text-base text-[var(--text-primary)] truncate">
+                      {item.name || 'Unnamed Component'}
+                    </h3>
+                  ) : (
+                    <Input
+                      value={item.name}
+                      onChange={(e) => onUpdate(item.id, { name: e.target.value })}
+                      placeholder="Component name"
+                      aria-label="Component name"
+                      className="h-10 bg-white/[0.04] border-white/[0.08] text-base font-medium text-[var(--text-primary)] placeholder:text-[var(--text-dim)]"
+                    />
+                  )}
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    {/* Category badge with colored dot */}
+                    {/* Category: picker unless read-only */}
+                    {!isReadOnly ? (
+                      <CategorySelect
+                        value={item.category}
+                        onChange={(category) => onUpdate(item.id, { category })}
+                        className="h-[30px] w-[130px] px-2.5 text-[12px] font-semibold border"
+                      />
+                    ) : (
                     <span
                       className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[12px] font-semibold tracking-[0.02em] whitespace-nowrap"
                       style={{
@@ -238,6 +245,7 @@ export function BOMCardList({
                       />
                       {catConfig.label}
                     </span>
+                    )}
                     {/* Source badge */}
                     {item.data_source && item.data_source.trim() !== '' && (
                       <SourceBadge sourceCode={item.data_source} />
@@ -285,7 +293,7 @@ export function BOMCardList({
 
             {/* Card Body - Quantity controls and CO2e */}
             <div className="px-4 pb-4">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 {/* Quantity section */}
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] text-[var(--text-dim)]">Qty:</span>
@@ -362,7 +370,12 @@ export function BOMCardList({
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
-                      <span className="text-[13px] text-[var(--text-dim)]">{item.unit}</span>
+                      <UnitSelect
+                        value={item.unit}
+                        onChange={(unit) => onUpdate(item.id, { unit })}
+                        factorUnit={factorUnit}
+                        className="w-[76px] h-[34px] text-[13px] text-[var(--text-dim)] bg-transparent border-white/[0.08]"
+                      />
                     </div>
                   )}
                 </div>
@@ -377,6 +390,19 @@ export function BOMCardList({
                   </div>
                 )}
               </div>
+
+              {/* Emission factor: picker unless read-only */}
+              {!isReadOnly && (
+                <div className="mt-3">
+                  <EmissionFactorSelect
+                    value={item.emissionFactorId}
+                    onChange={(factor) => handleFactorChange(item, factor)}
+                    factors={emissionFactors}
+                    className="w-full h-10 bg-white/[0.04] border-white/[0.08] text-[var(--text-primary)] truncate"
+                  />
+                  {!item.emissionFactorId && <MissingFactorHint />}
+                </div>
+              )}
             </div>
           </div>
         );

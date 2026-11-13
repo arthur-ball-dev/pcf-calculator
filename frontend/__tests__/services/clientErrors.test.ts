@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { server } from '../../__mocks__/server';
 import client from '../../src/services/api/client';
 import { APIError } from '../../src/services/api/errors';
@@ -33,8 +33,8 @@ function envelope(
 
 function respondWith(status: number, body?: unknown): void {
   server.use(
-    rest.get(`${BASE}/thing`, (_req, res, ctx) =>
-      body === undefined ? res(ctx.status(status)) : res(ctx.status(status), ctx.json(body))
+    http.get(`${BASE}/thing`, () =>
+      body === undefined ? new HttpResponse(null, { status }) : HttpResponse.json(body, { status })
     )
   );
 }

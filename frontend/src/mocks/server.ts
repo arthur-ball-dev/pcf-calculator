@@ -16,18 +16,18 @@ import { phase5Handlers } from './handlers/phase5Handlers';
  * ```typescript
  * import { server } from './mocks/server';
  *
- * beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+ * beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
  * afterEach(() => server.resetHandlers());
  * afterAll(() => server.close());
  * ```
  *
  * Override handlers in specific tests:
  * ```typescript
- * import { rest } from 'msw';
+ * import { http, HttpResponse } from 'msw';
  *
  * server.use(
- *   rest.get('/api/v1/products/search', (req, res, ctx) => {
- *     return res(ctx.status(500), ctx.json({ error: 'Server error' }));
+ *   http.get('/api/v1/products/search', () => {
+ *     return HttpResponse.json({ error: 'Server error' }, { status: 500 });
  *   })
  * );
  * ```

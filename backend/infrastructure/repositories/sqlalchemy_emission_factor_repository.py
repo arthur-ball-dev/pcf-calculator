@@ -6,7 +6,7 @@ Handles mapping between ORM models and domain entities.
 """
 
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -75,6 +75,17 @@ class SQLAlchemyEmissionFactorRepository(EmissionFactorRepository):
             .first()
             is not None
         )
+
+    def get_by_ids(self, factor_ids: Iterable[str]) -> Dict[str, EmissionFactor]:
+        ids = set(factor_ids)
+        if not ids:
+            return {}
+        factors = (
+            self._session.query(EmissionFactorModel)
+            .filter(EmissionFactorModel.id.in_(ids))
+            .all()
+        )
+        return {f.id: self._to_domain(f) for f in factors}
 
     def create(self, factor: NewEmissionFactor) -> EmissionFactor:
         orm_factor = EmissionFactorModel(

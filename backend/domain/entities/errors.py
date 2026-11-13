@@ -8,7 +8,7 @@ These are distinct from infrastructure errors (database, HTTP, etc.)
 """
 
 
-from typing import Optional
+from typing import Dict, List, Optional
 
 
 class DomainValidationError(Exception):
@@ -19,8 +19,15 @@ class DomainValidationError(Exception):
     business rules are violated.
     """
 
-    def __init__(self, message: str):
+    def __init__(self, message: str, details: Optional[List[Dict[str, str]]] = None):
+        """
+        Args:
+            message: Human-readable summary.
+            details: Optional per-field errors, each {"field": ..., "message": ...}; returned
+                as the error envelope's details.
+        """
         self.message = message
+        self.details = details or []
         super().__init__(message)
 
     def __str__(self) -> str:

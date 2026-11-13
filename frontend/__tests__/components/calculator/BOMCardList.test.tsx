@@ -86,12 +86,12 @@ describe('BOMCardList Component', () => {
       );
 
       // Check first item details
-      expect(screen.getByText('Steel')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Steel')).toBeInTheDocument();
       expect(screen.getByText('100')).toBeInTheDocument();
       expect(screen.getByText('kg')).toBeInTheDocument();
 
       // Check second item details
-      expect(screen.getByText('Electricity')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Electricity')).toBeInTheDocument();
       expect(screen.getByText('50')).toBeInTheDocument();
       expect(screen.getByText('kWh')).toBeInTheDocument();
     });

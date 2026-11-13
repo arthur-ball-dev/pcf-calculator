@@ -230,7 +230,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
 
       // The second item should still render its content
       const card2 = screen.getAllByRole('article')[1];
-      expect(within(card2).getByText('Unknown Material')).toBeInTheDocument();
+      expect(within(card2).getByDisplayValue('Unknown Material')).toBeInTheDocument();
       // Emerald Night 5B: category badges show config labels not raw values
       expect(within(card2).getByText('Materials')).toBeInTheDocument();
     });
@@ -267,7 +267,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       // Should render the card without crashing
       const card1 = screen.getAllByRole('article')[0];
       expect(card1).toBeInTheDocument();
-      expect(within(card1).getByText('Empty Source Item')).toBeInTheDocument();
+      expect(within(card1).getByDisplayValue('Empty Source Item')).toBeInTheDocument();
 
       // Should not show a badge for empty string
       expect(within(card1).queryByText(/\[.*\]/)).not.toBeInTheDocument();
@@ -313,7 +313,7 @@ describe('BOMCardList SourceBadge Integration (TASK-FE-P8-005)', () => {
       // Should render the card without crashing
       const card1 = screen.getAllByRole('article')[0];
       expect(card1).toBeInTheDocument();
-      expect(within(card1).getByText('Null Source Item')).toBeInTheDocument();
+      expect(within(card1).getByDisplayValue('Null Source Item')).toBeInTheDocument();
     });
   });
 

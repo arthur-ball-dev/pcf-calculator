@@ -48,6 +48,9 @@ export interface SankeyData {
 /**
  * Category mapping for emission breakdown
  */
+/** The five categories results are grouped into */
+type ResultCategory = 'materials' | 'energy' | 'transport' | 'combustion' | 'other';
+
 type EmissionCategory = 'materials' | 'energy' | 'transport' | 'combustion' | 'other' | 'process' | 'waste' | 'total';
 
 /**
@@ -90,7 +93,11 @@ function isValidCo2eValue(value: unknown): value is number {
  * @param calculation - Calculation result from backend
  * @returns Sankey data structure with nodes and links
  */
-export function transformToSankeyData(calculation: Calculation | null): SankeyData {
+export function transformToSankeyData(
+  calculation: Calculation | null,
+  /** Category of a component by its BOM row (#195); the name is classified otherwise */
+  categoryOf?: (componentName: string) => ResultCategory | undefined,
+): SankeyData {
   // Return empty data for invalid input
   if (!calculation || calculation.status !== 'completed') {
     return { nodes: [], links: [] };
@@ -119,7 +126,7 @@ export function transformToSankeyData(calculation: Calculation | null): SankeyDa
     Object.entries(calculation.breakdown).forEach(([componentName, co2e]) => {
       // Only process if co2e is a valid number (not an array or object)
       if (isValidCo2eValue(co2e)) {
-        const category = classifyComponent(componentName);
+        const category = categoryOf?.(componentName) ?? classifyComponent(componentName);
         categoryTotals[category] += co2e;
         breakdownProcessed = true;
       }
@@ -286,7 +293,8 @@ function classifyComponent(name: string): 'materials' | 'energy' | 'transport' |
  */
 export function transformToExpandedSankeyData(
   calculation: Calculation | null,
-  expandedCategory: string
+  expandedCategory: string,
+  categoryOf?: (componentName: string) => ResultCategory | undefined,
 ): SankeyData {
   // Return empty data for invalid input
   if (!calculation || calculation.status !== 'completed' || !calculation.breakdown) {
@@ -306,7 +314,7 @@ export function transformToExpandedSankeyData(
   Object.entries(breakdown).forEach(([componentName, co2e]) => {
     // Only process if co2e is a valid number
     if (isValidCo2eValue(co2e)) {
-      const componentCategory = classifyComponent(componentName);
+      const componentCategory = categoryOf?.(componentName) ?? classifyComponent(componentName);
       if (componentCategory === expandedCategory) {
         categoryItems.push({ name: componentName, co2e });
       }

@@ -35,7 +35,7 @@ async function enableMocking(): Promise<void> {
   if (import.meta.env.DEV && useMocks) {
     const { worker } = await import('./mocks/browser')
     await worker.start({
-      onUnhandledRequest: 'warn',
+      onUnhandledFrame: 'warn',
       serviceWorker: {
         url: '/mockServiceWorker.js',
       },

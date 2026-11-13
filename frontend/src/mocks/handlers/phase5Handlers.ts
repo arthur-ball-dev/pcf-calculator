@@ -6,7 +6,7 @@
  * Responses match API contracts exactly.
  */
 
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 import {
   mockProducts,
   filterProducts,
@@ -42,8 +42,8 @@ export const phase5Handlers = [
   // Product Search Endpoint
   // GET /api/v1/products/search
   // ============================================================================
-  rest.get(`${API_BASE_URL}/api/v1/products/search`, (req, res, ctx) => {
-    const url = new URL(req.url);
+  http.get(`${API_BASE_URL}/api/v1/products/search`, ({ request }) => {
+    const url = new URL(request.url);
     const query = url.searchParams.get('query') || undefined;
     const categoryId = url.searchParams.get('category_id') || undefined;
     const industry = url.searchParams.get('industry') || undefined;
@@ -73,24 +73,21 @@ export const phase5Handlers = [
     const items = filtered.slice(offset, offset + limit);
     const hasMore = offset + limit < total;
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        items,
-        total,
-        limit,
-        offset,
-        has_more: hasMore,
-      })
-    );
+    return HttpResponse.json({
+      items,
+      total,
+      limit,
+      offset,
+      has_more: hasMore,
+    }, { status: 200 });
   }),
 
   // ============================================================================
   // Product Categories Endpoint
   // GET /api/v1/products/categories
   // ============================================================================
-  rest.get(`${API_BASE_URL}/api/v1/products/categories`, (req, res, ctx) => {
-    const url = new URL(req.url);
+  http.get(`${API_BASE_URL}/api/v1/products/categories`, ({ request }) => {
+    const url = new URL(request.url);
     const parentId = url.searchParams.get('parent_id') || undefined;
     const depth = parseInt(url.searchParams.get('depth') || '3', 10);
     const includeProductCount = url.searchParams.get('include_product_count') === 'true';
@@ -115,23 +112,20 @@ export const phase5Handlers = [
       if (children) {
         categories = children;
       } else {
-        return res(
-          ctx.status(404),
-          ctx.json({
-            error: {
-              code: 'NOT_FOUND',
-              message: 'Category not found',
-              details: [
-                {
-                  field: 'parent_id',
-                  message: `No category exists with ID ${parentId}`,
-                },
-              ],
-            },
-            request_id: `req_${generateUUID().slice(0, 8)}`,
-            timestamp: new Date().toISOString(),
-          })
-        );
+        return HttpResponse.json({
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Category not found',
+            details: [
+              {
+                field: 'parent_id',
+                message: `No category exists with ID ${parentId}`,
+              },
+            ],
+          },
+          request_id: `req_${generateUUID().slice(0, 8)}`,
+          timestamp: new Date().toISOString(),
+        }, { status: 404 });
       }
     }
 
@@ -159,22 +153,19 @@ export const phase5Handlers = [
     const totalCategories = countCategories(categories);
     const maxDepth = getMaxDepth(categories);
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        categories,
-        total_categories: totalCategories,
-        max_depth: Math.min(maxDepth, depth),
-      })
-    );
+    return HttpResponse.json({
+      categories,
+      total_categories: totalCategories,
+      max_depth: Math.min(maxDepth, depth),
+    }, { status: 200 });
   }),
 
   // ============================================================================
   // Emission Factors Endpoint (Enhanced Phase 5)
   // GET /api/v1/emission-factors
   // ============================================================================
-  rest.get(`${API_BASE_URL}/api/v1/emission-factors`, (req, res, ctx) => {
-    const url = new URL(req.url);
+  http.get(`${API_BASE_URL}/api/v1/emission-factors`, ({ request }) => {
+    const url = new URL(request.url);
     const query = url.searchParams.get('query') || undefined;
     const dataSource = url.searchParams.get('data_source') || undefined;
     const dataSourceId = url.searchParams.get('data_source_id') || undefined;
@@ -213,25 +204,22 @@ export const phase5Handlers = [
     // Include aggregations only when query is provided
     const aggregations = query ? generateAggregations(filtered) : undefined;
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        items,
-        total,
-        limit,
-        offset,
-        has_more: hasMore,
-        aggregations,
-      })
-    );
+    return HttpResponse.json({
+      items,
+      total,
+      limit,
+      offset,
+      has_more: hasMore,
+      aggregations,
+    }, { status: 200 });
   }),
 
   // ============================================================================
   // Admin Data Sources Endpoint
   // GET /admin/data-sources
   // ============================================================================
-  rest.get(`${API_BASE_URL}/admin/data-sources`, (req, res, ctx) => {
-    const url = new URL(req.url);
+  http.get(`${API_BASE_URL}/admin/data-sources`, ({ request }) => {
+    const url = new URL(request.url);
     const isActiveParam = url.searchParams.get('is_active');
     const sourceType = url.searchParams.get('source_type') || undefined;
 
@@ -245,76 +233,67 @@ export const phase5Handlers = [
 
     const summary = generateDataSourceSummary(filtered);
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        data_sources: filtered,
-        total: filtered.length,
-        summary,
-      })
-    );
+    return HttpResponse.json({
+      data_sources: filtered,
+      total: filtered.length,
+      summary,
+    }, { status: 200 });
   }),
 
   // ============================================================================
   // Admin Sync Trigger Endpoint
   // POST /admin/data-sources/:id/sync
   // ============================================================================
-  rest.post(`${API_BASE_URL}/admin/data-sources/:id/sync`, async (req, res, ctx) => {
-    const { id } = req.params;
-    const body = await req.json().catch(() => ({}));
+  http.post(`${API_BASE_URL}/admin/data-sources/:id/sync`, async ({ request, params }) => {
+    const { id } = params;
+    const body = (await request.json().catch(() => ({}))) as { dry_run?: boolean } | null;
 
     // Find the data source
     const dataSource = mockDataSources.find((s) => s.id === id);
 
     if (!dataSource) {
-      return res(
-        ctx.status(404),
-        ctx.json({
-          error: {
-            code: 'NOT_FOUND',
-            message: 'Data source not found',
-            details: [
-              {
-                field: 'id',
-                message: `No data source exists with ID ${id}`,
-              },
-            ],
-          },
-          request_id: `req_${generateUUID().slice(0, 8)}`,
-          timestamp: new Date().toISOString(),
-        })
-      );
+      return HttpResponse.json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Data source not found',
+          details: [
+            {
+              field: 'id',
+              message: `No data source exists with ID ${id}`,
+            },
+          ],
+        },
+        request_id: `req_${generateUUID().slice(0, 8)}`,
+        timestamp: new Date().toISOString(),
+      }, { status: 404 });
     }
 
     const taskId = `celery-task-${generateUUID()}`;
     const syncLogId = generateUUID();
-    const isDryRun = body.dry_run === true;
+    const isDryRun = body?.dry_run === true;
 
-    return res(
-      ctx.status(202),
-      ctx.json({
-        task_id: taskId,
-        sync_log_id: syncLogId,
-        status: 'queued',
-        message: isDryRun
-          ? `Dry run sync task queued for ${dataSource.name}`
-          : `Sync task queued successfully`,
-        data_source: {
-          id: dataSource.id,
-          name: dataSource.name,
-        },
-        estimated_duration: '5 minutes',
-        poll_url: `/admin/sync-logs/${syncLogId}`,
-      })
-    );
+    return HttpResponse.json({
+      task_id: taskId,
+      sync_log_id: syncLogId,
+      status: 'queued',
+      message: isDryRun
+        ? `Dry run sync task queued for ${dataSource.name}`
+        : `Sync task queued successfully`,
+      data_source: {
+        id: dataSource.id,
+        name: dataSource.name,
+      },
+      estimated_duration: '5 minutes',
+      poll_url: `/admin/sync-logs/${syncLogId}`,
+    }, { status: 202 });
   }),
 
   // ============================================================================
   // Admin Sync Logs Endpoint
   // GET /admin/sync-logs
   // ============================================================================
-  rest.get(`${API_BASE_URL}/admin/sync-logs`, (req, res, ctx) => {
-    const url = new URL(req.url);
+  http.get(`${API_BASE_URL}/admin/sync-logs`, ({ request }) => {
+    const url = new URL(request.url);
     const dataSourceId = url.searchParams.get('data_source_id') || undefined;
     const status = url.searchParams.get('status') || undefined;
     const syncType = url.searchParams.get('sync_type') || undefined;
@@ -345,24 +324,21 @@ export const phase5Handlers = [
 
     const summary = generateSyncLogsSummary(filtered);
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        items,
-        total,
-        limit,
-        offset,
-        has_more: hasMore,
-        summary,
-      })
-    );
+    return HttpResponse.json({
+      items,
+      total,
+      limit,
+      offset,
+      has_more: hasMore,
+      summary,
+    }, { status: 200 });
   }),
 
   // ============================================================================
   // Admin Coverage Stats Endpoint
   // GET /admin/emission-factors/coverage
   // ============================================================================
-  rest.get(`${API_BASE_URL}/admin/emission-factors/coverage`, (_req, res, ctx) => {
+  http.get(`${API_BASE_URL}/admin/emission-factors/coverage`, () => {
     const activeSources = mockDataSources.filter((s) => s.is_active);
 
     // Calculate summary from actual mock data
@@ -527,24 +503,21 @@ export const phase5Handlers = [
       outdated_factors: [],
     };
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        summary: {
-          total_emission_factors: totalFactors,
-          active_emission_factors: activeFactors,
-          unique_activities: uniqueActivities,
-          geographies_covered: geographiesCovered,
-          categories_with_factors: categoriesWithFactors,
-          categories_without_factors: categoriesWithoutFactors,
-          average_quality_rating: Math.round(avgQuality * 100) / 100,
-          coverage_percentage: coveragePercentage,
-        },
-        by_source: bySource,
-        by_geography: byGeography,
-        by_category: byCategory,
-        gaps,
-      })
-    );
+    return HttpResponse.json({
+      summary: {
+        total_emission_factors: totalFactors,
+        active_emission_factors: activeFactors,
+        unique_activities: uniqueActivities,
+        geographies_covered: geographiesCovered,
+        categories_with_factors: categoriesWithFactors,
+        categories_without_factors: categoriesWithoutFactors,
+        average_quality_rating: Math.round(avgQuality * 100) / 100,
+        coverage_percentage: coveragePercentage,
+      },
+      by_source: bySource,
+      by_geography: byGeography,
+      by_category: byCategory,
+      gaps,
+    }, { status: 200 });
   }),
 ];

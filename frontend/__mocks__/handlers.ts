@@ -8,7 +8,7 @@
  * Provides realistic responses for integration testing.
  */
 
-import { rest } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import type {
   ProductListResponse,
   ProductDetail,
@@ -79,6 +79,7 @@ export const mockProductDetail: ProductDetail = {
       quantity: 0.5,
       unit: 'kg',
       notes: null,
+      emission_factor_id: 'ef-cotton-001',
     },
     {
       id: 'comp-002',
@@ -87,6 +88,7 @@ export const mockProductDetail: ProductDetail = {
       quantity: 0.05,
       unit: 'kg',
       notes: null,
+      emission_factor_id: 'ef-polyester-001',
     },
     {
       id: 'comp-003',
@@ -95,6 +97,7 @@ export const mockProductDetail: ProductDetail = {
       quantity: 2.5,
       unit: 'kWh',
       notes: null,
+      emission_factor_id: 'ef-electricity-001',
     },
     {
       id: 'comp-004',
@@ -103,6 +106,7 @@ export const mockProductDetail: ProductDetail = {
       quantity: 50,
       unit: 'tkm',
       notes: null,
+      emission_factor_id: 'ef-transport-001',
     },
   ],
 };
@@ -186,10 +190,10 @@ export const mockEmissionFactors = {
  */
 const mvpHandlers = [
   // GET /api/v1/products - List all products
-  rest.get(`${API_BASE_URL}/products`, (req, res, ctx) => {
-    const limit = req.url.searchParams.get('limit');
-    const offset = req.url.searchParams.get('offset');
-    const isFinished = req.url.searchParams.get('is_finished_product');
+  http.get(`${API_BASE_URL}/products`, ({ request }) => {
+    const limit = new URL(request.url).searchParams.get('limit');
+    const offset = new URL(request.url).searchParams.get('offset');
+    const isFinished = new URL(request.url).searchParams.get('is_finished_product');
 
     let filteredProducts = mockProducts.items;
 
@@ -197,50 +201,41 @@ const mvpHandlers = [
       filteredProducts = filteredProducts.filter(p => p.is_finished_product);
     }
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        items: filteredProducts,
-        total: filteredProducts.length,
-        limit: parseInt(limit || '100'),
-        offset: parseInt(offset || '0'),
-      })
-    );
+    return HttpResponse.json({
+      items: filteredProducts,
+      total: filteredProducts.length,
+      limit: parseInt(limit || '100'),
+      offset: parseInt(offset || '0'),
+    }, { status: 200 });
   }),
 
   // GET /api/v1/products/:id - Get product detail
-  rest.get(`${API_BASE_URL}/products/:id`, (req, res, ctx) => {
-    const { id } = req.params;
+  http.get(`${API_BASE_URL}/products/:id`, ({ params }) => {
+    const { id } = params;
 
     if (id === 'prod-001') {
-      return res(ctx.status(200), ctx.json(mockProductDetail));
+      return HttpResponse.json(mockProductDetail, { status: 200 });
     }
 
-    return res(
-      ctx.status(404),
-      ctx.json({
-        error: {
-          code: 'RESOURCE_NOT_FOUND',
-          message: `Product with id '${id}' not found`,
-        },
-      })
-    );
+    return HttpResponse.json({
+      error: {
+        code: 'RESOURCE_NOT_FOUND',
+        message: `Product with id '${id}' not found`,
+      },
+    }, { status: 404 });
   }),
 
   // POST /api/v1/calculate - Submit calculation
-  rest.post(`${API_BASE_URL}/calculate`, async (req, res, ctx) => {
-    const body = await req.json();
+  http.post(`${API_BASE_URL}/calculate`, async ({ request }) => {
+    const body = await request.json();
 
     if (!body.product_id) {
-      return res(
-        ctx.status(400),
-        ctx.json({
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'product_id is required',
-          },
-        })
-      );
+      return HttpResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'product_id is required',
+        },
+      }, { status: 400 });
     }
 
     const response: CalculationStartResponse = {
@@ -248,27 +243,24 @@ const mvpHandlers = [
       status: 'pending',
     };
 
-    return res(ctx.status(202), ctx.json(response));
+    return HttpResponse.json(response, { status: 202 });
   }),
 
   // GET /api/v1/calculations/:id - Get calculation status
-  rest.get(`${API_BASE_URL}/calculations/:id`, (req, res, ctx) => {
-    const { id } = req.params;
+  http.get(`${API_BASE_URL}/calculations/:id`, ({ params }) => {
+    const { id } = params;
 
     if (id === 'calc-123') {
       // Simulate polling - return completed on subsequent requests
-      return res(ctx.status(200), ctx.json(mockCalculationResult));
+      return HttpResponse.json(mockCalculationResult, { status: 200 });
     }
 
-    return res(
-      ctx.status(404),
-      ctx.json({
-        error: {
-          code: 'RESOURCE_NOT_FOUND',
-          message: `Calculation with id '${id}' not found`,
-        },
-      })
-    );
+    return HttpResponse.json({
+      error: {
+        code: 'RESOURCE_NOT_FOUND',
+        message: `Calculation with id '${id}' not found`,
+      },
+    }, { status: 404 });
   }),
 
   // GET /api/v1/attributions - Data source attributions
@@ -276,37 +268,34 @@ const mvpHandlers = [
   // request reached the real localhost port, failed with "Network Error" some time
   // later, and its console.error could land after the test file had finished (Vitest:
   // "Closing rpc while onUserConsoleLog was pending").
-  rest.get(`${API_BASE_URL}/attributions`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        attributions: [
-          {
-            id: 'ds-epa',
-            name: 'EPA GHG Emission Factors Hub',
-            license_type: 'Public Domain',
-            license_url: null,
-            attribution_text: 'U.S. Environmental Protection Agency, GHG Emission Factors Hub (2024)',
-            attribution_url: 'https://www.epa.gov/climateleadership/ghg-emission-factors-hub',
-            allows_commercial_use: true,
-            requires_attribution: false,
-            requires_share_alike: false,
-          },
-          {
-            id: 'ds-defra',
-            name: 'DEFRA Conversion Factors',
-            license_type: 'Open Government Licence v3.0',
-            license_url: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/',
-            attribution_text: 'Contains public sector information licensed under the Open Government Licence v3.0',
-            attribution_url: 'https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2024',
-            allows_commercial_use: true,
-            requires_attribution: true,
-            requires_share_alike: false,
-          },
-        ],
-        notice: 'Emission factors from EPA (public domain) and DEFRA (OGL v3.0).',
-      })
-    );
+  http.get(`${API_BASE_URL}/attributions`, () => {
+    return HttpResponse.json({
+      attributions: [
+        {
+          id: 'ds-epa',
+          name: 'EPA GHG Emission Factors Hub',
+          license_type: 'Public Domain',
+          license_url: null,
+          attribution_text: 'U.S. Environmental Protection Agency, GHG Emission Factors Hub (2024)',
+          attribution_url: 'https://www.epa.gov/climateleadership/ghg-emission-factors-hub',
+          allows_commercial_use: true,
+          requires_attribution: false,
+          requires_share_alike: false,
+        },
+        {
+          id: 'ds-defra',
+          name: 'DEFRA Conversion Factors',
+          license_type: 'Open Government Licence v3.0',
+          license_url: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/',
+          attribution_text: 'Contains public sector information licensed under the Open Government Licence v3.0',
+          attribution_url: 'https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2024',
+          allows_commercial_use: true,
+          requires_attribution: true,
+          requires_share_alike: false,
+        },
+      ],
+      notice: 'Emission factors from EPA (public domain) and DEFRA (OGL v3.0).',
+    }, { status: 200 });
   }),
 ];
 
@@ -325,37 +314,32 @@ export const handlers = [
  */
 export const errorHandlers = {
   // Network error
-  networkError: rest.get(`${API_BASE_URL}/products`, (req, res) => {
-    return res.networkError('Failed to connect');
+  networkError: http.get(`${API_BASE_URL}/products`, () => {
+    return HttpResponse.error();
   }),
 
   // 500 Server error
-  serverError: rest.get(`${API_BASE_URL}/products`, (req, res, ctx) => {
-    return res(
-      ctx.status(500),
-      ctx.json({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'An unexpected error occurred',
-        },
-      })
-    );
+  serverError: http.get(`${API_BASE_URL}/products`, () => {
+    return HttpResponse.json({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An unexpected error occurred',
+      },
+    }, { status: 500 });
   }),
 
   // Timeout
-  timeout: rest.get(`${API_BASE_URL}/products`, (req, res, ctx) => {
-    return res(ctx.delay(35000)); // 35 seconds > 30 second timeout
+  timeout: http.get(`${API_BASE_URL}/products`, async () => {
+    await delay(35000); // 35 seconds > 30 second timeout
+    return new HttpResponse(null, { status: 200 });
   }),
 
   // Calculation failed
-  calculationFailed: rest.get(`${API_BASE_URL}/calculations/:id`, (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        ...mockCalculationResult,
-        status: 'failed',
-        error_message: 'Calculation failed due to invalid emission factors',
-      })
-    );
+  calculationFailed: http.get(`${API_BASE_URL}/calculations/:id`, () => {
+    return HttpResponse.json({
+      ...mockCalculationResult,
+      status: 'failed',
+      error_message: 'Calculation failed due to invalid emission factors',
+    }, { status: 200 });
   }),
 };

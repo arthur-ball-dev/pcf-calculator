@@ -6,7 +6,7 @@
  * Import and start this worker in main.tsx for development mocking.
  */
 
-import { setupWorker } from 'msw';
+import { setupWorker } from 'msw/browser';
 import { phase5Handlers } from './handlers/phase5Handlers';
 
 /**
@@ -18,7 +18,7 @@ import { phase5Handlers } from './handlers/phase5Handlers';
  *
  * if (import.meta.env.DEV) {
  *   worker.start({
- *     onUnhandledRequest: 'warn',
+ *     onUnhandledFrame: 'warn',
  *   });
  * }
  * ```

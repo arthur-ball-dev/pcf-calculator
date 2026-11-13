@@ -28,6 +28,7 @@ import { useCalculatorStore } from '@/store/calculatorStore';
 import { productsAPI } from '@/services/api/products';
 import { emissionFactorsAPI } from '@/services/api/emissionFactors';
 import { transformAPIBOMToFrontend } from '@/services/bomTransform';
+import { categoryForName } from '@/utils/bomRow';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -416,9 +417,17 @@ const ProductList: React.FC = () => {
   /**
    * Handle product selection.
    * Fetches full product details + BOM, transforms BOM, and updates stores.
+   * Clicking the product already being edited keeps the user's BOM edits (#195); `reload`
+   * forces a fresh load (retry after an error).
    */
-  const handleProductSelect = async (productId: string, _productName: string) => {
+  const handleProductSelect = async (productId: string, _productName: string, reload = false) => {
     if (!productId) return;
+
+    const current = useCalculatorStore.getState();
+    if (!reload && productId === current.selectedProductId && current.bomItems.length > 0) {
+      markStepComplete('select');
+      return;
+    }
 
     try {
       setBomError(null);
@@ -439,10 +448,11 @@ const ProductList: React.FC = () => {
       });
 
       // Transform and store BOM
+      // Categories start as the component names suggest; the user can change them afterwards
       const transformedBOM = transformAPIBOMToFrontend(
         productDetail.bill_of_materials,
         emissionFactors
-      );
+      ).map((item) => ({ ...item, category: categoryForName(item.name) }));
       setBomItems(transformedBOM);
     } catch (err) {
       console.error('Failed to load product BOM:', err);
@@ -456,7 +466,7 @@ const ProductList: React.FC = () => {
   const retryBOMLoad = async () => {
     const product = useCalculatorStore.getState().selectedProduct;
     if (selectedProductId && product) {
-      await handleProductSelect(selectedProductId, product.name);
+      await handleProductSelect(selectedProductId, product.name, true);
     }
   };
 

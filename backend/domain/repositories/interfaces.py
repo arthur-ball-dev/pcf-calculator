@@ -10,7 +10,8 @@ No SQLAlchemy or other infrastructure imports allowed here.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, List
+from datetime import timedelta
+from typing import Any, Dict, Iterable, Optional, List
 
 from backend.domain.entities.category import Category
 from backend.domain.entities.emission_factor import (
@@ -149,6 +150,11 @@ class EmissionFactorRepository(ABC):
         pass
 
     @abstractmethod
+    def get_by_ids(self, factor_ids: Iterable[str]) -> Dict[str, EmissionFactor]:
+        """The emission factors with these ids, keyed by id; unknown ids are absent."""
+        pass
+
+    @abstractmethod
     def create(self, factor: NewEmissionFactor) -> EmissionFactor:
         """Create an emission factor."""
         pass
@@ -200,4 +206,9 @@ class CalculationRepository(ABC):
         Returns:
             CalculationResult with pending status.
         """
+        pass
+
+    @abstractmethod
+    def delete_older_than(self, age: timedelta) -> int:
+        """Delete calculations created more than `age` ago (by the database clock); returns the count."""
         pass

@@ -7,10 +7,10 @@ Implements CalculationRepository interface using SQLAlchemy ORM.
 Handles mapping between ORM models and domain entities.
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from backend.domain.entities.calculation import (
@@ -91,6 +91,18 @@ class SQLAlchemyCalculationRepository(CalculationRepository):
             status="pending",
             product_id=request.product_id,
         )
+
+    def delete_older_than(self, age: timedelta) -> int:
+        """
+        Delete calculations created more than `age` ago, measured on the database clock (#196).
+
+        Their calculation_details rows go with them (ON DELETE CASCADE).
+        """
+        result = self._session.execute(
+            delete(CalculationModel).where(CalculationModel.created_at < func.now() - age)
+        )
+        self._session.commit()
+        return result.rowcount or 0
 
     def _to_domain(self, orm_calc: CalculationModel) -> Calculation:
         """

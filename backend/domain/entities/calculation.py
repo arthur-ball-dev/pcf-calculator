@@ -7,9 +7,10 @@ Contains pure Python domain entities for Calculation-related concepts.
 No SQLAlchemy or infrastructure dependencies allowed.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional
+from decimal import Decimal
+from typing import Any, Dict, Optional, Tuple
 
 from backend.domain.entities.errors import DomainValidationError
 
@@ -79,11 +80,43 @@ class CalculationResult:
         id: Unique identifier for the calculation.
         status: Current status (typically "pending").
         product_id: ID of the product being calculated.
+        resolved_bom: The validated submitted BOM to calculate, or None for the catalog BOM.
     """
 
     id: str
     status: str
     product_id: str
+    resolved_bom: Optional[Tuple["ResolvedBOMLine", ...]] = field(default=None, compare=False)
+
+
+@dataclass(frozen=True)
+class BOMLineInput:
+    """
+    One row of a BOM submitted with a calculation (the BOM as edited in the wizard, #195).
+
+    Attributes:
+        name: Component name, unique within the BOM (it keys the breakdown).
+        quantity: Amount, in `unit`.
+        unit: Unit of `quantity`; converted to the emission factor's unit.
+        category: material, energy, transport, combustion or other.
+        emission_factor_id: Emission factor to multiply by.
+    """
+
+    name: str
+    quantity: Decimal
+    unit: str
+    category: str
+    emission_factor_id: str
+
+
+@dataclass(frozen=True)
+class ResolvedBOMLine:
+    """A validated BOM row, ready to calculate: quantity is in the factor's unit."""
+
+    name: str
+    quantity: Decimal
+    co2e_factor: Decimal
+    category: str
 
 
 @dataclass(frozen=True)
@@ -94,7 +127,9 @@ class CreateCalculationRequest:
     Attributes:
         product_id: ID of the product to calculate.
         calculation_type: Boundary to calculate (cradle_to_gate, etc.).
+        bom: The submitted BOM, or None to calculate the catalog BOM.
     """
 
     product_id: str
     calculation_type: str
+    bom: Optional[Tuple[BOMLineInput, ...]] = None

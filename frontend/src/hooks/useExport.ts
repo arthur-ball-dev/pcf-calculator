@@ -17,6 +17,11 @@ import { exportToCSV, type CSVOptions } from '@/utils/export/csvExport';
 import type { CalculationExportData } from '@/utils/export/excelExport';
 import { getLoadedExcelExport, preloadExcelExport } from '@/utils/export/loadExcelExport';
 import { classifyComponent, formatCategoryLabel } from '@/utils/classifyComponent';
+import { resultCategory } from '@/utils/bomRow';
+
+/** A BOM detail's category: its row's (#195), else classified from the name */
+const detailCategory = (item: { component_name: string; category?: string }): string =>
+  item.category ? resultCategory(item.category) : classifyComponent(item.component_name);
 import type { DataSourceInfo } from '@/utils/exportAttribution';
 import type { CalculationStatusResponse } from '@/types/api.types';
 
@@ -164,10 +169,9 @@ export function useExport(
         const bomEmissionsSum = bomDetails.reduce((sum, item) => sum + (item.emissions || 0), 0);
 
         // Transform to CSV data format - include all BOM items with emissions
-        // Reclassify category based on component name for consistent display
         const csvData: Record<string, string | number>[] = bomDetails.map((item) => ({
           Component: item.component_name,
-          Category: formatCategoryLabel(classifyComponent(item.component_name)),
+          Category: formatCategoryLabel(detailCategory(item)),
           Quantity: item.quantity,
           Unit: item.unit,
           'Emission Factor': item.emission_factor.toFixed(4),
@@ -275,8 +279,7 @@ export function useExport(
         bomEntries:
           results?.bom_details?.map((entry) => ({
             component: entry.component_name,
-            // Reclassify category based on component name for consistent display
-            category: classifyComponent(entry.component_name),
+            category: detailCategory(entry),
             quantity: entry.quantity,
             unit: entry.unit,
             emissionFactor: entry.emission_factor,

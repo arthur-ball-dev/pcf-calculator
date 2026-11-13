@@ -93,9 +93,9 @@ describe('useCalculation Hook', () => {
         await result.current.startCalculation();
       });
 
-      expect(api.calculations.submit).toHaveBeenCalledWith({
+      expect(api.calculations.submit).toHaveBeenCalledWith(expect.objectContaining({
         product_id: 'prod-123',
-      });
+      }));
     });
 
     it('should set isCalculating to true when calculation starts', async () => {

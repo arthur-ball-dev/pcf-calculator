@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '../testUtils';
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { server } from '../../__mocks__/server';
 import { useCalculation } from '../../src/hooks/useCalculation';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
@@ -23,10 +23,10 @@ describe('useCalculation reads the store at call time', () => {
   it('starts the calculation when bomItems were written after the last render', async () => {
     const submitted: string[] = [];
     server.use(
-      rest.post('http://localhost:8000/api/v1/calculate', async (req, res, ctx) => {
-        const body = await req.json();
+      http.post('http://localhost:8000/api/v1/calculate', async ({ request }) => {
+        const body = await request.json();
         submitted.push(body.product_id);
-        return res(ctx.status(202), ctx.json({ calculation_id: 'calc-stale', status: 'pending' }));
+        return HttpResponse.json({ calculation_id: 'calc-stale', status: 'pending' }, { status: 202 });
       })
     );
 

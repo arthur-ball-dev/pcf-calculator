@@ -16,12 +16,13 @@ import { renderHook, act } from '../testUtils';
 import { useCalculation } from '../../src/hooks/useCalculation';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
 import { server } from '../../__mocks__/server';
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 
 describe('useCalculation - Elapsed Time Tracking', () => {
   beforeEach(() => {
-    // Use fake timers for elapsed time tracking tests (TL-approved approach)
-    vi.useFakeTimers();
+    // Use fake timers for elapsed time tracking tests (TL-approved approach). setImmediate stays
+    // real: msw 3 delivers mocked responses through Node streams, which schedule with it.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
 
     // Set up calculator store with required state for startCalculation
     useCalculatorStore.setState({
@@ -43,20 +44,14 @@ describe('useCalculation - Elapsed Time Tracking', () => {
 
   it('should start tracking elapsed time when calculation begins', async () => {
     server.use(
-      rest.post('http://localhost:8000/api/v1/calculate', (req, res, ctx) => {
-        return res(
-          ctx.status(202),
-          ctx.json({ calculation_id: 'test-calc-123' })
-        );
+      http.post('http://localhost:8000/api/v1/calculate', () => {
+        return HttpResponse.json({ calculation_id: 'test-calc-123' }, { status: 202 });
       }),
-      rest.get('http://localhost:8000/api/v1/calculations/:id', (req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json({
-            id: 'test-calc-123',
-            status: 'in_progress'
-          })
-        );
+      http.get('http://localhost:8000/api/v1/calculations/:id', () => {
+        return HttpResponse.json({
+          id: 'test-calc-123',
+          status: 'in_progress'
+        }, { status: 200 });
       })
     );
 
@@ -78,20 +73,14 @@ describe('useCalculation - Elapsed Time Tracking', () => {
 
   it('should continue incrementing elapsed time during polling', async () => {
     server.use(
-      rest.post('http://localhost:8000/api/v1/calculate', (req, res, ctx) => {
-        return res(
-          ctx.status(202),
-          ctx.json({ calculation_id: 'test-calc-123' })
-        );
+      http.post('http://localhost:8000/api/v1/calculate', () => {
+        return HttpResponse.json({ calculation_id: 'test-calc-123' }, { status: 202 });
       }),
-      rest.get('http://localhost:8000/api/v1/calculations/:id', (req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json({
-            id: 'test-calc-123',
-            status: 'in_progress'
-          })
-        );
+      http.get('http://localhost:8000/api/v1/calculations/:id', () => {
+        return HttpResponse.json({
+          id: 'test-calc-123',
+          status: 'in_progress'
+        }, { status: 200 });
       })
     );
 
@@ -120,24 +109,18 @@ describe('useCalculation - Elapsed Time Tracking', () => {
     let pollCount = 0;
 
     server.use(
-      rest.post('http://localhost:8000/api/v1/calculate', (req, res, ctx) => {
-        return res(
-          ctx.status(202),
-          ctx.json({ calculation_id: 'test-calc-123' })
-        );
+      http.post('http://localhost:8000/api/v1/calculate', () => {
+        return HttpResponse.json({ calculation_id: 'test-calc-123' }, { status: 202 });
       }),
-      rest.get('http://localhost:8000/api/v1/calculations/:id', (req, res, ctx) => {
+      http.get('http://localhost:8000/api/v1/calculations/:id', () => {
         pollCount++;
         const status = pollCount > 2 ? 'completed' : 'in_progress';
-        return res(
-          ctx.status(200),
-          ctx.json({
-            id: 'test-calc-123',
-            status,
-            total_co2e_kg: status === 'completed' ? 2.5 : undefined,
-            results: status === 'completed' ? [] : undefined
-          })
-        );
+        return HttpResponse.json({
+          id: 'test-calc-123',
+          status,
+          total_co2e_kg: status === 'completed' ? 2.5 : undefined,
+          results: status === 'completed' ? [] : undefined
+        }, { status: 200 });
       })
     );
 
@@ -177,20 +160,14 @@ describe('useCalculation - Elapsed Time Tracking', () => {
 
   it('should reset elapsed time when calculation is cancelled', async () => {
     server.use(
-      rest.post('http://localhost:8000/api/v1/calculate', (req, res, ctx) => {
-        return res(
-          ctx.status(202),
-          ctx.json({ calculation_id: 'test-calc-123' })
-        );
+      http.post('http://localhost:8000/api/v1/calculate', () => {
+        return HttpResponse.json({ calculation_id: 'test-calc-123' }, { status: 202 });
       }),
-      rest.get('http://localhost:8000/api/v1/calculations/:id', (req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json({
-            id: 'test-calc-123',
-            status: 'in_progress'
-          })
-        );
+      http.get('http://localhost:8000/api/v1/calculations/:id', () => {
+        return HttpResponse.json({
+          id: 'test-calc-123',
+          status: 'in_progress'
+        }, { status: 200 });
       })
     );
 
@@ -218,22 +195,16 @@ describe('useCalculation - Elapsed Time Tracking', () => {
 
   it('should reset elapsed time when starting new calculation', async () => {
     server.use(
-      rest.post('http://localhost:8000/api/v1/calculate', (req, res, ctx) => {
-        return res(
-          ctx.status(202),
-          ctx.json({ calculation_id: 'test-calc-123' })
-        );
+      http.post('http://localhost:8000/api/v1/calculate', () => {
+        return HttpResponse.json({ calculation_id: 'test-calc-123' }, { status: 202 });
       }),
-      rest.get('http://localhost:8000/api/v1/calculations/:id', (req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json({
-            id: 'test-calc-123',
-            status: 'completed',
-            total_co2e_kg: 2.5,
-            results: []
-          })
-        );
+      http.get('http://localhost:8000/api/v1/calculations/:id', () => {
+        return HttpResponse.json({
+          id: 'test-calc-123',
+          status: 'completed',
+          total_co2e_kg: 2.5,
+          results: []
+        }, { status: 200 });
       })
     );
 

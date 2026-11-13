@@ -29,7 +29,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '../testUtils';
 import { server } from '../../__mocks__/server';
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 import CalculationWizard from '../../src/components/calculator/CalculationWizard';
 import { useWizardStore } from '../../src/store/wizardStore';
 import { useCalculatorStore } from '../../src/store/calculatorStore';
@@ -74,17 +74,14 @@ describe('Integration: Complete Wizard Workflow', { timeout: 30000 }, () => {
 
     // Override MSW product search to return consistent test data
     server.use(
-      rest.get('http://localhost:8000/api/v1/products/search', (_req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json({
-            items: mockSearchProducts,
-            total: mockSearchProducts.length,
-            limit: 50,
-            offset: 0,
-            has_more: false,
-          })
-        );
+      http.get('http://localhost:8000/api/v1/products/search', () => {
+        return HttpResponse.json({
+          items: mockSearchProducts,
+          total: mockSearchProducts.length,
+          limit: 50,
+          offset: 0,
+          has_more: false,
+        }, { status: 200 });
       })
     );
 
@@ -317,16 +314,13 @@ describe('Integration: Complete Wizard Workflow', { timeout: 30000 }, () => {
   describe('Scenario 4: Error Handling and Recovery', () => {
     test('handles product loading error gracefully', async () => {
       server.use(
-        rest.get('http://localhost:8000/api/v1/products/search', (_req, res, ctx) => {
-          return res(
-            ctx.status(500),
-            ctx.json({
-              error: {
-                code: 'INTERNAL_SERVER_ERROR',
-                message: 'Database connection failed',
-              },
-            })
-          );
+        http.get('http://localhost:8000/api/v1/products/search', () => {
+          return HttpResponse.json({
+            error: {
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Database connection failed',
+            },
+          }, { status: 500 });
         })
       );
 
@@ -339,15 +333,12 @@ describe('Integration: Complete Wizard Workflow', { timeout: 30000 }, () => {
 
     test('handles calculation failure gracefully', async () => {
       server.use(
-        rest.get('http://localhost:8000/api/v1/calculations/:id', (_req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({
-              calculation_id: 'calc-123',
-              status: 'failed',
-              error_message: 'Invalid emission factors',
-            })
-          );
+        http.get('http://localhost:8000/api/v1/calculations/:id', () => {
+          return HttpResponse.json({
+            calculation_id: 'calc-123',
+            status: 'failed',
+            error_message: 'Invalid emission factors',
+          }, { status: 200 });
         })
       );
 
